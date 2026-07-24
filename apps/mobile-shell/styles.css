@@ -136,7 +136,8 @@ h3 {
   outline: none;
 }
 
-.modeRail {
+.modeRail,
+.collectionRail {
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -145,11 +146,13 @@ h3 {
   scrollbar-width: none;
 }
 
-.modeRail::-webkit-scrollbar {
+.modeRail::-webkit-scrollbar,
+.collectionRail::-webkit-scrollbar {
   display: none;
 }
 
-.modeRail button {
+.modeRail button,
+.collectionRail button {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
@@ -173,10 +176,51 @@ h3 {
   border-color: var(--line);
 }
 
-.modeRail button.isActive {
+.collectionRail button {
+  min-width: 104px;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.collectionRail small {
+  color: var(--dim);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.modeRail button.isActive,
+.collectionRail button.isActive {
   border-color: rgba(180, 142, 173, 0.62);
   background: rgba(180, 142, 173, 0.14);
   color: var(--nord15);
+}
+
+.collectionRail button.isActive small {
+  color: var(--nord15);
+}
+
+.adapterNote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(143, 188, 187, 0.26);
+  border-radius: 8px;
+  background: rgba(143, 188, 187, 0.08);
+}
+
+.adapterNote strong {
+  color: var(--nord7);
+  font-size: 0.78rem;
+}
+
+.adapterNote span {
+  color: var(--dim);
+  font-size: 0.72rem;
+  text-align: right;
 }
 
 .panel {
@@ -202,6 +246,60 @@ h3 {
 
 .panelBody {
   padding: 10px;
+}
+
+.composer {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.composer label {
+  display: grid;
+  gap: 5px;
+}
+
+.composer label span {
+  color: var(--nord7);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.composer input,
+.composer select,
+.composer textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.composer input,
+.composer select {
+  padding: 0 10px;
+}
+
+.composer textarea {
+  resize: vertical;
+  padding: 9px 10px;
+}
+
+.composer input::placeholder,
+.composer textarea::placeholder {
+  color: #7f8b9e;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+  gap: 8px;
 }
 
 .summaryGrid {
@@ -495,6 +593,19 @@ h3 {
   background: rgba(136, 192, 208, 0.1);
   color: var(--nord8);
   font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid rgba(163, 190, 140, 0.44);
+  border-radius: 7px;
+  background: rgba(163, 190, 140, 0.13);
+  color: var(--nord14);
+  font-size: 0.8rem;
   font-weight: 850;
 }
 

@@ -7,21 +7,30 @@ const routes = {
 
 const state = {
   selectedDate: "2026-07-24",
+  currentCollection: "family",
   taskMode: "now",
+  eventComposerOpen: false,
+  taskComposerOpen: false,
   taskDescriptions: {},
 };
 
 const mockCalendarData = {
+  collections: [
+    { id: "family", name: "Family", owner: "family", color: "nord14" },
+    { id: "zin", name: "Zin", owner: "zin", color: "nord8" },
+  ],
   events: [
-    { uid: "vaccine-prep", summary: "Vaccine room prep", dtstart: "2026-07-24T09:00:00", source: "Clinic" },
-    { uid: "supplies-review", summary: "Supplies review", dtstart: "2026-07-24T11:30:00", source: "KaosSupplies" },
-    { uid: "roun-check", summary: "ROUN timetable check", dtstart: "2026-07-24T17:00:00", source: "Family" },
-    { uid: "scan-review", summary: "Scan queue review", dtstart: "2026-07-27T10:00:00", source: "PACS" },
-    { uid: "paperless-cleanup", summary: "Paperless archive pass", dtstart: "2026-07-30T15:00:00", source: "Documents" },
+    { uid: "vaccine-prep", collection: "zin", summary: "Vaccine room prep", dtstart: "2026-07-24T09:00:00", source: "Clinic" },
+    { uid: "supplies-review", collection: "zin", summary: "Supplies review", dtstart: "2026-07-24T11:30:00", source: "KaosSupplies" },
+    { uid: "roun-check", collection: "family", summary: "ROUN timetable check", dtstart: "2026-07-24T17:00:00", source: "Family" },
+    { uid: "family-dinner", collection: "family", summary: "Family dinner", dtstart: "2026-07-24T18:30:00", source: "Family" },
+    { uid: "scan-review", collection: "zin", summary: "Scan queue review", dtstart: "2026-07-27T10:00:00", source: "PACS" },
+    { uid: "paperless-cleanup", collection: "zin", summary: "Paperless archive pass", dtstart: "2026-07-30T15:00:00", source: "Documents" },
   ],
   tasks: [
     {
       uid: "fax-result",
+      collection: "zin",
       summary: "Review incoming fax result",
       description: "Fax follow-up notes\n\n-- confirm sender\n-- attach PDF\n-x send fax notification",
       due: "2026-07-24",
@@ -31,6 +40,7 @@ const mockCalendarData = {
     },
     {
       uid: "scan-queue",
+      collection: "zin",
       summary: "Check scan queue",
       description: "PACS check\n\n-- review failed imports\n-- confirm scan queue",
       due: "2026-07-24",
@@ -40,6 +50,7 @@ const mockCalendarData = {
     },
     {
       uid: "supply-sync",
+      collection: "zin",
       summary: "Daily supply sync",
       description: "Daily repeat\n\n-- compare low-stock list\n-- update order note",
       due: "2026-07-24",
@@ -49,6 +60,7 @@ const mockCalendarData = {
     },
     {
       uid: "roun-window",
+      collection: "family",
       summary: "Confirm ROUN timetable window",
       description: "Standalone family module\n\n-- check school pickup window",
       due: "2026-07-24",
@@ -58,6 +70,7 @@ const mockCalendarData = {
     },
     {
       uid: "paperless-inbox",
+      collection: "zin",
       summary: "Paperless inbox check",
       description: "Inbox cleared at 08:40\n\n-x archive complete",
       due: "2026-07-24",
@@ -68,6 +81,7 @@ const mockCalendarData = {
     },
     {
       uid: "wiki-note",
+      collection: "zin",
       summary: "Move protocol notes to Wiki.js",
       description: "Knowledge cleanup\n\n-- move vaccine protocol\n-- link from KaosGDD",
       due: "2026-07-30",
@@ -79,12 +93,64 @@ const mockCalendarData = {
 };
 
 const mockAdapter = {
-  getEvents() {
-    return mockCalendarData.events.map(normalizeEvent);
+  getCollections() {
+    return mockCalendarData.collections;
   },
 
-  getTasks() {
-    return mockCalendarData.tasks.map(normalizeTask);
+  getCurrentCollection() {
+    return mockCalendarData.collections.find((collection) => collection.id === state.currentCollection);
+  },
+
+  getEvents(collectionId = state.currentCollection) {
+    return mockCalendarData.events.filter((event) => event.collection === collectionId).map(normalizeEvent).sort(sortByDateTime);
+  },
+
+  getTasks(collectionId = state.currentCollection) {
+    return mockCalendarData.tasks.filter((task) => task.collection === collectionId).map(normalizeTask).sort(sortTasks);
+  },
+
+  createEvent(formData) {
+    const title = String(formData.get("title") || "").trim();
+    if (!title) return;
+    const date = String(formData.get("date") || state.selectedDate);
+    const time = String(formData.get("time") || "09:00");
+    mockCalendarData.events.push({
+      uid: `event-${Date.now()}`,
+      collection: state.currentCollection,
+      summary: title,
+      dtstart: `${date}T${time}:00`,
+      source: this.getCurrentCollection()?.name || "Radicale",
+    });
+    state.selectedDate = date;
+    state.eventComposerOpen = false;
+  },
+
+  createTask(formData) {
+    const title = String(formData.get("title") || "").trim();
+    if (!title) return;
+    const notes = String(formData.get("notes") || "").trim();
+    const rawSubtasks = String(formData.get("subtasks") || "").trim();
+    const subtasks = rawSubtasks
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => (line.startsWith("-- ") || line.startsWith("-x ") ? line : `-- ${line}`));
+    const description = [notes, subtasks.join("\n")].filter(Boolean).join("\n\n");
+    mockCalendarData.tasks.push({
+      uid: `task-${Date.now()}`,
+      collection: state.currentCollection,
+      summary: title,
+      description,
+      due: String(formData.get("due") || state.selectedDate),
+      status: "NEEDS-ACTION",
+      categories: String(formData.get("mode") || "today")
+        .split(",")
+        .map((category) => category.trim())
+        .filter(Boolean),
+      source: "Radicale draft",
+    });
+    state.taskMode = "all";
+    state.taskComposerOpen = false;
   },
 
   getServices() {
@@ -112,12 +178,14 @@ function parseDateTime(value) {
 
 function normalizeEvent(event) {
   const start = parseDateTime(event.dtstart);
+  const collection = mockCalendarData.collections.find((item) => item.id === event.collection);
   return {
     id: event.uid,
+    collection: event.collection,
     date: start.date,
     time: start.time,
     title: event.summary,
-    source: event.source || "Radicale",
+    source: `${collection?.name || "Radicale"} · ${event.source || "Radicale"}`,
   };
 }
 
@@ -168,9 +236,11 @@ function taskBadge(task, subtasks, done) {
 }
 
 function taskMeta(task, parsed, done) {
+  const collection = mockCalendarData.collections.find((item) => item.id === task.collection);
   if (done && task.completed) return `Done ${parseDateTime(task.completed).time}`;
   const categories = (task.categories || []).filter((category) => !["now", "today", "later", "urgent", "repeat"].includes(category));
   const parts = [];
+  if (collection) parts.push(collection.name);
   if (categories.length) parts.push(categories.join(", "));
   if (task.due) parts.push(task.due === state.selectedDate ? "due today" : `due ${task.due}`);
   if (parsed.subtasks.length) parts.push(`${parsed.subtasks.length} subtasks`);
@@ -184,6 +254,7 @@ function normalizeTask(task) {
   const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
   return {
     id: task.uid,
+    collection: task.collection,
     title: task.summary,
     description,
     notes: parsed.notes,
@@ -195,6 +266,15 @@ function normalizeTask(task) {
     repeat: categories.has("repeat"),
     badge: taskBadge(task, parsed.subtasks, done),
   };
+}
+
+function sortByDateTime(a, b) {
+  return `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`);
+}
+
+function sortTasks(a, b) {
+  if (a.done !== b.done) return a.done ? 1 : -1;
+  return a.title.localeCompare(b.title);
 }
 
 function escapeHtml(value) {
@@ -239,6 +319,34 @@ function routeTitle(route) {
   document.querySelectorAll("[data-nav]").forEach((link) => {
     link.classList.toggle("isActive", link.dataset.nav === route);
   });
+}
+
+function renderCollectionRail() {
+  return `
+    <section class="collectionRail" aria-label="Radicale collections">
+      ${mockAdapter
+        .getCollections()
+        .map(
+          (collection) => `
+            <button class="${state.currentCollection === collection.id ? "isActive" : ""}" type="button" data-collection="${escapeHtml(collection.id)}">
+              <span>${escapeHtml(collection.name)}</span>
+              <small>${escapeHtml(collection.owner)}</small>
+            </button>
+          `,
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function renderRadicaleStatus() {
+  const collection = mockAdapter.getCurrentCollection();
+  return `
+    <section class="adapterNote" aria-label="Radicale adapter status">
+      <strong>${escapeHtml(collection?.name || "Radicale")}</strong>
+      <span>Local preview · CalDAV write adapter pending</span>
+    </section>
+  `;
 }
 
 function renderTimeline(events, emptyText = "No items") {
@@ -315,6 +423,7 @@ function renderToday() {
   const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
   const tasks = mockAdapter.getTasks().filter((task) => ["now", "today"].includes(task.mode)).slice(0, 4);
   return `
+    ${renderCollectionRail()}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -361,12 +470,15 @@ function renderCalendar() {
   const selectedEvents = events.filter((event) => event.date === state.selectedDate);
   const eventDates = new Set(events.map((event) => event.date));
   return `
+    ${renderCollectionRail()}
+    ${renderRadicaleStatus()}
     <section class="panel">
       <div class="panelHeader">
         <div>
           <p class="label">Calendar</p>
           <h2>July 2026</h2>
         </div>
+        <button class="openButton" type="button" data-toggle-event-composer>${state.eventComposerOpen ? "Close" : "Add"}</button>
       </div>
       <div class="calendarGrid" aria-label="Month grid">
         ${["S", "M", "T", "W", "T", "F", "S"].map((day) => `<span class="weekday">${day}</span>`).join("")}
@@ -386,6 +498,7 @@ function renderCalendar() {
           .join("")}
       </div>
     </section>
+    ${state.eventComposerOpen ? renderEventComposer() : ""}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -401,6 +514,8 @@ function renderCalendar() {
 function renderTasks() {
   const tasks = mockAdapter.getTasks().filter((task) => state.taskMode === "all" || task.mode === state.taskMode);
   return `
+    ${renderCollectionRail()}
+    ${renderRadicaleStatus()}
     <section class="modeRail" aria-label="Task modes">
       ${[
         ["now", "Now"],
@@ -421,10 +536,69 @@ function renderTasks() {
           <p class="label">Tasks</p>
           <h2>Work queue</h2>
         </div>
-        <button class="openButton" type="button">Add</button>
+        <button class="openButton" type="button" data-toggle-task-composer>${state.taskComposerOpen ? "Close" : "Add"}</button>
       </div>
+      ${state.taskComposerOpen ? renderTaskComposer() : ""}
       <div class="panelBody">${renderTaskRows(tasks)}</div>
     </section>
+  `;
+}
+
+function renderEventComposer() {
+  return `
+    <section class="panel">
+      <form class="composer" data-create-event>
+        <label>
+          <span>Event</span>
+          <input name="title" type="text" autocomplete="off" placeholder="New event" required />
+        </label>
+        <div class="formGrid">
+          <label>
+            <span>Date</span>
+            <input name="date" type="date" value="${escapeHtml(state.selectedDate)}" required />
+          </label>
+          <label>
+            <span>Time</span>
+            <input name="time" type="time" value="09:00" required />
+          </label>
+        </div>
+        <button class="primaryButton" type="submit">Create local event</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderTaskComposer() {
+  return `
+    <form class="composer" data-create-task>
+      <label>
+        <span>Task</span>
+        <input name="title" type="text" autocomplete="off" placeholder="New task" required />
+      </label>
+      <div class="formGrid">
+        <label>
+          <span>Due</span>
+          <input name="due" type="date" value="${escapeHtml(state.selectedDate)}" />
+        </label>
+        <label>
+          <span>Mode</span>
+          <select name="mode">
+            <option value="now">Now</option>
+            <option value="today" selected>Today</option>
+            <option value="later">Later</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        <span>Notes</span>
+        <textarea name="notes" rows="2" placeholder="Description"></textarea>
+      </label>
+      <label>
+        <span>Subtasks</span>
+        <textarea name="subtasks" rows="3" placeholder="one per line; saved as -- subtask"></textarea>
+      </label>
+      <button class="primaryButton" type="submit">Create local task</button>
+    </form>
   `;
 }
 
@@ -491,6 +665,25 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const collection = event.target.closest("[data-collection]");
+  if (collection) {
+    state.currentCollection = collection.dataset.collection;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-toggle-event-composer]")) {
+    state.eventComposerOpen = !state.eventComposerOpen;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-toggle-task-composer]")) {
+    state.taskComposerOpen = !state.taskComposerOpen;
+    render();
+    return;
+  }
+
   const check = event.target.closest(".checkButton");
   if (check) {
     const row = check.closest("[data-task-id]");
@@ -520,6 +713,23 @@ document.addEventListener("click", (event) => {
     if (line.startsWith("-- ")) lines[lineIndex] = `-x ${line.slice(3)}`;
     else if (line.startsWith("-x ")) lines[lineIndex] = `-- ${line.slice(3)}`;
     state.taskDescriptions[rawTask.uid] = lines.join("\n");
+    render();
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  const eventForm = event.target.closest("[data-create-event]");
+  if (eventForm) {
+    event.preventDefault();
+    mockAdapter.createEvent(new FormData(eventForm));
+    render();
+    return;
+  }
+
+  const taskForm = event.target.closest("[data-create-task]");
+  if (taskForm) {
+    event.preventDefault();
+    mockAdapter.createTask(new FormData(taskForm));
     render();
   }
 });

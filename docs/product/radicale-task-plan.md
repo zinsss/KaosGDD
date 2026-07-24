@@ -8,6 +8,13 @@ The first implementation should keep the task model simple and compatible with i
 
 Use one CalDAV `VTODO` per task.
 
+Use one CalDAV collection per practical sharing boundary. The first planned KaosGDD collections are:
+
+| Collection | Use |
+| --- | --- |
+| `zin` | personal work, clinic, document, and migration tasks |
+| `family` | shared family tasks and events |
+
 | KaosGDD field | VTODO field |
 | --- | --- |
 | title | `SUMMARY` |
@@ -58,7 +65,10 @@ iOS Calendar, Thunderbird, and other CalDAV clients should still see normal task
 - `RELATED-TO` task hierarchy
 - custom CalDAV extensions
 - advanced recurrence handling
+- live CalDAV writes from the static shell
 
 ## Later Options
 
 If hierarchy becomes important, KaosGDD may add visual grouping with `RELATED-TO` or categories. That should only happen after the flat legacy-description grammar proves insufficient.
+
+The next implementation step is a small authenticated adapter service that can read and write `VEVENT` and `VTODO` records through Radicale. The browser UI should call that adapter, not Radicale storage paths or files directly.
