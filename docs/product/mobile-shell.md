@@ -27,6 +27,8 @@ The UI should continue to depend on adapter-shaped methods, not backend-specific
 
 The deployed mobile shell is static.
 
+The shell is intended to become the main KaosGDD surface and is served at the portal root. The old static launcher should remain available as a fallback link page while the shell gains features.
+
 It does not:
 
 - write to Radicale
