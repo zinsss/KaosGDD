@@ -27,6 +27,8 @@ The UI should continue to depend on adapter-shaped methods, not backend-specific
 
 Task adapter work should follow the [Radicale Task Plan](radicale-task-plan.md).
 
+Memos is included as a service link first. Any future integration should go through a `MemoService` adapter, not direct database reads.
+
 Legacy subtask lines in VTODO descriptions are parsed and rendered in the task list:
 
 ```text

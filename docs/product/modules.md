@@ -21,6 +21,7 @@ Build the first KaosGDD v2 surface as a service cockpit:
 | Caregiver wage | Standalone family module | KaosGDD |
 | Weather | Reuse/adapt current behavior | KaosGDD or weather adapter |
 | Notes | Link first, adapter/search later | Wiki.js |
+| Memos | Link first, adapter/search later | Memos |
 | Documents | Link first, adapter/search later | Paperless-ngx |
 | Files | Link first, adapter later | SFTPGo |
 | PDF | Link first, workflow adapter later | Stirling-PDF |
