@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>KaosGDD</title>
+    <link rel="stylesheet" href="./styles.css?v=1" />
+  </head>
+  <body>
+    <div class="app" data-route="today">
+      <header class="appTop">
+        <div>
+          <p class="kicker">KaosGDD</p>
+          <h1 id="routeTitle">Today</h1>
+        </div>
+        <a class="topAction" href="#/services" aria-label="Open services">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+          </svg>
+        </a>
+      </header>
+
+      <main id="view" class="view" tabindex="-1"></main>
+
+      <nav class="bottomNav" aria-label="Main navigation">
+        <a href="#/today" data-nav="today">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4 5h16M4 12h16M4 19h10" />
+          </svg>
+          <span>Today</span>
+        </a>
+        <a href="#/calendar" data-nav="calendar">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+          </svg>
+          <span>Calendar</span>
+        </a>
+        <a href="#/tasks" data-nav="tasks">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span>Tasks</span>
+        </a>
+        <a href="#/services" data-nav="services">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 3v18M3 12h18M5 5h14v14H5z" />
+          </svg>
+          <span>Services</span>
+        </a>
+      </nav>
+    </div>
+
+    <script src="./app.js?v=1"></script>
+  </body>
+</html>

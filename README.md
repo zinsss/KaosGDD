@@ -54,6 +54,16 @@ prototypes/mobile-v1
 
 It is static and safe to open locally. It uses old KaosGDD as a design reference, not as an implementation base.
 
+## Mobile Shell
+
+The first app-shaped mobile shell is in:
+
+```text
+apps/mobile-shell
+```
+
+It has separate Today, Calendar, Tasks, and Services routes with mock adapter data. It is still static and performs no production writes.
+
 The current temporary launcher is served from:
 
 ```text
