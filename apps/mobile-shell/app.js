@@ -187,7 +187,7 @@ function renderToday() {
       <div class="panelHeader">
         <div>
           <p class="label">Overview</p>
-          <h2>Friday, July 24 · Seoul 22 C</h2>
+          <h2>Friday, July 24 · Pohang 21-32 ☀️</h2>
         </div>
       </div>
       <div class="panelBody">
