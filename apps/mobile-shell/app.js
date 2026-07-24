@@ -8,67 +8,83 @@ const routes = {
 const state = {
   selectedDate: "2026-07-24",
   taskMode: "now",
-  taskDone: new Set(["paperless-inbox"]),
+  taskDescriptions: {},
+};
+
+const mockCalendarData = {
+  events: [
+    { uid: "vaccine-prep", summary: "Vaccine room prep", dtstart: "2026-07-24T09:00:00", source: "Clinic" },
+    { uid: "supplies-review", summary: "Supplies review", dtstart: "2026-07-24T11:30:00", source: "KaosSupplies" },
+    { uid: "roun-check", summary: "ROUN timetable check", dtstart: "2026-07-24T17:00:00", source: "Family" },
+    { uid: "scan-review", summary: "Scan queue review", dtstart: "2026-07-27T10:00:00", source: "PACS" },
+    { uid: "paperless-cleanup", summary: "Paperless archive pass", dtstart: "2026-07-30T15:00:00", source: "Documents" },
+  ],
+  tasks: [
+    {
+      uid: "fax-result",
+      summary: "Review incoming fax result",
+      description: "Fax follow-up notes\n\n-- confirm sender\n-- attach PDF\n-x send fax notification",
+      due: "2026-07-24",
+      status: "NEEDS-ACTION",
+      categories: ["fax", "now", "urgent"],
+      source: "Radicale mock",
+    },
+    {
+      uid: "scan-queue",
+      summary: "Check scan queue",
+      description: "PACS check\n\n-- review failed imports\n-- confirm scan queue",
+      due: "2026-07-24",
+      status: "NEEDS-ACTION",
+      categories: ["pacs", "now"],
+      source: "Radicale mock",
+    },
+    {
+      uid: "supply-sync",
+      summary: "Daily supply sync",
+      description: "Daily repeat\n\n-- compare low-stock list\n-- update order note",
+      due: "2026-07-24",
+      status: "NEEDS-ACTION",
+      categories: ["supplies", "today", "repeat"],
+      source: "Radicale mock",
+    },
+    {
+      uid: "roun-window",
+      summary: "Confirm ROUN timetable window",
+      description: "Standalone family module\n\n-- check school pickup window",
+      due: "2026-07-24",
+      status: "NEEDS-ACTION",
+      categories: ["family", "today"],
+      source: "Radicale mock",
+    },
+    {
+      uid: "paperless-inbox",
+      summary: "Paperless inbox check",
+      description: "Inbox cleared at 08:40\n\n-x archive complete",
+      due: "2026-07-24",
+      status: "COMPLETED",
+      completed: "2026-07-24T08:40:00",
+      categories: ["documents"],
+      source: "Radicale mock",
+    },
+    {
+      uid: "wiki-note",
+      summary: "Move protocol notes to Wiki.js",
+      description: "Knowledge cleanup\n\n-- move vaccine protocol\n-- link from KaosGDD",
+      due: "2026-07-30",
+      status: "NEEDS-ACTION",
+      categories: ["knowledge", "later"],
+      source: "Radicale mock",
+    },
+  ],
 };
 
 const mockAdapter = {
   getEvents() {
-    return [
-      { id: "vaccine-prep", date: "2026-07-24", time: "09:00", title: "Vaccine room prep", source: "Clinic" },
-      { id: "supplies-review", date: "2026-07-24", time: "11:30", title: "Supplies review", source: "KaosSupplies" },
-      { id: "roun-check", date: "2026-07-24", time: "17:00", title: "ROUN timetable check", source: "Family" },
-      { id: "scan-review", date: "2026-07-27", time: "10:00", title: "Scan queue review", source: "PACS" },
-      { id: "paperless-cleanup", date: "2026-07-30", time: "15:00", title: "Paperless archive pass", source: "Documents" },
-    ];
+    return mockCalendarData.events.map(normalizeEvent);
   },
 
   getTasks() {
-    return [
-      {
-        id: "fax-result",
-        title: "Review incoming fax result",
-        meta: "Fax bridge · due now",
-        mode: "now",
-        urgent: true,
-        badge: "+",
-      },
-      {
-        id: "scan-queue",
-        title: "Check scan queue",
-        meta: "PACS adapter · 2 subtasks",
-        mode: "now",
-        badge: "2/4",
-      },
-      {
-        id: "supply-sync",
-        title: "Daily supply sync",
-        meta: "KaosSupplies · repeats",
-        mode: "today",
-        repeat: true,
-        badge: "R",
-      },
-      {
-        id: "roun-window",
-        title: "Confirm ROUN timetable window",
-        meta: "Family · standalone module",
-        mode: "today",
-        badge: "t",
-      },
-      {
-        id: "paperless-inbox",
-        title: "Paperless inbox check",
-        meta: "Done 08:40",
-        mode: "done",
-        badge: "",
-      },
-      {
-        id: "wiki-note",
-        title: "Move protocol notes to Wiki.js",
-        meta: "Knowledge · later",
-        mode: "later",
-        badge: "#",
-      },
-    ];
+    return mockCalendarData.tasks.map(normalizeTask);
   },
 
   getServices() {
@@ -84,6 +100,101 @@ const mockAdapter = {
     ];
   },
 };
+
+function parseDateTime(value) {
+  const raw = String(value || "");
+  return {
+    date: raw.slice(0, 10),
+    time: raw.includes("T") ? raw.slice(11, 16) : "",
+  };
+}
+
+function normalizeEvent(event) {
+  const start = parseDateTime(event.dtstart);
+  return {
+    id: event.uid,
+    date: start.date,
+    time: start.time,
+    title: event.summary,
+    source: event.source || "Radicale",
+  };
+}
+
+function parseLegacyDescription(description) {
+  const lines = String(description || "").split(/\r?\n/);
+  const notes = [];
+  const subtasks = [];
+
+  lines.forEach((line, index) => {
+    if (line.startsWith("-- ")) {
+      subtasks.push({ lineIndex: index, done: false, text: line.slice(3) });
+    } else if (line.startsWith("-x ")) {
+      subtasks.push({ lineIndex: index, done: true, text: line.slice(3) });
+    } else {
+      notes.push(line);
+    }
+  });
+
+  return {
+    notes: notes.join("\n").trim(),
+    subtasks,
+  };
+}
+
+function taskDescription(task) {
+  return state.taskDescriptions[task.uid] || task.description || "";
+}
+
+function taskMode(task, done) {
+  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
+  if (done) return "done";
+  if (categories.has("now") || categories.has("urgent")) return "now";
+  if (categories.has("later")) return "later";
+  if (task.due === state.selectedDate) return "today";
+  return "later";
+}
+
+function taskBadge(task, subtasks, done) {
+  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
+  if (done) return "";
+  if (subtasks.length) {
+    const completed = subtasks.filter((subtask) => subtask.done).length;
+    return `${completed}/${subtasks.length}`;
+  }
+  if (categories.has("repeat")) return "R";
+  if (task.due === state.selectedDate) return "t";
+  return "";
+}
+
+function taskMeta(task, parsed, done) {
+  if (done && task.completed) return `Done ${parseDateTime(task.completed).time}`;
+  const categories = (task.categories || []).filter((category) => !["now", "today", "later", "urgent", "repeat"].includes(category));
+  const parts = [];
+  if (categories.length) parts.push(categories.join(", "));
+  if (task.due) parts.push(task.due === state.selectedDate ? "due today" : `due ${task.due}`);
+  if (parsed.subtasks.length) parts.push(`${parsed.subtasks.length} subtasks`);
+  return parts.join(" · ") || task.source || "Radicale";
+}
+
+function normalizeTask(task) {
+  const description = taskDescription(task);
+  const parsed = parseLegacyDescription(description);
+  const done = task.status === "COMPLETED";
+  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
+  return {
+    id: task.uid,
+    title: task.summary,
+    description,
+    notes: parsed.notes,
+    subtasks: parsed.subtasks,
+    meta: taskMeta(task, parsed, done),
+    mode: taskMode(task, done),
+    done,
+    urgent: categories.has("urgent"),
+    repeat: categories.has("repeat"),
+    badge: taskBadge(task, parsed.subtasks, done),
+  };
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -159,18 +270,38 @@ function renderTaskRows(tasks) {
     <ul class="taskList">
       ${tasks
         .map((task) => {
-          const done = state.taskDone.has(task.id) || task.mode === "done";
+          const done = task.done;
           const classes = ["taskRow", task.urgent ? "isUrgent" : "", task.repeat ? "isRepeat" : "", done ? "isDone" : ""]
             .filter(Boolean)
             .join(" ");
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
-              <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="Toggle ${escapeHtml(task.title)}"></button>
-              <div>
-                <p class="taskTitle">${escapeHtml(task.title)}</p>
-                <span class="taskMeta">${escapeHtml(task.meta)}</span>
+              <div class="taskRowMain">
+                <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="Toggle ${escapeHtml(task.title)}"></button>
+                <div>
+                  <p class="taskTitle">${escapeHtml(task.title)}</p>
+                  <span class="taskMeta">${escapeHtml(task.meta)}</span>
+                </div>
+                <small class="taskBadge">${escapeHtml(task.badge)}</small>
               </div>
-              <small class="taskBadge">${escapeHtml(task.badge)}</small>
+              ${
+                task.subtasks.length
+                  ? `
+                    <ul class="legacySubtasks" aria-label="Subtasks for ${escapeHtml(task.title)}">
+                      ${task.subtasks
+                        .map(
+                          (subtask) => `
+                            <li class="${subtask.done ? "isDone" : ""}">
+                              <button class="subtaskToggle ${subtask.done ? "isDone" : ""}" type="button" data-subtask-line="${subtask.lineIndex}" aria-label="Toggle ${escapeHtml(subtask.text)}"></button>
+                              <span>${escapeHtml(subtask.text)}</span>
+                            </li>
+                          `,
+                        )
+                        .join("")}
+                    </ul>
+                  `
+                  : ""
+              }
             </li>
           `;
         })
@@ -363,8 +494,31 @@ document.addEventListener("click", (event) => {
   if (check) {
     const row = check.closest("[data-task-id]");
     if (!row) return;
-    if (state.taskDone.has(row.dataset.taskId)) state.taskDone.delete(row.dataset.taskId);
-    else state.taskDone.add(row.dataset.taskId);
+    const rawTask = mockCalendarData.tasks.find((task) => task.uid === row.dataset.taskId);
+    if (!rawTask) return;
+    if (rawTask.status === "COMPLETED") {
+      rawTask.status = "NEEDS-ACTION";
+      delete rawTask.completed;
+    } else {
+      rawTask.status = "COMPLETED";
+      rawTask.completed = `${state.selectedDate}T00:00:00`;
+    }
+    render();
+    return;
+  }
+
+  const subtaskToggle = event.target.closest("[data-subtask-line]");
+  if (subtaskToggle) {
+    const row = subtaskToggle.closest("[data-task-id]");
+    const rawTask = mockCalendarData.tasks.find((task) => task.uid === row?.dataset.taskId);
+    if (!rawTask) return;
+
+    const lineIndex = Number(subtaskToggle.dataset.subtaskLine);
+    const lines = taskDescription(rawTask).split(/\r?\n/);
+    const line = lines[lineIndex] || "";
+    if (line.startsWith("-- ")) lines[lineIndex] = `-x ${line.slice(3)}`;
+    else if (line.startsWith("-x ")) lines[lineIndex] = `-- ${line.slice(3)}`;
+    state.taskDescriptions[rawTask.uid] = lines.join("\n");
     render();
   }
 });

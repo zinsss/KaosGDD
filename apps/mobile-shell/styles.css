@@ -337,12 +337,16 @@ h3 {
 }
 
 .taskRow {
+  display: block;
+  min-height: 58px;
+  padding: 10px 0;
+}
+
+.taskRowMain {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) 34px;
   align-items: start;
   gap: 8px;
-  min-height: 58px;
-  padding: 10px 0;
 }
 
 .checkButton {
@@ -404,6 +408,55 @@ h3 {
   font-size: 0.74rem;
   font-weight: 900;
   text-align: right;
+}
+
+.legacySubtasks {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0 38px;
+  padding: 0;
+  list-style: none;
+}
+
+.legacySubtasks li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.legacySubtasks li.isDone {
+  color: var(--dim);
+  text-decoration: line-through;
+}
+
+.subtaskToggle {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: transparent;
+}
+
+.subtaskToggle.isDone {
+  border-color: rgba(163, 190, 140, 0.62);
+  background: rgba(163, 190, 140, 0.12);
+}
+
+.subtaskToggle.isDone::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--nord14);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .serviceRow {

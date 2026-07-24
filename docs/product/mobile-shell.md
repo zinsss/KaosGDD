@@ -15,6 +15,8 @@ The current data source is a mock adapter in `apps/mobile-shell/app.js`.
 
 This is intentional. The UI should stabilize before Radicale or Kaos service adapters are attached.
 
+The mock adapter now uses Radicale-shaped `VEVENT` and `VTODO` records, then normalizes them for the UI. This keeps the shell close to the future backend without touching live Radicale.
+
 The UI should continue to depend on adapter-shaped methods, not backend-specific storage:
 
 - `getStatus`
@@ -24,6 +26,13 @@ The UI should continue to depend on adapter-shaped methods, not backend-specific
 - `getServices`
 
 Task adapter work should follow the [Radicale Task Plan](radicale-task-plan.md).
+
+Legacy subtask lines in VTODO descriptions are parsed and rendered in the task list:
+
+```text
+-- open subtask
+-x completed subtask
+```
 
 ## Production Safety
 
