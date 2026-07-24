@@ -130,30 +130,6 @@ h3 {
   line-height: 1.2;
 }
 
-.todayMeta {
-  display: grid;
-  justify-items: end;
-  gap: 1px;
-  flex: 0 0 auto;
-  min-width: 128px;
-}
-
-.todayMeta time {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 860;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.todayMeta span {
-  color: var(--nord8);
-  font-size: 0.72rem;
-  font-weight: 760;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
 .view {
   display: grid;
   gap: 12px;
