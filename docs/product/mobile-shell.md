@@ -23,6 +23,8 @@ The UI should continue to depend on adapter-shaped methods, not backend-specific
 - `getTasks`
 - `getServices`
 
+Task adapter work should follow the [Radicale Task Plan](radicale-task-plan.md).
+
 ## Production Safety
 
 The deployed mobile shell is static.

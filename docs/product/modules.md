@@ -42,3 +42,9 @@ Build the first KaosGDD v2 surface as a service cockpit:
 ROUN timetable stays standalone during the first v2 pass.
 
 Do not connect it to Radicale/calendar until the workflow need is clear.
+
+## Task Grammar
+
+Radicale-backed tasks should use the legacy KaosGDD subtask grammar inside VTODO descriptions.
+
+See [Radicale Task Plan](radicale-task-plan.md).
