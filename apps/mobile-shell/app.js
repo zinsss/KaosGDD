@@ -559,7 +559,7 @@ function renderEventComposer() {
           </label>
           <label>
             <span>Time</span>
-            <input name="time" type="time" value="09:00" required />
+            <input name="time" type="time" value="09:00" step="300" required />
           </label>
         </div>
         <button class="primaryButton" type="submit">Create local event</button>
