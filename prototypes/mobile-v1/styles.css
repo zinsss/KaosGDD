@@ -1,20 +1,21 @@
 :root {
   color-scheme: dark;
-  --bg: #101116;
-  --panel: #181a22;
-  --panel-2: #20232d;
-  --line: #303541;
-  --line-strong: #4b5264;
+  --bg: #2e3440;
+  --panel: #3b4252;
+  --panel-2: #434c5e;
+  --surface: #343b49;
+  --line: rgba(216, 222, 233, 0.16);
+  --line-strong: rgba(216, 222, 233, 0.3);
   --text: #eceff4;
-  --muted: #aeb6c7;
-  --dim: #778092;
-  --amber: #f2cc74;
-  --rose: #ef8f9f;
-  --teal: #54d0bd;
-  --blue: #8fb4ff;
-  --green: #88d278;
-  --violet: #b9a7ff;
-  --shadow: rgba(0, 0, 0, 0.32);
+  --muted: #d8dee9;
+  --dim: #a7b0c2;
+  --amber: #ebcb8b;
+  --rose: #bf616a;
+  --teal: #8fbcbb;
+  --blue: #81a1c1;
+  --green: #a3be8c;
+  --violet: #b48ead;
+  --shadow: rgba(20, 24, 32, 0.34);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   font-family:
@@ -81,9 +82,9 @@ svg {
   gap: 14px;
   margin: -14px -12px 10px;
   padding: calc(14px + var(--safe-top)) 12px 10px;
-  background: rgba(16, 17, 22, 0.94);
+  background: rgba(46, 52, 64, 0.94);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(48, 53, 65, 0.72);
+  border-bottom: 1px solid rgba(76, 86, 106, 0.78);
 }
 
 .eyebrow {
@@ -240,14 +241,14 @@ h2 {
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: #14161d;
+  background: var(--surface);
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 750;
 }
 
 .day.muted {
-  color: #565e6f;
+  color: #6f7a8c;
 }
 
 .day.hasEvent::after {
@@ -262,22 +263,22 @@ h2 {
 }
 
 .day.today {
-  border-color: rgba(242, 204, 116, 0.72);
+  border-color: rgba(235, 203, 139, 0.72);
   color: var(--amber);
 }
 
 .day.selected {
-  background: rgba(143, 180, 255, 0.16);
-  border-color: rgba(143, 180, 255, 0.72);
-  box-shadow: inset 0 0 0 1px rgba(143, 180, 255, 0.35);
+  background: rgba(129, 161, 193, 0.18);
+  border-color: rgba(129, 161, 193, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(129, 161, 193, 0.35);
 }
 
 .agenda {
   margin: 0 10px 10px;
   padding: 10px;
-  border: 1px solid rgba(84, 208, 189, 0.24);
+  border: 1px solid rgba(143, 188, 187, 0.3);
   border-radius: 8px;
-  background: rgba(84, 208, 189, 0.06);
+  background: rgba(143, 188, 187, 0.08);
 }
 
 .agendaHeader {
@@ -317,9 +318,9 @@ h2 {
 .primaryButton {
   min-width: 56px;
   min-height: 36px;
-  border: 1px solid rgba(242, 204, 116, 0.42);
+  border: 1px solid rgba(235, 203, 139, 0.42);
   border-radius: 7px;
-  background: rgba(242, 204, 116, 0.1);
+  background: rgba(235, 203, 139, 0.1);
   color: var(--amber);
   font-weight: 800;
 }
@@ -335,15 +336,15 @@ h2 {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: #14161d;
+  background: var(--surface);
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 750;
 }
 
 .segmented .active {
-  border-color: rgba(185, 167, 255, 0.62);
-  background: rgba(185, 167, 255, 0.13);
+  border-color: rgba(180, 142, 173, 0.62);
+  background: rgba(180, 142, 173, 0.14);
   color: var(--violet);
 }
 
@@ -413,8 +414,8 @@ h2 {
 }
 
 .checkButton.checked {
-  border-color: rgba(136, 210, 120, 0.62);
-  background: rgba(136, 210, 120, 0.12);
+  border-color: rgba(163, 190, 140, 0.62);
+  background: rgba(163, 190, 140, 0.14);
 }
 
 .checkButton.checked::after {
@@ -441,7 +442,7 @@ h2 {
   padding: 11px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #14161d;
+  background: var(--surface);
 }
 
 .moduleBand strong {
@@ -464,8 +465,8 @@ h2 {
   width: min(100%, 540px);
   transform: translateX(-50%);
   padding: 8px 10px calc(8px + var(--safe-bottom));
-  border-top: 1px solid rgba(48, 53, 65, 0.92);
-  background: rgba(16, 17, 22, 0.96);
+  border-top: 1px solid rgba(76, 86, 106, 0.92);
+  background: rgba(46, 52, 64, 0.96);
   backdrop-filter: blur(14px);
 }
 
@@ -482,14 +483,14 @@ h2 {
 }
 
 .bottomNav a.active {
-  background: rgba(143, 180, 255, 0.12);
+  background: rgba(129, 161, 193, 0.14);
   color: var(--blue);
 }
 
 @media (min-width: 760px) {
   body {
     background:
-      linear-gradient(90deg, #0c0d11 0, #101116 22%, #101116 78%, #0c0d11 100%);
+      linear-gradient(90deg, #242933 0, #2e3440 22%, #2e3440 78%, #242933 100%);
   }
 
   .appShell {

@@ -4,6 +4,8 @@ KaosGDD v2 starts mobile-first.
 
 The old KaosGDD is a design reference, not an implementation base. The useful parts are the compact operator rhythm: quick date scanning, dense task rows, service shortcuts, and small contextual signals.
 
+The v1 visual theme uses Nord colors: Polar Night for structure, Snow Storm for text, Frost for navigation and selection, and Aurora for status accents.
+
 ## First Mobile Surface
 
 The first mobile screen should feel like a daily clinic cockpit:
