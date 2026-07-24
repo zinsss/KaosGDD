@@ -130,7 +130,6 @@ h3 {
   line-height: 1.2;
 }
 
-.topAction,
 .iconButton {
   display: inline-flex;
   align-items: center;
@@ -145,6 +144,35 @@ h3 {
   box-shadow: 0 6px 16px var(--shadow);
 }
 
+.todayMeta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  flex: 0 0 auto;
+  min-width: 94px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  box-shadow: 0 6px 16px var(--shadow);
+}
+
+.todayMeta time {
+  color: var(--nord13);
+  font-size: 0.88rem;
+  font-weight: 860;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.todayMeta span {
+  color: var(--nord8);
+  font-size: 0.72rem;
+  font-weight: 760;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .view {
   display: grid;
   gap: 12px;
@@ -152,7 +180,6 @@ h3 {
 }
 
 .statusStrip,
-.quickRail,
 .modeRail {
   display: flex;
   gap: 8px;
@@ -163,13 +190,11 @@ h3 {
 }
 
 .statusStrip::-webkit-scrollbar,
-.quickRail::-webkit-scrollbar,
 .modeRail::-webkit-scrollbar {
   display: none;
 }
 
 .pill,
-.quickRail a,
 .modeRail button {
   display: inline-flex;
   align-items: center;
@@ -189,7 +214,6 @@ h3 {
   padding: 6px 10px;
 }
 
-.quickRail a,
 .modeRail button {
   justify-content: center;
   min-width: 82px;

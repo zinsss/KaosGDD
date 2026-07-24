@@ -20,16 +20,6 @@ const mockAdapter = {
     ];
   },
 
-  getQuickLinks() {
-    return [
-      { label: "Paperless", href: "https://paperless.kaosgdd.net" },
-      { label: "Wiki", href: "https://wiki.kaosgdd.net" },
-      { label: "Files", href: "https://files.kaosgdd.net" },
-      { label: "Radicale", href: "https://calendar.kaosgdd.net" },
-      { label: "Vault", href: "https://vault.kaosgdd.net" },
-    ];
-  },
-
   getEvents() {
     return [
       { id: "vaccine-prep", date: "2026-07-24", time: "09:00", title: "Vaccine room prep", source: "Clinic" },
@@ -158,17 +148,6 @@ function statusStrip() {
   `;
 }
 
-function quickRail() {
-  return `
-    <nav class="quickRail" aria-label="Service shortcuts">
-      ${mockAdapter
-        .getQuickLinks()
-        .map((link) => `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`)
-        .join("")}
-    </nav>
-  `;
-}
-
 function renderTimeline(events, emptyText = "No items") {
   if (!events.length) {
     return `<div class="panelBody"><p class="taskMeta">${escapeHtml(emptyText)}</p></div>`;
@@ -224,7 +203,6 @@ function renderToday() {
   const tasks = mockAdapter.getTasks().filter((task) => ["now", "today"].includes(task.mode)).slice(0, 4);
   return `
     ${statusStrip()}
-    ${quickRail()}
     <section class="panel">
       <div class="panelHeader">
         <div>
