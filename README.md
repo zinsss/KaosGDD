@@ -44,6 +44,16 @@ The first milestone is a thin service cockpit:
 - no fax migration
 - no PACS migration
 
+## Mobile Prototype
+
+The first mobile-first design prototype is in:
+
+```text
+prototypes/mobile-v1
+```
+
+It is static and safe to open locally. It uses old KaosGDD as a design reference, not as an implementation base.
+
 The current temporary launcher is served from:
 
 ```text
