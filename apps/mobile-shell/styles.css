@@ -130,36 +130,17 @@ h3 {
   line-height: 1.2;
 }
 
-.iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--raised);
-  color: var(--nord8);
-  box-shadow: 0 6px 16px var(--shadow);
-}
-
 .todayMeta {
   display: grid;
   justify-items: end;
-  gap: 2px;
+  gap: 1px;
   flex: 0 0 auto;
-  min-width: 94px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--raised);
-  box-shadow: 0 6px 16px var(--shadow);
+  min-width: 128px;
 }
 
 .todayMeta time {
-  color: var(--nord13);
-  font-size: 0.88rem;
+  color: var(--muted);
+  font-size: 0.82rem;
   font-weight: 860;
   line-height: 1.1;
   white-space: nowrap;
@@ -179,7 +160,6 @@ h3 {
   outline: none;
 }
 
-.statusStrip,
 .modeRail {
   display: flex;
   gap: 8px;
@@ -189,12 +169,10 @@ h3 {
   scrollbar-width: none;
 }
 
-.statusStrip::-webkit-scrollbar,
 .modeRail::-webkit-scrollbar {
   display: none;
 }
 
-.pill,
 .modeRail button {
   display: inline-flex;
   align-items: center;
@@ -207,11 +185,6 @@ h3 {
   font-size: 0.78rem;
   font-weight: 720;
   white-space: nowrap;
-}
-
-.pill {
-  gap: 6px;
-  padding: 6px 10px;
 }
 
 .modeRail button {
@@ -228,21 +201,6 @@ h3 {
   border-color: rgba(180, 142, 173, 0.62);
   background: rgba(180, 142, 173, 0.14);
   color: var(--nord15);
-}
-
-.statusDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--nord3);
-}
-
-.statusDot.ok {
-  background: var(--nord14);
-}
-
-.statusDot.warn {
-  background: var(--nord13);
 }
 
 .panel {

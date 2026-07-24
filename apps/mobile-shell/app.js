@@ -12,14 +12,6 @@ const state = {
 };
 
 const mockAdapter = {
-  getStatus() {
-    return [
-      { label: "Clinic open", tone: "ok" },
-      { label: "Seoul 22 C", tone: "ok" },
-      { label: "Fax bridge live", tone: "warn" },
-    ];
-  },
-
   getEvents() {
     return [
       { id: "vaccine-prep", date: "2026-07-24", time: "09:00", title: "Vaccine room prep", source: "Clinic" },
@@ -137,17 +129,6 @@ function routeTitle(route) {
   });
 }
 
-function statusStrip() {
-  return `
-    <section class="statusStrip" aria-label="Clinic status">
-      ${mockAdapter
-        .getStatus()
-        .map((item) => `<div class="pill"><span class="statusDot ${item.tone}"></span>${escapeHtml(item.label)}</div>`)
-        .join("")}
-    </section>
-  `;
-}
-
 function renderTimeline(events, emptyText = "No items") {
   if (!events.length) {
     return `<div class="panelBody"><p class="taskMeta">${escapeHtml(emptyText)}</p></div>`;
@@ -202,7 +183,6 @@ function renderToday() {
   const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
   const tasks = mockAdapter.getTasks().filter((task) => ["now", "today"].includes(task.mode)).slice(0, 4);
   return `
-    ${statusStrip()}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -249,7 +229,6 @@ function renderCalendar() {
   const selectedEvents = events.filter((event) => event.date === state.selectedDate);
   const eventDates = new Set(events.map((event) => event.date));
   return `
-    ${statusStrip()}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -290,7 +269,6 @@ function renderCalendar() {
 function renderTasks() {
   const tasks = mockAdapter.getTasks().filter((task) => state.taskMode === "all" || task.mode === state.taskMode);
   return `
-    ${statusStrip()}
     <section class="modeRail" aria-label="Task modes">
       ${[
         ["now", "Now"],
@@ -320,7 +298,6 @@ function renderTasks() {
 
 function renderServices() {
   return `
-    ${statusStrip()}
     <section class="panel">
       <div class="panelHeader">
         <div>
