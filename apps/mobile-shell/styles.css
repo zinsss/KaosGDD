@@ -210,6 +210,11 @@ h3 {
   box-shadow: 0 12px 28px var(--shadow);
 }
 
+.desktopGrid {
+  display: grid;
+  gap: 12px;
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
@@ -513,9 +518,7 @@ h3 {
   }
 
   .desktopGrid {
-    display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    gap: 12px;
     align-items: start;
   }
 
