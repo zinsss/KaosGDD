@@ -516,6 +516,11 @@ h3 {
   gap: 8px;
 }
 
+.taskEditLink {
+  display: block;
+  min-width: 0;
+}
+
 .checkButton {
   position: relative;
   width: 22px;

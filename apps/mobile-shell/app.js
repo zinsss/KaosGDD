@@ -5,6 +5,7 @@ const routes = {
   add: "Add",
   "add-event": "Add Event",
   "add-task": "Add Task",
+  "edit-task": "Edit Task",
   services: "Services",
 };
 
@@ -27,6 +28,7 @@ const state = {
   addKind: "event",
   addMonthExpanded: false,
   taskDueEnabled: false,
+  editingTaskId: "",
   taskDescriptions: {},
   remoteCalendar: {
     checked: false,
@@ -188,6 +190,22 @@ const mockAdapter = {
     state.taskMode = "active";
   },
 
+  updateTask(formData) {
+    const uid = String(formData.get("uid") || "");
+    const rawTask = activeCalendarData().tasks.find((task) => task.uid === uid);
+    if (!rawTask) return;
+    const title = String(formData.get("title") || "").trim();
+    if (!title) return;
+    const due = taskDueFromForm(formData);
+    rawTask.summary = title;
+    rawTask.description = String(formData.get("memo") || "").trim();
+    rawTask.due = due.date;
+    rawTask.dueTime = due.time;
+    rawTask.priority = taskPriorityFromForm(formData);
+    rawTask.lastModified = new Date().toISOString().slice(0, 19);
+    state.taskMode = rawTask.status === "COMPLETED" ? "done" : "active";
+  },
+
   getServices() {
     return [
       { name: "Paperless", type: "Documents", href: "https://paperless.kaosgdd.net", meta: "Authoritative document archive" },
@@ -248,6 +266,10 @@ function writableTaskCollectionId() {
   return collectionIds[0] || writableCollectionId();
 }
 
+function findTaskById(taskId) {
+  return activeCalendarData().tasks.map(normalizeTask).find((task) => task.id === taskId);
+}
+
 async function loadRemoteCalendar() {
   try {
     const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
@@ -298,6 +320,32 @@ async function createRemoteTask(formData) {
     throw new Error(payload.error || `HTTP ${response.status}`);
   }
   state.taskMode = "active";
+  window.location.hash = "#/tasks";
+  await loadRemoteCalendar();
+}
+
+async function updateRemoteTask(formData) {
+  const due = taskDueFromForm(formData);
+  const response = await fetch("/api/calendar/tasks", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      uid: String(formData.get("uid") || ""),
+      collectionId: String(formData.get("collectionId") || ""),
+      title: String(formData.get("title") || "").trim(),
+      memo: String(formData.get("memo") || "").trim(),
+      dueDate: due.date,
+      dueTime: due.time,
+      priority: taskPriorityFromForm(formData),
+    }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
   window.location.hash = "#/tasks";
   await loadRemoteCalendar();
 }
@@ -516,7 +564,13 @@ function escapeHtml(value) {
 
 function getRoute() {
   const raw = window.location.hash.replace(/^#\/?/, "");
-  return routes[raw] ? raw : "today";
+  const route = raw.split("?", 1)[0];
+  return routes[route] ? route : "today";
+}
+
+function hashParam(name) {
+  const query = window.location.hash.split("?", 2)[1] || "";
+  return new URLSearchParams(query).get(name) || "";
 }
 
 function ymd(date) {
@@ -567,7 +621,7 @@ function routeTitle(route) {
   document.getElementById("routeTitle").textContent = title;
   document.querySelector(".app").dataset.route = route;
   document.querySelectorAll("[data-nav]").forEach((link) => {
-    const activeRoute = route === "add" || route === "add-event" ? "calendar" : route === "add-task" ? "tasks" : route;
+    const activeRoute = route === "add" || route === "add-event" ? "calendar" : route === "add-task" || route === "edit-task" ? "tasks" : route;
     link.classList.toggle("isActive", link.dataset.nav === activeRoute);
   });
 }
@@ -677,10 +731,10 @@ function renderTaskRows(tasks) {
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
                 <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="Toggle ${escapeHtml(task.title)}"></button>
-                <div>
+                <a class="taskEditLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
                   <p class="taskTitle">${escapeHtml(task.title)}</p>
                   <span class="taskMeta">${escapeHtml(task.meta)}</span>
-                </div>
+                </a>
                 <small class="taskBadge">${escapeHtml(task.badge)}</small>
               </div>
               ${
@@ -966,6 +1020,69 @@ function renderAddTask() {
   `;
 }
 
+function renderEditTask() {
+  const taskId = hashParam("uid");
+  const task = findTaskById(taskId);
+  if (!task) {
+    return `
+      ${renderCollectionRail()}
+      <section class="panel">
+        <div class="panelBody">
+          <p class="taskMeta">Task not found</p>
+        </div>
+      </section>
+    `;
+  }
+
+  if (state.editingTaskId !== task.id) {
+    state.editingTaskId = task.id;
+    state.taskDueEnabled = Boolean(task.due);
+    state.selectedDate = task.due || ymd(new Date());
+  }
+
+  const dueEnabled = state.taskDueEnabled;
+  return `
+    ${renderCollectionRail()}
+    <form class="taskComposer" data-edit-task>
+      <input name="uid" type="hidden" value="${escapeHtml(task.id)}" />
+      <input name="collectionId" type="hidden" value="${escapeHtml(task.collection)}" />
+      <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
+      <section class="panel">
+        <div class="composer">
+          <label>
+            <span>Task</span>
+            <input name="title" type="text" autocomplete="off" value="${escapeHtml(task.title)}" required />
+          </label>
+          <label>
+            <span>Memo</span>
+            <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done">${escapeHtml(task.description)}</textarea>
+          </label>
+        </div>
+      </section>
+      ${renderAddDatePicker({ title: "Task due", allowNoDate: true })}
+      <section class="panel">
+        <div class="composer">
+          <label>
+            <span>Time</span>
+            <input name="dueTime" type="time" value="${escapeHtml(task.dueTime)}" step="300" />
+          </label>
+          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <label>
+            <span>Priority</span>
+            <select name="priority">
+              <option value="" ${task.priority ? "" : "selected"}>None</option>
+              <option value="9" ${task.priority === "9" ? "selected" : ""}>Low (!)</option>
+              <option value="5" ${task.priority === "5" ? "selected" : ""}>Medium (!!)</option>
+              <option value="1" ${task.priority === "1" ? "selected" : ""}>High (!!!)</option>
+            </select>
+          </label>
+          <button class="primaryButton" type="submit">Save task</button>
+        </div>
+      </section>
+    </form>
+  `;
+}
+
 function renderServices() {
   return `
     <section class="panel">
@@ -1019,6 +1136,7 @@ function render() {
     state.addKind = "task";
     view.innerHTML = renderAddTask();
   }
+  else if (route === "edit-task") view.innerHTML = renderEditTask();
   else if (route === "services") view.innerHTML = renderServices();
   else view.innerHTML = renderToday();
 }
@@ -1027,7 +1145,7 @@ document.addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");
   if (day) {
     state.selectedDate = day.dataset.date;
-    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
+    if (getRoute() === "add-task" || getRoute() === "edit-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
     render();
     return;
   }
@@ -1115,6 +1233,25 @@ document.addEventListener("submit", async (event) => {
       return;
     }
     mockAdapter.createTask(formData);
+    window.location.hash = "#/tasks";
+    render();
+  }
+
+  const editTaskForm = event.target.closest("[data-edit-task]");
+  if (editTaskForm) {
+    event.preventDefault();
+    const formData = new FormData(editTaskForm);
+    const due = taskDueFromForm(formData);
+    if (taskDueHasPassed(due) && !window.confirm("This due time has already passed. Save it anyway?")) return;
+    if (state.remoteCalendar.live) {
+      try {
+        await updateRemoteTask(formData);
+      } catch (error) {
+        window.alert(`Could not save to Radicale: ${error.message || "unknown error"}`);
+      }
+      return;
+    }
+    mockAdapter.updateTask(formData);
     window.location.hash = "#/tasks";
     render();
   }

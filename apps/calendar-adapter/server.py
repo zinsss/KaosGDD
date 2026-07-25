@@ -390,7 +390,8 @@ def local_due_stamp(date_value, time_value):
     return local.strftime("%Y%m%dT%H%M%S"), utc_stamp(local)
 
 
-def build_vtodo(payload):
+def build_vtodo(payload, existing=None):
+    existing = existing or {}
     title = str(payload.get("title") or "").strip()
     if not title:
         raise ValueError("title_required")
@@ -402,9 +403,11 @@ def build_vtodo(payload):
 
     priority = validate_priority(payload.get("priority") or "")
     description = str(payload.get("memo") or "").strip()
-    uid = str(uuid.uuid4()).upper()
+    uid = str(payload.get("uid") or existing.get("UID") or uuid.uuid4()).upper()
     alarm_uid = str(uuid.uuid4()).upper()
     now = utc_stamp(datetime.now(timezone.utc))
+    created = existing.get("CREATED") or now
+    status = existing.get("STATUS") or "NEEDS-ACTION"
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -415,11 +418,14 @@ def build_vtodo(payload):
         "BEGIN:VTODO",
         f"UID:{uid}",
         f"DTSTAMP:{now}",
-        f"CREATED:{now}",
+        f"CREATED:{created}",
         f"LAST-MODIFIED:{now}",
         f"SUMMARY:{escape_ics(title)}",
-        "STATUS:NEEDS-ACTION",
+        f"STATUS:{escape_ics(status)}",
     ]
+    if status == "COMPLETED":
+        completed = existing.get("COMPLETED") or now
+        lines.extend([f"COMPLETED:{completed}", "PERCENT-COMPLETE:100"])
     if description:
         lines.append(f"DESCRIPTION:{escape_ics(description)}")
     if priority:
@@ -463,6 +469,39 @@ def create_task(payload):
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
+def find_task(collections, uid, collection_id=""):
+    if not uid:
+        raise ValueError("uid_required")
+    targets = [collection for collection in collections if not collection_id or collection["id"] == collection_id]
+    if collection_id and not targets:
+        raise ValueError("collection_not_found")
+
+    for collection in targets:
+        if collection.get("components") and "VTODO" not in collection["components"]:
+            continue
+        for item in report_collection(collection["href"]):
+            if item.get("component") == "VTODO" and item.get("UID") == uid:
+                return collection, item
+
+    raise ValueError("task_not_found")
+
+
+def update_task(payload):
+    if not configured():
+        raise ValueError("adapter_not_configured")
+    uid = str(payload.get("uid") or "").strip()
+    collections = propfind_collections()
+    collection, existing = find_task(collections, uid, str(payload.get("collectionId") or "").strip())
+    _, body = build_vtodo(payload, existing)
+    radicale_request(
+        "PUT",
+        existing["href"],
+        body,
+        {"Content-Type": "text/calendar; charset=utf-8"},
+    )
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
@@ -472,6 +511,18 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/calendar/bootstrap":
             try:
                 json_response(self, 200, bootstrap_payload())
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": configured(), "live": False, "error": type(exc).__name__})
+            return
+        json_response(self, 404, {"error": "not_found"})
+
+    def do_PUT(self):
+        path = urllib.parse.urlparse(self.path).path
+        if path == "/api/calendar/tasks":
+            try:
+                json_response(self, 200, update_task(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": configured(), "live": False, "error": type(exc).__name__})
             return
