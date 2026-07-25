@@ -21,6 +21,7 @@ The calendar and task screens now act as the first Radicale frontend prototype:
 
 - switch between `family` and `zin` collections
 - show events and tasks from the selected collection
+- read live Radicale data through `/api/calendar/bootstrap` when the adapter is configured
 - create local draft events shaped like `VEVENT`
 - create local draft tasks shaped like `VTODO`
 - render legacy description subtasks as interactive checkboxes
@@ -61,3 +62,5 @@ It does not:
 - touch PACS
 - touch Fax
 - access any database
+
+If the calendar adapter is unavailable, not configured, or has no live collections, the shell keeps using local preview data so the app remains usable during incremental setup.

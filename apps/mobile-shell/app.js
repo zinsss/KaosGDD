@@ -12,6 +12,15 @@ const state = {
   eventComposerOpen: false,
   taskComposerOpen: false,
   taskDescriptions: {},
+  remoteCalendar: {
+    checked: false,
+    configured: false,
+    live: false,
+    error: "",
+    collections: [],
+    events: [],
+    tasks: [],
+  },
 };
 
 const mockCalendarData = {
@@ -94,19 +103,19 @@ const mockCalendarData = {
 
 const mockAdapter = {
   getCollections() {
-    return mockCalendarData.collections;
+    return activeCalendarData().collections;
   },
 
   getCurrentCollection() {
-    return mockCalendarData.collections.find((collection) => collection.id === state.currentCollection);
+    return activeCalendarData().collections.find((collection) => collection.id === state.currentCollection);
   },
 
   getEvents(collectionId = state.currentCollection) {
-    return mockCalendarData.events.filter((event) => event.collection === collectionId).map(normalizeEvent).sort(sortByDateTime);
+    return activeCalendarData().events.filter((event) => event.collection === collectionId).map(normalizeEvent).sort(sortByDateTime);
   },
 
   getTasks(collectionId = state.currentCollection) {
-    return mockCalendarData.tasks.filter((task) => task.collection === collectionId).map(normalizeTask).sort(sortTasks);
+    return activeCalendarData().tasks.filter((task) => task.collection === collectionId).map(normalizeTask).sort(sortTasks);
   },
 
   createEvent(formData) {
@@ -114,7 +123,7 @@ const mockAdapter = {
     if (!title) return;
     const date = String(formData.get("date") || state.selectedDate);
     const time = String(formData.get("time") || "09:00");
-    mockCalendarData.events.push({
+    activeCalendarData().events.push({
       uid: `event-${Date.now()}`,
       collection: state.currentCollection,
       summary: title,
@@ -136,7 +145,7 @@ const mockAdapter = {
       .filter(Boolean)
       .map((line) => (line.startsWith("-- ") || line.startsWith("-x ") ? line : `-- ${line}`));
     const description = [notes, subtasks.join("\n")].filter(Boolean).join("\n\n");
-    mockCalendarData.tasks.push({
+    activeCalendarData().tasks.push({
       uid: `task-${Date.now()}`,
       collection: state.currentCollection,
       summary: title,
@@ -168,6 +177,41 @@ const mockAdapter = {
   },
 };
 
+function activeCalendarData() {
+  if (state.remoteCalendar.live && state.remoteCalendar.collections.length) {
+    return state.remoteCalendar;
+  }
+  return mockCalendarData;
+}
+
+async function loadRemoteCalendar() {
+  try {
+    const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    state.remoteCalendar = {
+      checked: true,
+      configured: Boolean(payload.configured),
+      live: Boolean(payload.live && payload.collections?.length),
+      error: "",
+      collections: payload.collections || [],
+      events: payload.events || [],
+      tasks: payload.tasks || [],
+    };
+    if (state.remoteCalendar.live && !state.remoteCalendar.collections.some((collection) => collection.id === state.currentCollection)) {
+      state.currentCollection = state.remoteCalendar.collections[0].id;
+    }
+  } catch (error) {
+    state.remoteCalendar = {
+      ...state.remoteCalendar,
+      checked: true,
+      live: false,
+      error: error.message || "Calendar adapter unavailable",
+    };
+  }
+  render();
+}
+
 function parseDateTime(value) {
   const raw = String(value || "");
   return {
@@ -177,8 +221,18 @@ function parseDateTime(value) {
 }
 
 function normalizeEvent(event) {
+  if (event.date) {
+    return {
+      id: event.id || event.uid,
+      collection: event.collection,
+      date: event.date,
+      time: event.time || "",
+      title: event.title || event.summary || "Untitled event",
+      source: event.source || "Radicale",
+    };
+  }
   const start = parseDateTime(event.dtstart);
-  const collection = mockCalendarData.collections.find((item) => item.id === event.collection);
+  const collection = activeCalendarData().collections.find((item) => item.id === event.collection);
   return {
     id: event.uid,
     collection: event.collection,
@@ -236,7 +290,7 @@ function taskBadge(task, subtasks, done) {
 }
 
 function taskMeta(task, parsed, done) {
-  const collection = mockCalendarData.collections.find((item) => item.id === task.collection);
+  const collection = activeCalendarData().collections.find((item) => item.id === task.collection);
   if (done && task.completed) return `Done ${parseDateTime(task.completed).time}`;
   const categories = (task.categories || []).filter((category) => !["now", "today", "later", "urgent", "repeat"].includes(category));
   const parts = [];
@@ -341,10 +395,18 @@ function renderCollectionRail() {
 
 function renderRadicaleStatus() {
   const collection = mockAdapter.getCurrentCollection();
+  const remote = state.remoteCalendar;
+  const status = remote.live
+    ? "Live Radicale read-only"
+    : remote.checked && remote.configured
+      ? "No live collection found · local preview"
+      : remote.checked && remote.error
+        ? "Adapter unavailable · local preview"
+        : "Local preview · CalDAV write adapter pending";
   return `
     <section class="adapterNote" aria-label="Radicale adapter status">
       <strong>${escapeHtml(collection?.name || "Radicale")}</strong>
-      <span>Local preview · CalDAV write adapter pending</span>
+      <span>${escapeHtml(status)}</span>
     </section>
   `;
 }
@@ -741,3 +803,5 @@ if (!window.location.hash) {
 } else {
   render();
 }
+
+loadRemoteCalendar();
