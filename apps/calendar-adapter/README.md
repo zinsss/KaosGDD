@@ -49,6 +49,27 @@ family.kaosgdd.net
 The system/brain Radicale account is not exposed through the browser calendar API.
 Human accounts are discovered by account and component type, not fixed collection names.
 
+## System Logs
+
+The adapter exposes a backend-only system journal endpoint on the internal adapter port:
+
+```text
+GET  /internal/system/logs
+POST /internal/system/logs
+```
+
+This path is intentionally not under `/api/calendar/*`, so it is not routed by the public portal edge. It writes `VJOURNAL` entries to the `Kaos_Logs` collection owned by the `kaos` Radicale account.
+
+Example payload:
+
+```json
+{
+  "summary": "Radicale portal profiles deployed",
+  "memo": "kaosgdd.net reads zin + family; family.kaosgdd.net reads wife + family.",
+  "category": "deploy"
+}
+```
+
 ## Production Behavior
 
 If credentials are missing or Radicale has no discoverable collections, the API returns a non-live payload and the mobile shell keeps its local preview data.

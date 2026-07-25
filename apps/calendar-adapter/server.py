@@ -22,6 +22,9 @@ RADICALE_WIFE_USERNAME = os.environ.get("RADICALE_WIFE_USERNAME", "")
 RADICALE_WIFE_PASSWORD = os.environ.get("RADICALE_WIFE_PASSWORD", "")
 RADICALE_SYSTEM_USERNAME = os.environ.get("RADICALE_SYSTEM_USERNAME", "")
 RADICALE_SYSTEM_PASSWORD = os.environ.get("RADICALE_SYSTEM_PASSWORD", "")
+RADICALE_SYSTEM_WEATHER_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_WEATHER_JOURNAL_NAME", "Kaos_Weather")
+RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME", "Kaos_Caregiver")
+RADICALE_SYSTEM_LOGS_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_LOGS_JOURNAL_NAME", "Kaos_Logs")
 TIMEOUT = float(os.environ.get("KAOSGDD_ADAPTER_TIMEOUT_SECONDS", "30"))
 LOCAL_TIMEZONE = timezone(timedelta(hours=int(os.environ.get("KAOSGDD_LOCAL_UTC_OFFSET_HOURS", "9"))))
 LOCAL_TZID = os.environ.get("KAOSGDD_LOCAL_TZID", "Asia/Seoul")
@@ -217,13 +220,15 @@ def parse_ics(data, href):
             current = {"component": "VEVENT", "href": href}
         elif line == "BEGIN:VTODO":
             current = {"component": "VTODO", "href": href}
+        elif line == "BEGIN:VJOURNAL":
+            current = {"component": "VJOURNAL", "href": href}
         elif current is not None and line == "BEGIN:VALARM":
             alarm_depth += 1
         elif current is not None and line == "END:VALARM":
             alarm_depth = max(0, alarm_depth - 1)
         elif alarm_depth:
             continue
-        elif line in {"END:VEVENT", "END:VTODO"}:
+        elif line in {"END:VEVENT", "END:VTODO", "END:VJOURNAL"}:
             if current:
                 items.append(current)
             current = None
@@ -333,6 +338,21 @@ def normalize_task(item, collection):
     }
 
 
+def normalize_journal(item, collection):
+    start = parse_ics_datetime(item.get("DTSTART", ""))
+    return {
+        "uid": item.get("UID") or item.get("href"),
+        "collection": collection["id"],
+        "summary": item.get("SUMMARY", "Untitled journal"),
+        "description": item.get("DESCRIPTION", ""),
+        "date": start["date"],
+        "time": start["time"],
+        "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
+        "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
+        "categories": [part.strip() for part in item.get("CATEGORIES", "").split(",") if part.strip()],
+    }
+
+
 def parse_ics_datetime(value):
     raw = value or ""
     is_utc = raw.endswith("Z")
@@ -346,6 +366,79 @@ def parse_ics_datetime(value):
     if len(clean) >= 8:
         return {"date": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}", "time": "", "iso": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}"}
     return {"date": "", "time": "", "iso": ""}
+
+
+def system_configured():
+    return ACCOUNTS["system"]["configured"]
+
+
+def system_collection(collection_name, component="VJOURNAL"):
+    if not system_configured():
+        raise ValueError("system_account_not_configured")
+    account_item = ACCOUNTS["system"]
+    collections = propfind_collections(account_item)
+    for collection in collections:
+        if collection.get("name") == collection_name and component in collection.get("components", []):
+            return collection
+    raise ValueError("system_collection_not_found")
+
+
+def build_vjournal(payload):
+    summary = str(payload.get("summary") or "").strip()
+    if not summary:
+        raise ValueError("summary_required")
+
+    description = str(payload.get("description") or payload.get("memo") or "").strip()
+    category = str(payload.get("category") or "system").strip()
+    now_dt = datetime.now(timezone.utc)
+    now = utc_stamp(now_dt)
+    local_now = now_dt.astimezone(LOCAL_TIMEZONE).strftime("%Y%m%dT%H%M%S")
+    uid = str(payload.get("uid") or uuid.uuid4()).upper()
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "PRODID:-//KaosGDD//System Journal//EN",
+        *SEOUL_VTIMEZONE.splitlines(),
+        "BEGIN:VJOURNAL",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"CREATED:{now}",
+        f"LAST-MODIFIED:{now}",
+        f"DTSTART;TZID={LOCAL_TZID}:{local_now}",
+        f"SUMMARY:{escape_ics(summary)}",
+    ]
+    if description:
+        lines.append(f"DESCRIPTION:{escape_ics(description)}")
+    if category:
+        lines.append(f"CATEGORIES:{escape_ics(category)}")
+    lines.extend(["END:VJOURNAL", "END:VCALENDAR"])
+    return uid, calendar_body(lines)
+
+
+def list_system_logs():
+    collection = system_collection(RADICALE_SYSTEM_LOGS_JOURNAL_NAME)
+    logs = []
+    for item in report_collection(ACCOUNTS["system"], collection["href"]):
+        if item.get("component") == "VJOURNAL":
+            logs.append(normalize_journal(item, collection))
+    logs.sort(key=lambda item: f"{item.get('date', '')}T{item.get('time', '')}", reverse=True)
+    return {"configured": True, "live": True, "collection": collection, "logs": logs}
+
+
+def create_system_log(payload):
+    collection = system_collection(RADICALE_SYSTEM_LOGS_JOURNAL_NAME)
+    uid, body = build_vjournal(payload)
+    href = urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    radicale_request(
+        ACCOUNTS["system"],
+        "PUT",
+        href,
+        body,
+        {"Content-Type": "text/calendar; charset=utf-8", "If-None-Match": "*"},
+    )
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
 def bootstrap_payload(profile="main"):
@@ -712,6 +805,14 @@ class Handler(BaseHTTPRequestHandler):
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": configured(profile), "live": False, "profile": profile, "error": type(exc).__name__})
             return
+        if path == "/internal/system/logs":
+            try:
+                json_response(self, 200, list_system_logs())
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
         json_response(self, 404, {"error": "not_found"})
 
     def do_PUT(self):
@@ -745,6 +846,14 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": configured(profile), "live": False, "profile": profile, "error": type(exc).__name__})
+            return
+        if path == "/internal/system/logs":
+            try:
+                json_response(self, 201, create_system_log(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
             return
         json_response(self, 404, {"error": "not_found"})
 
