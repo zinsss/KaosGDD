@@ -284,6 +284,7 @@ h3 {
 .composer label {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
 .composer .toggleLine {
@@ -310,6 +311,8 @@ h3 {
 .composer select,
 .composer textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -317,6 +320,14 @@ h3 {
   color: var(--text);
   font: inherit;
   font-size: 0.84rem;
+}
+
+.composer input[type="date"],
+.composer input[type="time"] {
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
 }
 
 .composer input,
@@ -342,7 +353,7 @@ h3 {
 
 .formGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
