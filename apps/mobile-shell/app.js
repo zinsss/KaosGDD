@@ -273,6 +273,7 @@ function taskMode(task, done) {
   if (done) return "done";
   if (categories.has("now") || categories.has("urgent")) return "now";
   if (categories.has("later")) return "later";
+  if (!task.due) return "now";
   if (task.due === state.selectedDate) return "today";
   return "later";
 }

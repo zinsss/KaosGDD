@@ -25,6 +25,8 @@ Use one CalDAV collection per practical sharing boundary. The first planned Kaos
 
 KaosGDD should not create a separate database for first-pass task data.
 
+Open VTODO items without a `DUE` date should be treated as inbox/now tasks in KaosGDD. This matches common iOS Reminders behavior, where quick reminders may be created without a date.
+
 ## Legacy Subtask Grammar
 
 Subtasks live inside the VTODO `DESCRIPTION` using the legacy KaosGDD grammar.
