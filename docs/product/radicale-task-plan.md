@@ -19,7 +19,7 @@ Use one CalDAV collection per practical sharing boundary. The first planned Kaos
 | --- | --- |
 | title | `SUMMARY` |
 | memo and subtasks | `DESCRIPTION` |
-| due date | `DUE` |
+| due date and optional time | `DUE` |
 | completed state | `STATUS` and/or `COMPLETED` |
 | tags | `CATEGORIES` |
 | last activity | `LAST-MODIFIED` |
@@ -31,6 +31,7 @@ Open VTODO items without a `DUE` date should be treated as inbox tasks in KaosGD
 Task ordering:
 
 - dated tasks sort by `DUE`
+- tasks on the same due date sort by due time when present
 - undated tasks sort by `LAST-MODIFIED`, newest first
 - if `LAST-MODIFIED` is missing, `CREATED` may be used as a fallback
 
@@ -54,6 +55,13 @@ Calendar/task UI should stay compatible with iOS and Thunderbird. Do not require
 Task memo text and subtasks live together inside the VTODO `DESCRIPTION`.
 
 The Add Task UI should expose this as one `Memo` field, not separate custom fields. Subtasks use the legacy KaosGDD grammar inside that memo:
+
+Due time rules:
+
+- Add Task defaults to no due date.
+- If a date is selected and no time is entered, use the configured default time, currently `10:00`.
+- If only a time is entered, use today as the due date.
+- If the computed due date/time is already past, ask for confirmation before creating the task.
 
 ```text
 -- open subtask

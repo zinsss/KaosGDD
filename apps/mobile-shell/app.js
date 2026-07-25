@@ -7,6 +7,8 @@ const routes = {
   services: "Services",
 };
 
+const DEFAULT_TASK_DUE_TIME = "10:00";
+
 const state = {
   selectedDate: ymd(new Date()),
   currentCollection: "all",
@@ -45,6 +47,7 @@ const mockCalendarData = {
       summary: "Review incoming fax result",
       description: "Fax follow-up notes\n\n-- confirm sender\n-- attach PDF\n-x send fax notification",
       due: "2026-07-24",
+      dueTime: "10:00",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:35:00",
       categories: ["fax"],
@@ -55,6 +58,7 @@ const mockCalendarData = {
       summary: "Check scan queue",
       description: "PACS check\n\n-- review failed imports\n-- confirm scan queue",
       due: "2026-07-24",
+      dueTime: "10:00",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:20:00",
       categories: ["pacs"],
@@ -65,6 +69,7 @@ const mockCalendarData = {
       summary: "Daily supply sync",
       description: "Daily repeat\n\n-- compare low-stock list\n-- update order note",
       due: "2026-07-24",
+      dueTime: "10:00",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:50:00",
       categories: ["supplies"],
@@ -75,6 +80,7 @@ const mockCalendarData = {
       summary: "Confirm ROUN timetable window",
       description: "Standalone family module\n\n-- check school pickup window",
       due: "2026-07-24",
+      dueTime: "10:00",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:30:00",
       categories: ["family"],
@@ -85,6 +91,7 @@ const mockCalendarData = {
       summary: "Paperless inbox check",
       description: "Inbox cleared at 08:40\n\n-x archive complete",
       due: "2026-07-24",
+      dueTime: "08:40",
       status: "COMPLETED",
       completed: "2026-07-24T08:40:00",
       lastModified: "2026-07-24T08:40:00",
@@ -96,6 +103,7 @@ const mockCalendarData = {
       summary: "Move protocol notes to Wiki.js",
       description: "Knowledge cleanup\n\n-- move vaccine protocol\n-- link from KaosGDD",
       due: "2026-07-30",
+      dueTime: "10:00",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T06:10:00",
       categories: ["knowledge"],
@@ -138,12 +146,14 @@ const mockAdapter = {
     const title = String(formData.get("title") || "").trim();
     if (!title) return;
     const description = String(formData.get("memo") || "").trim();
+    const due = taskDueFromForm(formData);
     activeCalendarData().tasks.push({
       uid: `task-${Date.now()}`,
       collection: writableCollectionId(),
       summary: title,
       description,
-      due: String(formData.get("due") || ""),
+      due: due.date,
+      dueTime: due.time,
       status: "NEEDS-ACTION",
       lastModified: new Date().toISOString().slice(0, 19),
       categories: [],
@@ -287,6 +297,19 @@ function taskDescription(task) {
   return state.taskDescriptions[task.uid] || task.description || "";
 }
 
+function taskDueFromForm(formData) {
+  const rawDue = String(formData.get("due") || "");
+  const rawTime = String(formData.get("dueTime") || "").trim();
+  const date = rawDue || (rawTime ? ymd(new Date()) : "");
+  const time = date ? rawTime || DEFAULT_TASK_DUE_TIME : "";
+  return { date, time };
+}
+
+function taskDueHasPassed(due) {
+  if (!due.date || !due.time) return false;
+  return new Date(`${due.date}T${due.time}:00`).getTime() < Date.now();
+}
+
 function taskBucket(task, done) {
   if (done) return "done";
   if (task.due) return "dated";
@@ -305,7 +328,10 @@ function taskBadge(task, subtasks, done) {
 function taskMeta(task, parsed, done) {
   if (done && task.completed) return `Done ${parseDateTime(task.completed).time}`;
   const parts = [];
-  if (task.due) parts.push(task.due === state.selectedDate ? "due today" : `due ${task.due}`);
+  if (task.due) {
+    const dueDate = task.due === state.selectedDate ? "due today" : `due ${task.due}`;
+    parts.push(task.dueTime ? `${dueDate} ${task.dueTime}` : dueDate);
+  }
   else if (task.lastModified || task.created) parts.push(formatDateTimeLabel(task.lastModified || task.created));
   if (parsed.subtasks.length) parts.push(`${parsed.subtasks.length} subtasks`);
   return parts.join(" · ");
@@ -321,6 +347,7 @@ function normalizeTask(task) {
     title: task.summary,
     description,
     due: task.due || "",
+    dueTime: task.dueTime || "",
     lastModified: task.lastModified || task.created || "",
     notes: parsed.notes,
     subtasks: parsed.subtasks,
@@ -338,6 +365,7 @@ function sortByDateTime(a, b) {
 function sortTasks(a, b) {
   if (a.done !== b.done) return a.done ? 1 : -1;
   if (a.due && b.due && a.due !== b.due) return a.due.localeCompare(b.due);
+  if (a.due && b.due && a.dueTime !== b.dueTime) return (a.dueTime || "99:99").localeCompare(b.dueTime || "99:99");
   if (a.due && !b.due) return -1;
   if (!a.due && b.due) return 1;
   if (!a.due && !b.due) return (b.lastModified || "").localeCompare(a.lastModified || "");
@@ -781,6 +809,11 @@ function renderAddTask() {
         </label>
         <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
         <label>
+          <span>Time</span>
+          <input name="dueTime" type="time" step="300" />
+        </label>
+        <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+        <label>
           <span>Memo</span>
           <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>
         </label>
@@ -927,7 +960,10 @@ document.addEventListener("submit", (event) => {
   const taskForm = event.target.closest("[data-create-task]");
   if (taskForm) {
     event.preventDefault();
-    mockAdapter.createTask(new FormData(taskForm));
+    const formData = new FormData(taskForm);
+    const due = taskDueFromForm(formData);
+    if (taskDueHasPassed(due) && !window.confirm("This due time has already passed. Create it anyway?")) return;
+    mockAdapter.createTask(formData);
     window.location.hash = "#/tasks";
     render();
   }

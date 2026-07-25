@@ -197,12 +197,14 @@ def normalize_event(item, collection):
 
 def normalize_task(item, collection):
     categories = [part.strip() for part in item.get("CATEGORIES", "").split(",") if part.strip()]
+    due = parse_ics_datetime(item.get("DUE", ""))
     return {
         "uid": item.get("UID") or item.get("href"),
         "collection": collection["id"],
         "summary": item.get("SUMMARY", "Untitled task"),
         "description": item.get("DESCRIPTION", ""),
-        "due": parse_ics_datetime(item.get("DUE", ""))["date"],
+        "due": due["date"],
+        "dueTime": due["time"],
         "status": item.get("STATUS", "NEEDS-ACTION"),
         "completed": parse_ics_datetime(item.get("COMPLETED", ""))["iso"],
         "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
