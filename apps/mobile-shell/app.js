@@ -420,7 +420,7 @@ function taskDescription(task) {
 function taskDueFromForm(formData) {
   const rawDue = String(formData.get("due") || "");
   const rawTime = String(formData.get("dueTime") || "").trim();
-  const date = rawDue || (rawTime ? ymd(new Date()) : "");
+  const date = rawDue;
   const time = date ? rawTime || DEFAULT_TASK_DUE_TIME : "";
   return { date, time };
 }
@@ -1001,9 +1001,9 @@ function renderAddTask() {
         <div class="composer">
           <label>
             <span>Time</span>
-            <input name="dueTime" type="time" step="300" />
+            <input name="dueTime" type="time" step="300" ${dueEnabled ? "" : "disabled"} />
           </label>
-          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used.</p>
           <label>
             <span>Priority</span>
             <select name="priority">
@@ -1064,9 +1064,9 @@ function renderEditTask() {
         <div class="composer">
           <label>
             <span>Time</span>
-            <input name="dueTime" type="time" value="${escapeHtml(task.dueTime)}" step="300" />
+            <input name="dueTime" type="time" value="${dueEnabled ? escapeHtml(task.dueTime) : ""}" step="300" ${dueEnabled ? "" : "disabled"} />
           </label>
-          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used.</p>
           <label>
             <span>Priority</span>
             <select name="priority">
@@ -1165,12 +1165,21 @@ document.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-clear-task-due]")) {
     state.taskDueEnabled = false;
+    const form = event.target.closest("form");
+    const timeInput = form?.querySelector('input[name="dueTime"]');
+    if (timeInput) {
+      timeInput.value = "";
+      timeInput.disabled = true;
+    }
     render();
     return;
   }
 
   if (event.target.closest("[data-use-selected-due]")) {
     state.taskDueEnabled = true;
+    const form = event.target.closest("form");
+    const timeInput = form?.querySelector('input[name="dueTime"]');
+    if (timeInput) timeInput.disabled = false;
     render();
     return;
   }
