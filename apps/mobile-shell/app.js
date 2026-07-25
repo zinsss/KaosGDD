@@ -813,7 +813,7 @@ function renderTasks() {
         <span>Tasks</span>
         <select data-task-mode>
           <option value="active" ${state.taskMode === "active" ? "selected" : ""}>Active</option>
-          <option value="done" ${state.taskMode === "done" ? "selected" : ""}>Done</option>
+          <option value="done" ${state.taskMode === "done" ? "selected" : ""}>Completed</option>
         </select>
       </label>
       <label>
