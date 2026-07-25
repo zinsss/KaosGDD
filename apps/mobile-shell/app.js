@@ -2,6 +2,8 @@ const routes = {
   today: "Today",
   calendar: "Calendar",
   tasks: "Tasks",
+  "add-event": "Add Event",
+  "add-task": "Add Task",
   services: "Services",
 };
 
@@ -9,8 +11,8 @@ const state = {
   selectedDate: ymd(new Date()),
   currentCollection: "all",
   taskMode: "inbox",
-  eventComposerOpen: false,
-  taskComposerOpen: false,
+  addMonthExpanded: false,
+  taskDueEnabled: true,
   taskDescriptions: {},
   remoteCalendar: {
     checked: false,
@@ -130,7 +132,6 @@ const mockAdapter = {
       dtstart: `${date}T${time}:00`,
     });
     state.selectedDate = date;
-    state.eventComposerOpen = false;
   },
 
   createTask(formData) {
@@ -149,13 +150,12 @@ const mockAdapter = {
       collection: writableCollectionId(),
       summary: title,
       description,
-      due: String(formData.get("due") || state.selectedDate),
+      due: String(formData.get("due") || ""),
       status: "NEEDS-ACTION",
       lastModified: new Date().toISOString().slice(0, 19),
       categories: [],
     });
     state.taskMode = "all";
-    state.taskComposerOpen = false;
   },
 
   getServices() {
@@ -413,12 +413,62 @@ function monthCells(monthValue) {
   });
 }
 
+function addPageCells(monthValue) {
+  const cells = monthCells(monthValue);
+  if (state.addMonthExpanded) return cells;
+  const selectedIndex = cells.findIndex((cell) => cell.value === state.selectedDate);
+  const start = Math.max(0, Math.floor((selectedIndex < 0 ? 0 : selectedIndex) / 7) * 7);
+  return cells.slice(start, start + 7);
+}
+
 function routeTitle(route) {
   document.getElementById("routeTitle").textContent = routes[route];
   document.querySelector(".app").dataset.route = route;
   document.querySelectorAll("[data-nav]").forEach((link) => {
-    link.classList.toggle("isActive", link.dataset.nav === route);
+    const activeRoute = route === "add-event" ? "calendar" : route === "add-task" ? "tasks" : route;
+    link.classList.toggle("isActive", link.dataset.nav === activeRoute);
   });
+}
+
+function renderAddDatePicker({ title, allowNoDate = false }) {
+  const month = state.selectedDate.slice(0, 7);
+  const cells = addPageCells(month);
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${escapeHtml(title)}</p>
+          <h2>${escapeHtml(monthTitle(month))}</h2>
+        </div>
+        <button class="openButton" type="button" data-toggle-add-month>${state.addMonthExpanded ? "Collapse" : "Month"}</button>
+      </div>
+      <div class="calendarGrid addCalendarGrid ${state.addMonthExpanded ? "isExpanded" : "isCollapsed"}" aria-label="${escapeHtml(title)}">
+        ${["S", "M", "T", "W", "T", "F", "S"].map((day) => `<span class="weekday">${day}</span>`).join("")}
+        ${cells
+          .map((cell) => {
+            const classes = [
+              "day",
+              cell.muted ? "isMuted" : "",
+              cell.value === ymd(new Date()) ? "isToday" : "",
+              cell.value === state.selectedDate ? "isSelected" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return `<button class="${classes}" type="button" data-date="${cell.value}">${cell.label}</button>`;
+          })
+          .join("")}
+      </div>
+      ${
+        allowNoDate
+          ? `
+            <div class="panelBody slimBody">
+              <button class="plainButton" type="button" data-clear-task-due>${state.taskDueEnabled ? "No due date" : "Use selected date"}</button>
+            </div>
+          `
+          : ""
+      }
+    </section>
+  `;
 }
 
 function renderCollectionRail() {
@@ -627,7 +677,7 @@ function renderCalendar() {
           <p class="label">Calendar</p>
           <h2>${escapeHtml(monthTitle(month))}</h2>
         </div>
-        <button class="openButton" type="button" data-toggle-event-composer>${state.eventComposerOpen ? "Close" : "Add"}</button>
+        <a class="openButton" href="#/add-event">Add</a>
       </div>
       <div class="calendarGrid" aria-label="Month grid">
         ${["S", "M", "T", "W", "T", "F", "S"].map((day) => `<span class="weekday">${day}</span>`).join("")}
@@ -647,7 +697,6 @@ function renderCalendar() {
           .join("")}
       </div>
     </section>
-    ${state.eventComposerOpen ? renderEventComposer() : ""}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -690,27 +739,26 @@ function renderTasks() {
           <p class="label">Tasks</p>
           <h2>${escapeHtml(taskTitle)}</h2>
         </div>
-        <button class="openButton" type="button" data-toggle-task-composer>${state.taskComposerOpen ? "Close" : "Add"}</button>
+        <a class="openButton" href="#/add-task">Add</a>
       </div>
-      ${state.taskComposerOpen ? renderTaskComposer() : ""}
       <div class="panelBody">${state.taskMode === "dated" ? renderTaskGroups(tasks) : renderTaskRows(tasks)}</div>
     </section>
   `;
 }
 
-function renderEventComposer() {
+function renderAddEvent() {
   return `
+    ${renderCollectionRail()}
+    ${renderAddDatePicker({ title: "Event date" })}
     <section class="panel">
       <form class="composer" data-create-event>
         <label>
           <span>Event</span>
           <input name="title" type="text" autocomplete="off" placeholder="New event" required />
         </label>
+        <input name="date" type="hidden" value="${escapeHtml(state.selectedDate)}" />
+        <p class="formNote">Date ${escapeHtml(state.selectedDate)}</p>
         <div class="formGrid">
-          <label>
-            <span>Date</span>
-            <input name="date" type="date" value="${escapeHtml(state.selectedDate)}" required />
-          </label>
           <label>
             <span>Time</span>
             <input name="time" type="time" value="09:00" step="300" required />
@@ -722,27 +770,29 @@ function renderEventComposer() {
   `;
 }
 
-function renderTaskComposer() {
+function renderAddTask() {
   return `
-    <form class="composer" data-create-task>
-      <label>
-        <span>Task</span>
-        <input name="title" type="text" autocomplete="off" placeholder="New task" required />
-      </label>
-      <label>
-        <span>Due</span>
-        <input name="due" type="date" value="${escapeHtml(state.selectedDate)}" />
-      </label>
-      <label>
-        <span>Notes</span>
-        <textarea name="notes" rows="2" placeholder="Description"></textarea>
-      </label>
-      <label>
-        <span>Subtasks</span>
-        <textarea name="subtasks" rows="3" placeholder="one per line; saved as -- subtask"></textarea>
-      </label>
-      <button class="primaryButton" type="submit">Create local task</button>
-    </form>
+    ${renderCollectionRail()}
+    ${renderAddDatePicker({ title: "Task due", allowNoDate: true })}
+    <section class="panel">
+      <form class="composer" data-create-task>
+        <label>
+          <span>Task</span>
+          <input name="title" type="text" autocomplete="off" placeholder="New task" required />
+        </label>
+        <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
+        <p class="formNote">${state.taskDueEnabled ? `Due ${escapeHtml(state.selectedDate)}` : "No due date"}</p>
+        <label>
+          <span>Notes</span>
+          <textarea name="notes" rows="2" placeholder="Description"></textarea>
+        </label>
+        <label>
+          <span>Subtasks</span>
+          <textarea name="subtasks" rows="3" placeholder="one per line; saved as -- subtask"></textarea>
+        </label>
+        <button class="primaryButton" type="submit">Create local task</button>
+      </form>
+    </section>
   `;
 }
 
@@ -790,6 +840,8 @@ function render() {
   const view = document.getElementById("view");
   if (route === "calendar") view.innerHTML = renderCalendar();
   else if (route === "tasks") view.innerHTML = renderTasks();
+  else if (route === "add-event") view.innerHTML = renderAddEvent();
+  else if (route === "add-task") view.innerHTML = renderAddTask();
   else if (route === "services") view.innerHTML = renderServices();
   else view.innerHTML = renderToday();
 }
@@ -798,6 +850,7 @@ document.addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");
   if (day) {
     state.selectedDate = day.dataset.date;
+    if (getRoute() === "add-task") state.taskDueEnabled = true;
     render();
     return;
   }
@@ -816,14 +869,14 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  if (event.target.closest("[data-toggle-event-composer]")) {
-    state.eventComposerOpen = !state.eventComposerOpen;
+  if (event.target.closest("[data-toggle-add-month]")) {
+    state.addMonthExpanded = !state.addMonthExpanded;
     render();
     return;
   }
 
-  if (event.target.closest("[data-toggle-task-composer]")) {
-    state.taskComposerOpen = !state.taskComposerOpen;
+  if (event.target.closest("[data-clear-task-due]")) {
+    state.taskDueEnabled = !state.taskDueEnabled;
     render();
     return;
   }
@@ -866,6 +919,7 @@ document.addEventListener("submit", (event) => {
   if (eventForm) {
     event.preventDefault();
     mockAdapter.createEvent(new FormData(eventForm));
+    window.location.hash = "#/calendar";
     render();
     return;
   }
@@ -874,6 +928,7 @@ document.addEventListener("submit", (event) => {
   if (taskForm) {
     event.preventDefault();
     mockAdapter.createTask(new FormData(taskForm));
+    window.location.hash = "#/tasks";
     render();
   }
 });

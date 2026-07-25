@@ -248,6 +248,10 @@ h3 {
   padding: 10px;
 }
 
+.slimBody {
+  padding-top: 0;
+}
+
 .composer {
   display: grid;
   gap: 10px;
@@ -294,6 +298,12 @@ h3 {
 .composer input::placeholder,
 .composer textarea::placeholder {
   color: #7f8b9e;
+}
+
+.formNote {
+  color: var(--dim);
+  font-size: 0.78rem;
+  font-weight: 760;
 }
 
 .formGrid {
@@ -385,6 +395,10 @@ h3 {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
   padding: 10px;
+}
+
+.addCalendarGrid.isCollapsed {
+  padding-bottom: 8px;
 }
 
 .weekday {
@@ -626,6 +640,15 @@ h3 {
   background: rgba(163, 190, 140, 0.13);
   color: var(--nord14);
   font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.plainButton {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--nord8);
+  font-size: 0.78rem;
   font-weight: 850;
 }
 
