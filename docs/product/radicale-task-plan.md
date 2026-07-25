@@ -41,6 +41,12 @@ KaosGDD task views:
 - `Done` shows completed VTODO items
 - Calendar shows dated VTODO items on their `DUE` date
 
+KaosGDD collection filters:
+
+- `All` shows every visible Radicale collection
+- `Family` shows shared family collections when they exist
+- `GDD_ZiN` shows `zin`-owned Radicale collections
+
 Calendar/task UI should stay compatible with iOS and Thunderbird. Do not require custom `X-KAOS-*` properties, hidden KaosGDD IDs, or a separate task metadata store for first-pass behavior.
 
 ## Legacy Subtask Grammar

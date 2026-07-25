@@ -7,7 +7,7 @@ const routes = {
 
 const state = {
   selectedDate: ymd(new Date()),
-  currentCollection: "family",
+  currentCollection: "all",
   taskMode: "inbox",
   eventComposerOpen: false,
   taskComposerOpen: false,
@@ -103,19 +103,19 @@ const mockCalendarData = {
 
 const mockAdapter = {
   getCollections() {
-    return activeCalendarData().collections;
+    return collectionViews();
   },
 
   getCurrentCollection() {
-    return activeCalendarData().collections.find((collection) => collection.id === state.currentCollection);
+    return collectionViews().find((collection) => collection.id === state.currentCollection);
   },
 
   getEvents(collectionId = state.currentCollection) {
-    return activeCalendarData().events.filter((event) => event.collection === collectionId).map(normalizeEvent).sort(sortByDateTime);
+    return filterByCollectionView(activeCalendarData().events, collectionId).map(normalizeEvent).sort(sortByDateTime);
   },
 
   getTasks(collectionId = state.currentCollection) {
-    return activeCalendarData().tasks.filter((task) => task.collection === collectionId).map(normalizeTask).sort(sortTasks);
+    return filterByCollectionView(activeCalendarData().tasks, collectionId).map(normalizeTask).sort(sortTasks);
   },
 
   createEvent(formData) {
@@ -125,7 +125,7 @@ const mockAdapter = {
     const time = String(formData.get("time") || "09:00");
     activeCalendarData().events.push({
       uid: `event-${Date.now()}`,
-      collection: state.currentCollection,
+      collection: writableCollectionId(),
       summary: title,
       dtstart: `${date}T${time}:00`,
     });
@@ -146,7 +146,7 @@ const mockAdapter = {
     const description = [notes, subtasks.join("\n")].filter(Boolean).join("\n\n");
     activeCalendarData().tasks.push({
       uid: `task-${Date.now()}`,
-      collection: state.currentCollection,
+      collection: writableCollectionId(),
       summary: title,
       description,
       due: String(formData.get("due") || state.selectedDate),
@@ -180,6 +180,30 @@ function activeCalendarData() {
   return mockCalendarData;
 }
 
+function collectionViews() {
+  const data = activeCalendarData();
+  const allIds = data.collections.map((collection) => collection.id);
+  const familyIds = data.collections.filter((collection) => collection.owner === "family" || collection.id === "family").map((collection) => collection.id);
+  const zinIds = data.collections.filter((collection) => collection.owner === "zin" || collection.id === "zin").map((collection) => collection.id);
+  return [
+    { id: "all", name: "All", owner: "Radicale", collectionIds: allIds },
+    { id: "family", name: "Family", owner: "shared", collectionIds: familyIds },
+    { id: "gdd_zin", name: "GDD_ZiN", owner: "zin", collectionIds: zinIds },
+  ];
+}
+
+function filterByCollectionView(items, viewId) {
+  const view = collectionViews().find((collection) => collection.id === viewId) || collectionViews()[0];
+  if (view.id === "all") return items;
+  return items.filter((item) => view.collectionIds.includes(item.collection));
+}
+
+function writableCollectionId() {
+  const view = mockAdapter.getCurrentCollection();
+  if (view?.id !== "all" && view?.collectionIds.length) return view.collectionIds[0];
+  return activeCalendarData().collections[0]?.id || "zin";
+}
+
 async function loadRemoteCalendar() {
   try {
     const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
@@ -194,8 +218,8 @@ async function loadRemoteCalendar() {
       events: payload.events || [],
       tasks: payload.tasks || [],
     };
-    if (state.remoteCalendar.live && !state.remoteCalendar.collections.some((collection) => collection.id === state.currentCollection)) {
-      state.currentCollection = state.remoteCalendar.collections[0].id;
+    if (state.remoteCalendar.live && !collectionViews().some((collection) => collection.id === state.currentCollection)) {
+      state.currentCollection = "all";
     }
   } catch (error) {
     state.remoteCalendar = {
