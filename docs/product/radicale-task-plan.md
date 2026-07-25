@@ -21,6 +21,7 @@ Use one CalDAV collection per practical sharing boundary. The first planned Kaos
 | memo and subtasks | `DESCRIPTION` |
 | due date and optional time | `DUE` |
 | completed state | `STATUS` and/or `COMPLETED` |
+| priority | `PRIORITY` |
 | tags | `CATEGORIES` |
 | last activity | `LAST-MODIFIED` |
 
@@ -31,8 +32,8 @@ Open VTODO items without a `DUE` date should be treated as inbox tasks in KaosGD
 Task ordering:
 
 - dated tasks sort by `DUE`
-- tasks on the same due date sort by due time when present
-- undated tasks sort by `LAST-MODIFIED`, newest first
+- tasks on the same due date sort by priority, then due time when present
+- undated tasks sort by priority, then `LAST-MODIFIED` newest first
 - if `LAST-MODIFIED` is missing, `CREATED` may be used as a fallback
 
 KaosGDD task views:
@@ -62,6 +63,13 @@ Due time rules:
 - If a date is selected and no time is entered, use the configured default time, currently `10:00`.
 - If only a time is entered, use today as the due date.
 - If the computed due date/time is already past, ask for confirmation before creating the task.
+
+Priority rules:
+
+- Use the standard VTODO `PRIORITY` field only.
+- Treat `1-3` as High, `4-6` as Medium, and `7-9` as Low.
+- Treat missing priority or `0` as no priority.
+- Add Task should write `1` for High, `5` for Medium, `9` for Low, or no value for None.
 
 ```text
 -- open subtask

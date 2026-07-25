@@ -9,6 +9,13 @@ const routes = {
 
 const DEFAULT_TASK_DUE_TIME = "10:00";
 
+const taskPriorityOptions = {
+  none: { value: "", label: "None", rank: 10 },
+  low: { value: "9", label: "Low", rank: 9 },
+  medium: { value: "5", label: "Medium", rank: 5 },
+  high: { value: "1", label: "High", rank: 1 },
+};
+
 const state = {
   selectedDate: ymd(new Date()),
   currentCollection: "all",
@@ -48,6 +55,7 @@ const mockCalendarData = {
       description: "Fax follow-up notes\n\n-- confirm sender\n-- attach PDF\n-x send fax notification",
       due: "2026-07-24",
       dueTime: "10:00",
+      priority: "1",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:35:00",
       categories: ["fax"],
@@ -59,6 +67,7 @@ const mockCalendarData = {
       description: "PACS check\n\n-- review failed imports\n-- confirm scan queue",
       due: "2026-07-24",
       dueTime: "10:00",
+      priority: "5",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:20:00",
       categories: ["pacs"],
@@ -70,6 +79,7 @@ const mockCalendarData = {
       description: "Daily repeat\n\n-- compare low-stock list\n-- update order note",
       due: "2026-07-24",
       dueTime: "10:00",
+      priority: "9",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:50:00",
       categories: ["supplies"],
@@ -81,6 +91,7 @@ const mockCalendarData = {
       description: "Standalone family module\n\n-- check school pickup window",
       due: "2026-07-24",
       dueTime: "10:00",
+      priority: "",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:30:00",
       categories: ["family"],
@@ -92,6 +103,7 @@ const mockCalendarData = {
       description: "Inbox cleared at 08:40\n\n-x archive complete",
       due: "2026-07-24",
       dueTime: "08:40",
+      priority: "",
       status: "COMPLETED",
       completed: "2026-07-24T08:40:00",
       lastModified: "2026-07-24T08:40:00",
@@ -104,6 +116,7 @@ const mockCalendarData = {
       description: "Knowledge cleanup\n\n-- move vaccine protocol\n-- link from KaosGDD",
       due: "2026-07-30",
       dueTime: "10:00",
+      priority: "5",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T06:10:00",
       categories: ["knowledge"],
@@ -154,6 +167,7 @@ const mockAdapter = {
       description,
       due: due.date,
       dueTime: due.time,
+      priority: taskPriorityFromForm(formData),
       status: "NEEDS-ACTION",
       lastModified: new Date().toISOString().slice(0, 19),
       categories: [],
@@ -310,6 +324,25 @@ function taskDueHasPassed(due) {
   return new Date(`${due.date}T${due.time}:00`).getTime() < Date.now();
 }
 
+function taskPriorityFromForm(formData) {
+  const priority = String(formData.get("priority") || "");
+  return Object.values(taskPriorityOptions).some((option) => option.value === priority) ? priority : "";
+}
+
+function taskPriorityRank(priority) {
+  const value = Number(priority);
+  if (!Number.isInteger(value) || value < 1 || value > 9) return taskPriorityOptions.none.rank;
+  return value;
+}
+
+function taskPriorityLabel(priority) {
+  const rank = taskPriorityRank(priority);
+  if (rank <= 3) return "High";
+  if (rank <= 6) return "Medium";
+  if (rank <= 9) return "Low";
+  return "";
+}
+
 function taskBucket(task, done) {
   if (done) return "done";
   if (task.due) return "dated";
@@ -318,11 +351,14 @@ function taskBucket(task, done) {
 
 function taskBadge(task, subtasks, done) {
   if (done) return "";
+  const badgeParts = [];
+  const priority = taskPriorityLabel(task.priority);
+  if (priority) badgeParts.push(priority);
   if (subtasks.length) {
     const completed = subtasks.filter((subtask) => subtask.done).length;
-    return `${completed}/${subtasks.length}`;
+    badgeParts.push(`${completed}/${subtasks.length}`);
   }
-  return "";
+  return badgeParts.join(" · ");
 }
 
 function taskMeta(task, parsed, done) {
@@ -348,6 +384,9 @@ function normalizeTask(task) {
     description,
     due: task.due || "",
     dueTime: task.dueTime || "",
+    priority: task.priority || "",
+    priorityRank: taskPriorityRank(task.priority),
+    priorityLabel: taskPriorityLabel(task.priority),
     lastModified: task.lastModified || task.created || "",
     notes: parsed.notes,
     subtasks: parsed.subtasks,
@@ -365,9 +404,11 @@ function sortByDateTime(a, b) {
 function sortTasks(a, b) {
   if (a.done !== b.done) return a.done ? 1 : -1;
   if (a.due && b.due && a.due !== b.due) return a.due.localeCompare(b.due);
+  if (a.due && b.due && a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
   if (a.due && b.due && a.dueTime !== b.dueTime) return (a.dueTime || "99:99").localeCompare(b.dueTime || "99:99");
   if (a.due && !b.due) return -1;
   if (!a.due && b.due) return 1;
+  if (!a.due && !b.due && a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
   if (!a.due && !b.due) return (b.lastModified || "").localeCompare(a.lastModified || "");
   return a.title.localeCompare(b.title);
 }
@@ -568,7 +609,7 @@ function renderTaskRows(tasks) {
       ${tasks
         .map((task) => {
           const done = task.done;
-          const classes = ["taskRow", done ? "isDone" : ""].filter(Boolean).join(" ");
+          const classes = ["taskRow", task.priorityLabel ? `priority${task.priorityLabel}` : "", done ? "isDone" : ""].filter(Boolean).join(" ");
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
@@ -813,6 +854,15 @@ function renderAddTask() {
           <input name="dueTime" type="time" step="300" />
         </label>
         <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+        <label>
+          <span>Priority</span>
+          <select name="priority">
+            <option value="">None</option>
+            <option value="1">High</option>
+            <option value="5">Medium</option>
+            <option value="9">Low</option>
+          </select>
+        </label>
         <label>
           <span>Memo</span>
           <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>

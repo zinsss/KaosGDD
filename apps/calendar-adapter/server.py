@@ -205,6 +205,7 @@ def normalize_task(item, collection):
         "description": item.get("DESCRIPTION", ""),
         "due": due["date"],
         "dueTime": due["time"],
+        "priority": item.get("PRIORITY", ""),
         "status": item.get("STATUS", "NEEDS-ACTION"),
         "completed": parse_ics_datetime(item.get("COMPLETED", ""))["iso"],
         "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],

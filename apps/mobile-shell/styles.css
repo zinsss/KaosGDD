@@ -501,11 +501,15 @@ h3 {
   font-weight: 760;
 }
 
-.taskRow.isUrgent .taskTitle {
+.taskRow.priorityHigh .taskTitle {
   color: var(--nord11);
 }
 
-.taskRow.isRepeat .taskTitle {
+.taskRow.priorityMedium .taskTitle {
+  color: var(--nord13);
+}
+
+.taskRow.priorityLow .taskTitle {
   color: var(--nord7);
 }
 
@@ -523,7 +527,7 @@ h3 {
 }
 
 .taskBadge {
-  color: var(--nord15);
+  color: var(--nord13);
   font-size: 0.74rem;
   font-weight: 900;
   text-align: right;
