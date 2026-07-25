@@ -343,6 +343,14 @@ function taskPriorityLabel(priority) {
   return "";
 }
 
+function taskPriorityMark(priority) {
+  const rank = taskPriorityRank(priority);
+  if (rank <= 3) return "!!!";
+  if (rank <= 6) return "!!";
+  if (rank <= 9) return "!";
+  return "";
+}
+
 function taskBucket(task, done) {
   if (done) return "done";
   if (task.due) return "dated";
@@ -352,7 +360,7 @@ function taskBucket(task, done) {
 function taskBadge(task, subtasks, done) {
   if (done) return "";
   const badgeParts = [];
-  const priority = taskPriorityLabel(task.priority);
+  const priority = taskPriorityMark(task.priority);
   if (priority) badgeParts.push(priority);
   if (subtasks.length) {
     const completed = subtasks.filter((subtask) => subtask.done).length;
@@ -387,6 +395,7 @@ function normalizeTask(task) {
     priority: task.priority || "",
     priorityRank: taskPriorityRank(task.priority),
     priorityLabel: taskPriorityLabel(task.priority),
+    priorityMark: taskPriorityMark(task.priority),
     lastModified: task.lastModified || task.created || "",
     notes: parsed.notes,
     subtasks: parsed.subtasks,
@@ -858,9 +867,9 @@ function renderAddTask() {
           <span>Priority</span>
           <select name="priority">
             <option value="">None</option>
-            <option value="1">High</option>
-            <option value="5">Medium</option>
-            <option value="9">Low</option>
+            <option value="9">Low (!)</option>
+            <option value="5">Medium (!!)</option>
+            <option value="1">High (!!!)</option>
           </select>
         </label>
         <label>

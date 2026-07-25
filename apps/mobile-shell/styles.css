@@ -501,18 +501,6 @@ h3 {
   font-weight: 760;
 }
 
-.taskRow.priorityHigh .taskTitle {
-  color: var(--nord11);
-}
-
-.taskRow.priorityMedium .taskTitle {
-  color: var(--nord13);
-}
-
-.taskRow.priorityLow .taskTitle {
-  color: var(--nord7);
-}
-
 .taskRow.isDone .taskTitle {
   color: var(--muted);
   text-decoration: line-through;
@@ -527,10 +515,21 @@ h3 {
 }
 
 .taskBadge {
-  color: var(--nord13);
   font-size: 0.74rem;
   font-weight: 900;
   text-align: right;
+}
+
+.taskRow.priorityHigh .taskBadge {
+  color: var(--nord11);
+}
+
+.taskRow.priorityMedium .taskBadge {
+  color: var(--nord13);
+}
+
+.taskRow.priorityLow .taskBadge {
+  color: var(--nord7);
 }
 
 .taskGroup {

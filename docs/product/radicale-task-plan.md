@@ -70,6 +70,7 @@ Priority rules:
 - Treat `1-3` as High, `4-6` as Medium, and `7-9` as Low.
 - Treat missing priority or `0` as no priority.
 - Add Task should write `1` for High, `5` for Medium, `9` for Low, or no value for None.
+- Task rows should display priority with iOS-style markers: `!`, `!!`, and `!!!`.
 
 ```text
 -- open subtask
