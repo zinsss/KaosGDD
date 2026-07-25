@@ -70,6 +70,39 @@ Example payload:
 }
 ```
 
+## Weather History
+
+Daily weather history uses the same backend-only pattern:
+
+```text
+GET  /internal/system/weather
+POST /internal/system/weather
+```
+
+It writes one deterministic `VJOURNAL` per city/date to `Kaos_Weather`. Re-posting the same city/date updates the same entry instead of creating duplicates.
+
+Supported city keys:
+
+```text
+pohang
+daegu
+yeongdeok
+```
+
+Example payload:
+
+```json
+{
+  "city": "pohang",
+  "date": "2026-07-26",
+  "minTemp": 21,
+  "maxTemp": 32,
+  "glyph": "sun",
+  "condition": "clear",
+  "source": "manual"
+}
+```
+
 ## Production Behavior
 
 If credentials are missing or Radicale has no discoverable collections, the API returns a non-live payload and the mobile shell keeps its local preview data.

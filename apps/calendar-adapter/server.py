@@ -29,6 +29,11 @@ TIMEOUT = float(os.environ.get("KAOSGDD_ADAPTER_TIMEOUT_SECONDS", "30"))
 LOCAL_TIMEZONE = timezone(timedelta(hours=int(os.environ.get("KAOSGDD_LOCAL_UTC_OFFSET_HOURS", "9"))))
 LOCAL_TZID = os.environ.get("KAOSGDD_LOCAL_TZID", "Asia/Seoul")
 MAX_POST_BYTES = 20000
+WEATHER_CITIES = {
+    "pohang": "포항",
+    "daegu": "대구",
+    "yeongdeok": "영덕",
+}
 
 SEOUL_VTIMEZONE = """BEGIN:VTIMEZONE
 TZID:Asia/Seoul
@@ -353,6 +358,33 @@ def normalize_journal(item, collection):
     }
 
 
+def parse_weather_description(description):
+    try:
+        parsed = json.loads(description or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def normalize_weather_journal(item, collection):
+    journal = normalize_journal(item, collection)
+    payload = parse_weather_description(journal["description"])
+    return {
+        "uid": journal["uid"],
+        "collection": journal["collection"],
+        "city": payload.get("city") or "",
+        "cityName": payload.get("cityName") or "",
+        "date": payload.get("date") or journal["date"],
+        "minTemp": payload.get("minTemp"),
+        "maxTemp": payload.get("maxTemp"),
+        "glyph": payload.get("glyph") or "",
+        "condition": payload.get("condition") or "",
+        "source": payload.get("source") or "",
+        "created": journal["created"],
+        "lastModified": journal["lastModified"],
+    }
+
+
 def parse_ics_datetime(value):
     raw = value or ""
     is_utc = raw.endswith("Z")
@@ -437,6 +469,100 @@ def create_system_log(payload):
         href,
         body,
         {"Content-Type": "text/calendar; charset=utf-8", "If-None-Match": "*"},
+    )
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
+def validate_weather_city(value):
+    city = str(value or "").strip().lower()
+    if city not in WEATHER_CITIES:
+        raise ValueError("invalid_weather_city")
+    return city
+
+
+def validate_temperature(value, field_name):
+    if value is None or value == "":
+        raise ValueError(f"{field_name}_required")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid_{field_name}") from exc
+
+
+def compact_number(value):
+    number = float(value)
+    return int(number) if number.is_integer() else number
+
+
+def build_weather_vjournal(payload):
+    city = validate_weather_city(payload.get("city"))
+    date_value = validate_date(payload.get("date") or datetime.now(LOCAL_TIMEZONE).strftime("%Y-%m-%d"))
+    min_temp = compact_number(validate_temperature(payload.get("minTemp"), "minTemp"))
+    max_temp = compact_number(validate_temperature(payload.get("maxTemp"), "maxTemp"))
+    glyph = str(payload.get("glyph") or "").strip()
+    condition = str(payload.get("condition") or "").strip()
+    source = str(payload.get("source") or "manual").strip()
+    city_name = WEATHER_CITIES[city]
+    uid = f"KAOS-WEATHER-{city.upper()}-{date_value.replace('-', '')}"
+    now = utc_stamp(datetime.now(timezone.utc))
+    description = json.dumps(
+        {
+            "type": "weather.daily",
+            "city": city,
+            "cityName": city_name,
+            "date": date_value,
+            "minTemp": min_temp,
+            "maxTemp": max_temp,
+            "glyph": glyph,
+            "condition": condition,
+            "source": source,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    summary = f"{city_name} {min_temp}-{max_temp}{(' ' + glyph) if glyph else ''}".strip()
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "PRODID:-//KaosGDD//Weather Journal//EN",
+        "BEGIN:VJOURNAL",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"CREATED:{now}",
+        f"LAST-MODIFIED:{now}",
+        f"DTSTART;VALUE=DATE:{compact_date(date_value)}",
+        f"SUMMARY:{escape_ics(summary)}",
+        f"DESCRIPTION:{escape_ics(description)}",
+        f"CATEGORIES:weather,{city}",
+        "END:VJOURNAL",
+        "END:VCALENDAR",
+    ]
+    return uid, calendar_body(lines)
+
+
+def list_weather_history():
+    collection = system_collection(RADICALE_SYSTEM_WEATHER_JOURNAL_NAME)
+    entries = []
+    for item in report_collection(ACCOUNTS["system"], collection["href"]):
+        if item.get("component") == "VJOURNAL":
+            weather = normalize_weather_journal(item, collection)
+            if weather["city"]:
+                entries.append(weather)
+    entries.sort(key=lambda item: f"{item.get('date', '')}:{item.get('city', '')}", reverse=True)
+    return {"configured": True, "live": True, "collection": collection, "cities": WEATHER_CITIES, "weather": entries}
+
+
+def create_weather_history(payload):
+    collection = system_collection(RADICALE_SYSTEM_WEATHER_JOURNAL_NAME)
+    uid, body = build_weather_vjournal(payload)
+    href = urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    radicale_request(
+        ACCOUNTS["system"],
+        "PUT",
+        href,
+        body,
+        {"Content-Type": "text/calendar; charset=utf-8"},
     )
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
@@ -813,6 +939,14 @@ class Handler(BaseHTTPRequestHandler):
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
             return
+        if path == "/internal/system/weather":
+            try:
+                json_response(self, 200, list_weather_history())
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
         json_response(self, 404, {"error": "not_found"})
 
     def do_PUT(self):
@@ -850,6 +984,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/internal/system/logs":
             try:
                 json_response(self, 201, create_system_log(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
+        if path == "/internal/system/weather":
+            try:
+                json_response(self, 201, create_weather_history(read_json_request(self)))
             except ValueError as exc:
                 json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
