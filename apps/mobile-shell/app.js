@@ -841,11 +841,6 @@ function renderCalendar() {
 
 function renderTasks() {
   const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
-  const taskTitle = {
-    active: "Active",
-    done: "Completed",
-    all: "All tasks",
-  }[state.taskMode];
   return `
     ${renderCollectionRail()}
     <section class="taskFilters" aria-label="Task filters">
@@ -863,15 +858,9 @@ function renderTasks() {
           <option value="created" ${state.taskSort === "created" ? "selected" : ""}>Creation</option>
         </select>
       </label>
+      <a class="openButton taskAddButton" href="#/add-task">Add</a>
     </section>
     <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">Tasks</p>
-          <h2>${escapeHtml(taskTitle)}</h2>
-        </div>
-        <a class="openButton" href="#/add-task">Add</a>
-      </div>
       <div class="panelBody">${renderTaskRows(tasks)}</div>
     </section>
   `;
