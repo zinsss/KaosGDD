@@ -897,14 +897,14 @@ function renderAddEvent({ withTabs = false } = {}) {
         </label>
         <label class="toggleLine">
           <span>All-day</span>
-          <input name="allDay" type="checkbox" />
+          <input name="allDay" type="checkbox" data-all-day-toggle />
         </label>
         <div class="formGrid">
           <label>
             <span>Start date</span>
             <input name="startDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
-          <label>
+          <label data-event-time-field>
             <span>Start time</span>
             <input name="startTime" type="time" value="${escapeHtml(DEFAULT_EVENT_START_TIME)}" step="300" />
           </label>
@@ -912,7 +912,7 @@ function renderAddEvent({ withTabs = false } = {}) {
             <span>End date</span>
             <input name="endDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
-          <label>
+          <label data-event-time-field>
             <span>End time</span>
             <input name="endTime" type="time" value="${escapeHtml(DEFAULT_EVENT_END_TIME)}" step="300" />
           </label>
@@ -926,7 +926,7 @@ function renderAddEvent({ withTabs = false } = {}) {
             <option value="yearly">Yearly</option>
           </select>
         </label>
-        <label>
+        <label data-event-time-field>
           <span>Alarm time</span>
           <input name="alarm" type="time" step="300" />
         </label>
@@ -1149,6 +1149,19 @@ document.addEventListener("submit", (event) => {
     window.location.hash = "#/tasks";
     render();
   }
+});
+
+document.addEventListener("change", (event) => {
+  const allDayToggle = event.target.closest("[data-all-day-toggle]");
+  if (!allDayToggle) return;
+  const form = allDayToggle.closest("[data-create-event]");
+  if (!form) return;
+  form.querySelectorAll("[data-event-time-field]").forEach((field) => {
+    field.classList.toggle("isDisabled", allDayToggle.checked);
+    field.querySelectorAll("input").forEach((input) => {
+      input.disabled = allDayToggle.checked;
+    });
+  });
 });
 
 window.addEventListener("hashchange", render);

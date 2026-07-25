@@ -328,6 +328,24 @@ h3 {
   -webkit-appearance: none;
   appearance: none;
   overflow: hidden;
+  line-height: 38px;
+  text-align: center;
+}
+
+.composer input[type="date"]::-webkit-date-and-time-value,
+.composer input[type="time"]::-webkit-date-and-time-value {
+  min-height: 38px;
+  line-height: 38px;
+  text-align: center;
+}
+
+.composer label.isDisabled {
+  opacity: 0.46;
+}
+
+.composer input:disabled {
+  color: var(--dim);
+  background: rgba(46, 52, 64, 0.58);
 }
 
 .composer input,
