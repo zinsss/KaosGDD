@@ -57,6 +57,8 @@ RADICALE_USERNAME=
 RADICALE_PASSWORD=
 ```
 
+The production compose file should load this env file with `format: raw`. This preserves literal `$` characters in passwords and avoids Docker Compose variable interpolation.
+
 Then restart only the adapter:
 
 ```bash
