@@ -850,35 +850,41 @@ function renderAddEvent() {
 function renderAddTask() {
   return `
     ${renderCollectionRail()}
-    ${renderAddDatePicker({ title: "Task due", allowNoDate: true })}
-    <section class="panel">
-      <form class="composer" data-create-task>
-        <label>
-          <span>Task</span>
-          <input name="title" type="text" autocomplete="off" placeholder="New task" required />
-        </label>
-        <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
-        <label>
-          <span>Time</span>
-          <input name="dueTime" type="time" step="300" />
-        </label>
-        <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
-        <label>
-          <span>Priority</span>
-          <select name="priority">
-            <option value="">None</option>
-            <option value="9">Low (!)</option>
-            <option value="5">Medium (!!)</option>
-            <option value="1">High (!!!)</option>
-          </select>
-        </label>
-        <label>
-          <span>Memo</span>
-          <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>
-        </label>
-        <button class="primaryButton" type="submit">Create local task</button>
-      </form>
-    </section>
+    <form class="taskComposer" data-create-task>
+      <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
+      <section class="panel">
+        <div class="composer">
+          <label>
+            <span>Task</span>
+            <input name="title" type="text" autocomplete="off" placeholder="New task" required />
+          </label>
+          <label>
+            <span>Memo</span>
+            <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>
+          </label>
+        </div>
+      </section>
+      ${renderAddDatePicker({ title: "Task due", allowNoDate: true })}
+      <section class="panel">
+        <div class="composer">
+          <label>
+            <span>Time</span>
+            <input name="dueTime" type="time" step="300" />
+          </label>
+          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <label>
+            <span>Priority</span>
+            <select name="priority">
+              <option value="">None</option>
+              <option value="9">Low (!)</option>
+              <option value="5">Medium (!!)</option>
+              <option value="1">High (!!!)</option>
+            </select>
+          </label>
+          <button class="primaryButton" type="submit">Create local task</button>
+        </div>
+      </section>
+    </form>
   `;
 }
 

@@ -30,6 +30,7 @@ The calendar and task screens now act as the first Radicale frontend prototype:
 - show dated VTODO tasks on Calendar by their `DUE` date
 - use separate `Add Event` and `Add Task` pages
 - keep the collapsed/expandable month picker on add pages only
+- order Add Task fields like iOS Reminders: task name, memo, date picker, time picker, priority
 - default Add Task to no due date, with an inline clear button when a due date is selected
 - support optional task due time; selected date with blank time defaults to `10:00`, and time without date uses today
 - confirm before creating a local task draft whose computed due date/time has already passed

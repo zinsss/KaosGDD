@@ -266,6 +266,11 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.taskComposer {
+  display: grid;
+  gap: 8px;
+}
+
 .composer label {
   display: grid;
   gap: 5px;
