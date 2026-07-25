@@ -12,7 +12,7 @@ const state = {
   currentCollection: "all",
   taskMode: "inbox",
   addMonthExpanded: false,
-  taskDueEnabled: true,
+  taskDueEnabled: false,
   taskDescriptions: {},
   remoteCalendar: {
     checked: false,
@@ -137,14 +137,7 @@ const mockAdapter = {
   createTask(formData) {
     const title = String(formData.get("title") || "").trim();
     if (!title) return;
-    const notes = String(formData.get("notes") || "").trim();
-    const rawSubtasks = String(formData.get("subtasks") || "").trim();
-    const subtasks = rawSubtasks
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => (line.startsWith("-- ") || line.startsWith("-x ") ? line : `-- ${line}`));
-    const description = [notes, subtasks.join("\n")].filter(Boolean).join("\n\n");
+    const description = String(formData.get("memo") || "").trim();
     activeCalendarData().tasks.push({
       uid: `task-${Date.now()}`,
       collection: writableCollectionId(),
@@ -433,6 +426,7 @@ function routeTitle(route) {
 function renderAddDatePicker({ title, allowNoDate = false }) {
   const month = state.selectedDate.slice(0, 7);
   const cells = addPageCells(month);
+  const dueLabel = state.taskDueEnabled ? `Due ${state.selectedDate}` : "No due date";
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -461,8 +455,13 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
       ${
         allowNoDate
           ? `
-            <div class="panelBody slimBody">
-              <button class="plainButton" type="button" data-clear-task-due>${state.taskDueEnabled ? "No due date" : "Use selected date"}</button>
+            <div class="panelBody slimBody duePickerRow">
+              <span class="formNote">${escapeHtml(dueLabel)}</span>
+              ${
+                state.taskDueEnabled
+                  ? `<button class="iconTextButton" type="button" data-clear-task-due aria-label="Clear due date">x</button>`
+                  : `<button class="plainButton" type="button" data-use-selected-due>Use selected date</button>`
+              }
             </div>
           `
           : ""
@@ -781,14 +780,9 @@ function renderAddTask() {
           <input name="title" type="text" autocomplete="off" placeholder="New task" required />
         </label>
         <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
-        <p class="formNote">${state.taskDueEnabled ? `Due ${escapeHtml(state.selectedDate)}` : "No due date"}</p>
         <label>
-          <span>Notes</span>
-          <textarea name="notes" rows="2" placeholder="Description"></textarea>
-        </label>
-        <label>
-          <span>Subtasks</span>
-          <textarea name="subtasks" rows="3" placeholder="one per line; saved as -- subtask"></textarea>
+          <span>Memo</span>
+          <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>
         </label>
         <button class="primaryButton" type="submit">Create local task</button>
       </form>
@@ -876,7 +870,13 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-clear-task-due]")) {
-    state.taskDueEnabled = !state.taskDueEnabled;
+    state.taskDueEnabled = false;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-use-selected-due]")) {
+    state.taskDueEnabled = true;
     render();
     return;
   }

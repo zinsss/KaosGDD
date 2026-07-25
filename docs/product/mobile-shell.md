@@ -30,6 +30,8 @@ The calendar and task screens now act as the first Radicale frontend prototype:
 - show dated VTODO tasks on Calendar by their `DUE` date
 - use separate `Add Event` and `Add Task` pages
 - keep the collapsed/expandable month picker on add pages only
+- default Add Task to no due date, with an inline clear button when a due date is selected
+- use one `Memo` field for VTODO `DESCRIPTION`, including `--` and `-x` subtask lines
 
 The UI should continue to depend on adapter-shaped methods, not backend-specific storage:
 

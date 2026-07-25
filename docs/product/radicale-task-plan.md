@@ -18,7 +18,7 @@ Use one CalDAV collection per practical sharing boundary. The first planned Kaos
 | KaosGDD field | VTODO field |
 | --- | --- |
 | title | `SUMMARY` |
-| notes and subtasks | `DESCRIPTION` |
+| memo and subtasks | `DESCRIPTION` |
 | due date | `DUE` |
 | completed state | `STATUS` and/or `COMPLETED` |
 | tags | `CATEGORIES` |
@@ -51,7 +51,9 @@ Calendar/task UI should stay compatible with iOS and Thunderbird. Do not require
 
 ## Legacy Subtask Grammar
 
-Subtasks live inside the VTODO `DESCRIPTION` using the legacy KaosGDD grammar.
+Task memo text and subtasks live together inside the VTODO `DESCRIPTION`.
+
+The Add Task UI should expose this as one `Memo` field, not separate custom fields. Subtasks use the legacy KaosGDD grammar inside that memo:
 
 ```text
 -- open subtask

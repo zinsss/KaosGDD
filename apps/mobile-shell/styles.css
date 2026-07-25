@@ -252,6 +252,13 @@ h3 {
   padding-top: 0;
 }
 
+.duePickerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .composer {
   display: grid;
   gap: 10px;
@@ -650,6 +657,20 @@ h3 {
   color: var(--nord8);
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.iconTextButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(191, 97, 106, 0.1);
+  color: var(--nord11);
+  font-size: 0.82rem;
+  font-weight: 900;
 }
 
 .bottomNav {
