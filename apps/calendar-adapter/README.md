@@ -25,10 +25,29 @@ The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale fil
 RADICALE_INTERNAL_URL=http://100.94.208.16:5232
 RADICALE_USERNAME=
 RADICALE_PASSWORD=
+RADICALE_FAMILY_USERNAME=
+RADICALE_FAMILY_PASSWORD=
+RADICALE_WIFE_USERNAME=
+RADICALE_WIFE_PASSWORD=
 KAOSGDD_ADAPTER_TIMEOUT_SECONDS=30
 ```
 
 Credentials should come from `/srv/kaos/secrets/kaosgdd-adapters.env` in production.
+
+## Portal Profiles
+
+The adapter chooses which Radicale accounts are visible from the request hostname:
+
+```text
+kaosgdd.net
+  reads/writes: zin, family
+
+family.kaosgdd.net
+  reads/writes: wife, family
+```
+
+The system/brain Radicale account is not exposed through the browser calendar API.
+Human accounts are discovered by account and component type, not fixed collection names.
 
 ## Production Behavior
 

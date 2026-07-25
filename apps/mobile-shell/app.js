@@ -34,6 +34,7 @@ const state = {
     checked: false,
     configured: false,
     live: false,
+    profile: "main",
     error: "",
     collections: [],
     events: [],
@@ -231,13 +232,38 @@ function activeCalendarData() {
 function collectionViews() {
   const data = activeCalendarData();
   const allIds = data.collections.map((collection) => collection.id);
-  const familyIds = data.collections.filter((collection) => collection.owner === "family" || collection.id === "family").map((collection) => collection.id);
-  const zinIds = data.collections.filter((collection) => collection.owner === "zin" || collection.id === "zin").map((collection) => collection.id);
-  return [
+  const ownerLabels = {
+    zin: "GDD_ZiN",
+    family: "Family",
+    wife: "Wife",
+  };
+  const ownerSubtitles = {
+    zin: "personal",
+    family: "shared",
+    wife: "personal",
+  };
+  const ownerOrder = ["family", "zin", "wife"];
+  const owners = [...new Set(data.collections.map((collection) => collection.owner).filter(Boolean))].sort((a, b) => {
+    const rankA = ownerOrder.includes(a) ? ownerOrder.indexOf(a) : ownerOrder.length;
+    const rankB = ownerOrder.includes(b) ? ownerOrder.indexOf(b) : ownerOrder.length;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b);
+  });
+  const views = [
     { id: "all", name: "All", owner: "Radicale", collectionIds: allIds },
-    { id: "family", name: "Family", owner: "shared", collectionIds: familyIds },
-    { id: "gdd_zin", name: "GDD_ZiN", owner: "zin", collectionIds: zinIds },
   ];
+  owners.forEach((owner) => {
+    const collectionIds = data.collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
+    if (collectionIds.length) {
+      views.push({
+        id: `owner:${owner}`,
+        name: ownerLabels[owner] || owner,
+        owner: ownerSubtitles[owner] || owner,
+        collectionIds,
+      });
+    }
+  });
+  return views;
 }
 
 function filterByCollectionView(items, viewId) {
@@ -258,6 +284,8 @@ function writableTaskCollectionId() {
   const collectionIds = view?.id !== "all" && view?.collectionIds.length
     ? view.collectionIds
     : data.collections.map((collection) => collection.id);
+  const typedTaskCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && collection.components?.includes("VTODO"));
+  if (typedTaskCollection) return typedTaskCollection.id;
   const taskCollectionIds = new Set(data.tasks.map((task) => task.collection));
   const taskCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && taskCollectionIds.has(collection.id));
   if (taskCollection) return taskCollection.id;
@@ -272,6 +300,8 @@ function writableEventCollectionId() {
   const collectionIds = view?.id !== "all" && view?.collectionIds.length
     ? view.collectionIds
     : data.collections.map((collection) => collection.id);
+  const typedEventCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && collection.components?.includes("VEVENT"));
+  if (typedEventCollection) return typedEventCollection.id;
   const eventCollectionIds = new Set(data.events.map((event) => event.collection));
   const eventCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && eventCollectionIds.has(collection.id));
   if (eventCollection) return eventCollection.id;
@@ -293,6 +323,7 @@ async function loadRemoteCalendar() {
       checked: true,
       configured: Boolean(payload.configured),
       live: Boolean(payload.live && payload.collections?.length),
+      profile: payload.profile || "main",
       error: "",
       collections: payload.collections || [],
       events: payload.events || [],
@@ -306,6 +337,7 @@ async function loadRemoteCalendar() {
       ...state.remoteCalendar,
       checked: true,
       live: false,
+      profile: state.remoteCalendar.profile,
       error: error.message || "Calendar adapter unavailable",
     };
   }
