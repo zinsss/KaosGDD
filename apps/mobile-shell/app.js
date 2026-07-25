@@ -865,30 +865,13 @@ function renderTasks() {
   `;
 }
 
-function renderAddTabs() {
-  return `
-    <section class="modeRail" aria-label="Add type">
-      ${[
-        ["event", "Event"],
-        ["task", "Task"],
-      ]
-        .map(
-          ([kind, label]) =>
-            `<button class="${state.addKind === kind ? "isActive" : ""}" type="button" data-add-kind="${kind}">${label}</button>`,
-        )
-        .join("")}
-    </section>
-  `;
-}
-
 function renderAdd() {
-  return state.addKind === "task" ? renderAddTask({ withTabs: true }) : renderAddEvent({ withTabs: true });
+  return state.addKind === "task" ? renderAddTask() : renderAddEvent();
 }
 
-function renderAddEvent({ withTabs = false } = {}) {
+function renderAddEvent() {
   return `
     ${renderCollectionRail()}
-    ${withTabs ? renderAddTabs() : ""}
     <section class="panel">
       <form class="composer" data-create-event>
         <label>
@@ -940,11 +923,10 @@ function renderAddEvent({ withTabs = false } = {}) {
   `;
 }
 
-function renderAddTask({ withTabs = false } = {}) {
+function renderAddTask() {
   const dueEnabled = state.taskDueEnabled;
   return `
     ${renderCollectionRail()}
-    ${withTabs ? renderAddTabs() : ""}
     <form class="taskComposer" data-create-task>
       <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
       <section class="panel">
@@ -1030,11 +1012,11 @@ function render() {
   else if (route === "add") view.innerHTML = renderAdd();
   else if (route === "add-event") {
     state.addKind = "event";
-    view.innerHTML = renderAddEvent({ withTabs: true });
+    view.innerHTML = renderAddEvent();
   }
   else if (route === "add-task") {
     state.addKind = "task";
-    view.innerHTML = renderAddTask({ withTabs: true });
+    view.innerHTML = renderAddTask();
   }
   else if (route === "services") view.innerHTML = renderServices();
   else view.innerHTML = renderToday();
@@ -1045,14 +1027,6 @@ document.addEventListener("click", (event) => {
   if (day) {
     state.selectedDate = day.dataset.date;
     if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
-    render();
-    return;
-  }
-
-  const addKind = event.target.closest("[data-add-kind]");
-  if (addKind) {
-    state.addKind = addKind.dataset.addKind;
-    if (state.addKind === "task") state.taskDueEnabled = true;
     render();
     return;
   }
