@@ -185,8 +185,13 @@ def normalize_event(item, collection):
         "uid": item.get("UID") or item.get("href"),
         "collection": collection["id"],
         "summary": item.get("SUMMARY", "Untitled event"),
+        "description": item.get("DESCRIPTION", ""),
         "dtstart": parsed["iso"] or start,
-        "source": "Radicale",
+        "dtend": parse_ics_datetime(item.get("DTEND", ""))["iso"],
+        "location": item.get("LOCATION", ""),
+        "status": item.get("STATUS", ""),
+        "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
+        "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
     }
 
 
@@ -203,7 +208,6 @@ def normalize_task(item, collection):
         "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
         "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
         "categories": categories,
-        "source": "Radicale",
     }
 
 

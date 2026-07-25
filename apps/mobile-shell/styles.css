@@ -508,6 +508,26 @@ h3 {
   text-align: right;
 }
 
+.taskGroup {
+  display: grid;
+  gap: 4px;
+  padding: 2px 0 8px;
+}
+
+.taskGroup + .taskGroup {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.taskGroupTitle,
+.sectionLabel {
+  color: var(--nord13);
+}
+
+.panelBody.withDivider {
+  border-top: 1px solid var(--line);
+}
+
 .legacySubtasks {
   display: grid;
   gap: 5px;

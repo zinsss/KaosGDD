@@ -6,9 +6,9 @@ const routes = {
 };
 
 const state = {
-  selectedDate: "2026-07-24",
+  selectedDate: ymd(new Date()),
   currentCollection: "family",
-  taskMode: "now",
+  taskMode: "inbox",
   eventComposerOpen: false,
   taskComposerOpen: false,
   taskDescriptions: {},
@@ -29,12 +29,12 @@ const mockCalendarData = {
     { id: "zin", name: "Zin", owner: "zin", color: "nord8" },
   ],
   events: [
-    { uid: "vaccine-prep", collection: "zin", summary: "Vaccine room prep", dtstart: "2026-07-24T09:00:00", source: "Clinic" },
-    { uid: "supplies-review", collection: "zin", summary: "Supplies review", dtstart: "2026-07-24T11:30:00", source: "KaosSupplies" },
-    { uid: "roun-check", collection: "family", summary: "ROUN timetable check", dtstart: "2026-07-24T17:00:00", source: "Family" },
-    { uid: "family-dinner", collection: "family", summary: "Family dinner", dtstart: "2026-07-24T18:30:00", source: "Family" },
-    { uid: "scan-review", collection: "zin", summary: "Scan queue review", dtstart: "2026-07-27T10:00:00", source: "PACS" },
-    { uid: "paperless-cleanup", collection: "zin", summary: "Paperless archive pass", dtstart: "2026-07-30T15:00:00", source: "Documents" },
+    { uid: "vaccine-prep", collection: "zin", summary: "Vaccine room prep", dtstart: "2026-07-24T09:00:00" },
+    { uid: "supplies-review", collection: "zin", summary: "Supplies review", dtstart: "2026-07-24T11:30:00" },
+    { uid: "roun-check", collection: "family", summary: "ROUN timetable check", dtstart: "2026-07-24T17:00:00" },
+    { uid: "family-dinner", collection: "family", summary: "Family dinner", dtstart: "2026-07-24T18:30:00" },
+    { uid: "scan-review", collection: "zin", summary: "Scan queue review", dtstart: "2026-07-27T10:00:00" },
+    { uid: "paperless-cleanup", collection: "zin", summary: "Paperless archive pass", dtstart: "2026-07-30T15:00:00" },
   ],
   tasks: [
     {
@@ -45,8 +45,7 @@ const mockCalendarData = {
       due: "2026-07-24",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:35:00",
-      categories: ["fax", "now", "urgent"],
-      source: "Radicale mock",
+      categories: ["fax"],
     },
     {
       uid: "scan-queue",
@@ -56,8 +55,7 @@ const mockCalendarData = {
       due: "2026-07-24",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T08:20:00",
-      categories: ["pacs", "now"],
-      source: "Radicale mock",
+      categories: ["pacs"],
     },
     {
       uid: "supply-sync",
@@ -67,8 +65,7 @@ const mockCalendarData = {
       due: "2026-07-24",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:50:00",
-      categories: ["supplies", "today", "repeat"],
-      source: "Radicale mock",
+      categories: ["supplies"],
     },
     {
       uid: "roun-window",
@@ -78,8 +75,7 @@ const mockCalendarData = {
       due: "2026-07-24",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T07:30:00",
-      categories: ["family", "today"],
-      source: "Radicale mock",
+      categories: ["family"],
     },
     {
       uid: "paperless-inbox",
@@ -91,7 +87,6 @@ const mockCalendarData = {
       completed: "2026-07-24T08:40:00",
       lastModified: "2026-07-24T08:40:00",
       categories: ["documents"],
-      source: "Radicale mock",
     },
     {
       uid: "wiki-note",
@@ -101,8 +96,7 @@ const mockCalendarData = {
       due: "2026-07-30",
       status: "NEEDS-ACTION",
       lastModified: "2026-07-24T06:10:00",
-      categories: ["knowledge", "later"],
-      source: "Radicale mock",
+      categories: ["knowledge"],
     },
   ],
 };
@@ -134,7 +128,6 @@ const mockAdapter = {
       collection: state.currentCollection,
       summary: title,
       dtstart: `${date}T${time}:00`,
-      source: this.getCurrentCollection()?.name || "Radicale",
     });
     state.selectedDate = date;
     state.eventComposerOpen = false;
@@ -159,11 +152,7 @@ const mockAdapter = {
       due: String(formData.get("due") || state.selectedDate),
       status: "NEEDS-ACTION",
       lastModified: new Date().toISOString().slice(0, 19),
-      categories: String(formData.get("mode") || "today")
-        .split(",")
-        .map((category) => category.trim())
-        .filter(Boolean),
-      source: "Radicale draft",
+      categories: [],
     });
     state.taskMode = "all";
     state.taskComposerOpen = false;
@@ -242,18 +231,17 @@ function normalizeEvent(event) {
       date: event.date,
       time: event.time || "",
       title: event.title || event.summary || "Untitled event",
-      source: event.source || "Radicale",
+      detail: event.location || event.description || "",
     };
   }
   const start = parseDateTime(event.dtstart);
-  const collection = activeCalendarData().collections.find((item) => item.id === event.collection);
   return {
     id: event.uid,
     collection: event.collection,
     date: start.date,
     time: start.time,
     title: event.summary,
-    source: `${collection?.name || "Radicale"} · ${event.source || "Radicale"}`,
+    detail: event.location || event.description || "",
   };
 }
 
@@ -282,46 +270,34 @@ function taskDescription(task) {
   return state.taskDescriptions[task.uid] || task.description || "";
 }
 
-function taskMode(task, done) {
-  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
+function taskBucket(task, done) {
   if (done) return "done";
-  if (categories.has("now") || categories.has("urgent")) return "now";
-  if (categories.has("later")) return "later";
-  if (!task.due) return "now";
-  if (task.due === state.selectedDate) return "today";
-  return "later";
+  if (task.due) return "dated";
+  return "inbox";
 }
 
 function taskBadge(task, subtasks, done) {
-  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
   if (done) return "";
   if (subtasks.length) {
     const completed = subtasks.filter((subtask) => subtask.done).length;
     return `${completed}/${subtasks.length}`;
   }
-  if (categories.has("repeat")) return "R";
-  if (task.due === state.selectedDate) return "t";
   return "";
 }
 
 function taskMeta(task, parsed, done) {
-  const collection = activeCalendarData().collections.find((item) => item.id === task.collection);
   if (done && task.completed) return `Done ${parseDateTime(task.completed).time}`;
-  const categories = (task.categories || []).filter((category) => !["now", "today", "later", "urgent", "repeat"].includes(category));
   const parts = [];
-  if (collection) parts.push(collection.name);
-  if (categories.length) parts.push(categories.join(", "));
   if (task.due) parts.push(task.due === state.selectedDate ? "due today" : `due ${task.due}`);
   else if (task.lastModified || task.created) parts.push(formatDateTimeLabel(task.lastModified || task.created));
   if (parsed.subtasks.length) parts.push(`${parsed.subtasks.length} subtasks`);
-  return parts.join(" · ") || task.source || "Radicale";
+  return parts.join(" · ");
 }
 
 function normalizeTask(task) {
   const description = taskDescription(task);
   const parsed = parseLegacyDescription(description);
   const done = task.status === "COMPLETED";
-  const categories = new Set((task.categories || []).map((category) => String(category).toLowerCase()));
   return {
     id: task.uid,
     collection: task.collection,
@@ -332,10 +308,8 @@ function normalizeTask(task) {
     notes: parsed.notes,
     subtasks: parsed.subtasks,
     meta: taskMeta(task, parsed, done),
-    mode: taskMode(task, done),
+    mode: taskBucket(task, done),
     done,
-    urgent: categories.has("urgent"),
-    repeat: categories.has("repeat"),
     badge: taskBadge(task, parsed.subtasks, done),
   };
 }
@@ -351,6 +325,20 @@ function sortTasks(a, b) {
   if (!a.due && b.due) return 1;
   if (!a.due && !b.due) return (b.lastModified || "").localeCompare(a.lastModified || "");
   return a.title.localeCompare(b.title);
+}
+
+function taskMatchesMode(task, mode) {
+  if (mode === "all") return true;
+  return task.mode === mode;
+}
+
+function groupTasksByDue(tasks) {
+  return tasks.reduce((groups, task) => {
+    const due = task.due || "No due date";
+    if (!groups[due]) groups[due] = [];
+    groups[due].push(task);
+    return groups;
+  }, {});
 }
 
 function escapeHtml(value) {
@@ -371,6 +359,18 @@ function ymd(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function compactDateLabel(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return `${dateValue.replace(/-/g, ".")} ${weekdays[date.getDay()]}`;
+}
+
+function monthTitle(monthValue) {
+  const [year, month] = monthValue.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return `${date.toLocaleString("en", { month: "long" })} ${year}`;
 }
 
 function monthCells(monthValue) {
@@ -447,7 +447,7 @@ function renderTimeline(events, emptyText = "No items") {
                 <time>${escapeHtml(event.time)}</time>
                 <div>
                   <strong>${escapeHtml(event.title)}</strong>
-                  <span>${escapeHtml(event.source)}</span>
+                  ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
                 </div>
               </li>
             `,
@@ -459,14 +459,15 @@ function renderTimeline(events, emptyText = "No items") {
 }
 
 function renderTaskRows(tasks) {
+  if (!tasks.length) {
+    return `<p class="taskMeta">No tasks</p>`;
+  }
   return `
     <ul class="taskList">
       ${tasks
         .map((task) => {
           const done = task.done;
-          const classes = ["taskRow", task.urgent ? "isUrgent" : "", task.repeat ? "isRepeat" : "", done ? "isDone" : ""]
-            .filter(Boolean)
-            .join(" ");
+          const classes = ["taskRow", done ? "isDone" : ""].filter(Boolean).join(" ");
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
@@ -503,16 +504,54 @@ function renderTaskRows(tasks) {
   `;
 }
 
+function renderTaskGroups(tasks) {
+  if (!tasks.length) return `<p class="taskMeta">No dated tasks</p>`;
+  const groups = groupTasksByDue(tasks);
+  return Object.keys(groups)
+    .sort()
+    .map(
+      (due) => `
+        <section class="taskGroup">
+          <h3 class="taskGroupTitle">${escapeHtml(due)}</h3>
+          ${renderTaskRows(groups[due])}
+        </section>
+      `,
+    )
+    .join("");
+}
+
+function renderCalendarAgenda(events, tasks) {
+  if (!events.length && !tasks.length) {
+    return `<div class="panelBody"><p class="taskMeta">No items</p></div>`;
+  }
+  return `
+    ${events.length ? renderTimeline(events, "") : ""}
+    ${
+      tasks.length
+        ? `
+          <div class="panelBody ${events.length ? "withDivider" : ""}">
+            <p class="label sectionLabel">Tasks due</p>
+            ${renderTaskRows(tasks)}
+          </div>
+        `
+        : ""
+    }
+  `;
+}
+
 function renderToday() {
   const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
-  const tasks = mockAdapter.getTasks().filter((task) => ["now", "today"].includes(task.mode)).slice(0, 4);
+  const tasks = mockAdapter
+    .getTasks()
+    .filter((task) => task.mode === "inbox" || task.due === state.selectedDate)
+    .slice(0, 4);
   return `
     ${renderCollectionRail()}
     <section class="panel">
       <div class="panelHeader">
         <div>
           <p class="label">Overview</p>
-          <h2>Friday, July 24 · Pohang 21-32 ☀️</h2>
+          <h2>${escapeHtml(compactDateLabel(state.selectedDate))} · Pohang 21-32 ☀️</h2>
         </div>
       </div>
       <div class="panelBody">
@@ -551,8 +590,10 @@ function renderToday() {
 function renderCalendar() {
   const month = state.selectedDate.slice(0, 7);
   const events = mockAdapter.getEvents();
+  const datedTasks = mockAdapter.getTasks().filter((task) => task.due);
   const selectedEvents = events.filter((event) => event.date === state.selectedDate);
-  const eventDates = new Set(events.map((event) => event.date));
+  const selectedTasks = datedTasks.filter((task) => task.due === state.selectedDate);
+  const eventDates = new Set([...events.map((event) => event.date), ...datedTasks.map((task) => task.due)]);
   return `
     ${renderCollectionRail()}
     ${renderRadicaleStatus()}
@@ -560,7 +601,7 @@ function renderCalendar() {
       <div class="panelHeader">
         <div>
           <p class="label">Calendar</p>
-          <h2>July 2026</h2>
+          <h2>${escapeHtml(monthTitle(month))}</h2>
         </div>
         <button class="openButton" type="button" data-toggle-event-composer>${state.eventComposerOpen ? "Close" : "Add"}</button>
       </div>
@@ -571,7 +612,7 @@ function renderCalendar() {
             const classes = [
               "day",
               cell.muted ? "isMuted" : "",
-              cell.value === "2026-07-24" ? "isToday" : "",
+              cell.value === ymd(new Date()) ? "isToday" : "",
               cell.value === state.selectedDate ? "isSelected" : "",
               eventDates.has(cell.value) ? "hasEvents" : "",
             ]
@@ -590,21 +631,26 @@ function renderCalendar() {
           <h2>${escapeHtml(state.selectedDate)}</h2>
         </div>
       </div>
-      ${renderTimeline(selectedEvents)}
+      ${renderCalendarAgenda(selectedEvents, selectedTasks)}
     </section>
   `;
 }
 
 function renderTasks() {
-  const tasks = mockAdapter.getTasks().filter((task) => state.taskMode === "all" || task.mode === state.taskMode);
+  const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
+  const taskTitle = {
+    inbox: "Undated inbox",
+    dated: "Due dates",
+    done: "Completed",
+    all: "All tasks",
+  }[state.taskMode];
   return `
     ${renderCollectionRail()}
     ${renderRadicaleStatus()}
     <section class="modeRail" aria-label="Task modes">
       ${[
-        ["now", "Now"],
-        ["today", "Today"],
-        ["later", "Later"],
+        ["inbox", "Inbox"],
+        ["dated", "Dated"],
         ["done", "Done"],
         ["all", "All"],
       ]
@@ -618,12 +664,12 @@ function renderTasks() {
       <div class="panelHeader">
         <div>
           <p class="label">Tasks</p>
-          <h2>Work queue</h2>
+          <h2>${escapeHtml(taskTitle)}</h2>
         </div>
         <button class="openButton" type="button" data-toggle-task-composer>${state.taskComposerOpen ? "Close" : "Add"}</button>
       </div>
       ${state.taskComposerOpen ? renderTaskComposer() : ""}
-      <div class="panelBody">${renderTaskRows(tasks)}</div>
+      <div class="panelBody">${state.taskMode === "dated" ? renderTaskGroups(tasks) : renderTaskRows(tasks)}</div>
     </section>
   `;
 }
@@ -659,20 +705,10 @@ function renderTaskComposer() {
         <span>Task</span>
         <input name="title" type="text" autocomplete="off" placeholder="New task" required />
       </label>
-      <div class="formGrid">
-        <label>
-          <span>Due</span>
-          <input name="due" type="date" value="${escapeHtml(state.selectedDate)}" />
-        </label>
-        <label>
-          <span>Mode</span>
-          <select name="mode">
-            <option value="now">Now</option>
-            <option value="today" selected>Today</option>
-            <option value="later">Later</option>
-          </select>
-        </label>
-      </div>
+      <label>
+        <span>Due</span>
+        <input name="due" type="date" value="${escapeHtml(state.selectedDate)}" />
+      </label>
       <label>
         <span>Notes</span>
         <textarea name="notes" rows="2" placeholder="Description"></textarea>
