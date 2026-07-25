@@ -136,7 +136,6 @@ h3 {
   outline: none;
 }
 
-.modeRail,
 .collectionRail {
   display: flex;
   gap: 8px;
@@ -146,12 +145,10 @@ h3 {
   scrollbar-width: none;
 }
 
-.modeRail::-webkit-scrollbar,
 .collectionRail::-webkit-scrollbar {
   display: none;
 }
 
-.modeRail button,
 .collectionRail button {
   display: inline-flex;
   align-items: center;
@@ -164,26 +161,6 @@ h3 {
   font-size: 0.78rem;
   font-weight: 720;
   white-space: nowrap;
-}
-
-.modeRail button {
-  justify-content: center;
-  min-width: 82px;
-  padding: 8px 11px;
-}
-
-.modeRail button {
-  border-color: var(--line);
-}
-
-.compactRail {
-  margin-top: -6px;
-}
-
-.compactRail button {
-  min-width: 96px;
-  min-height: 30px;
-  font-size: 0.74rem;
 }
 
 .collectionRail button {
@@ -199,7 +176,6 @@ h3 {
   font-weight: 800;
 }
 
-.modeRail button.isActive,
 .collectionRail button.isActive {
   border-color: rgba(180, 142, 173, 0.62);
   background: rgba(180, 142, 173, 0.14);
@@ -210,27 +186,37 @@ h3 {
   color: var(--nord15);
 }
 
-.adapterNote {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.taskFilters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  min-height: 38px;
-  padding: 8px 10px;
-  border: 1px solid rgba(143, 188, 187, 0.26);
-  border-radius: 8px;
-  background: rgba(143, 188, 187, 0.08);
 }
 
-.adapterNote strong {
+.taskFilters label {
+  display: grid;
+  gap: 5px;
+}
+
+.taskFilters span {
   color: var(--nord7);
-  font-size: 0.78rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.adapterNote span {
-  color: var(--dim);
-  font-size: 0.72rem;
-  text-align: right;
+.taskFilters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 720;
+  padding: 0 10px;
 }
 
 .panel {

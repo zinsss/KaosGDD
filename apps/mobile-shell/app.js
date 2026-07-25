@@ -22,7 +22,7 @@ const taskPriorityOptions = {
 const state = {
   selectedDate: ymd(new Date()),
   currentCollection: "all",
-  taskMode: "all",
+  taskMode: "active",
   taskSort: "due",
   addKind: "event",
   addMonthExpanded: false,
@@ -185,7 +185,7 @@ const mockAdapter = {
       lastModified: new Date().toISOString().slice(0, 19),
       categories: [],
     });
-    state.taskMode = "all";
+    state.taskMode = "active";
   },
 
   getServices() {
@@ -452,6 +452,7 @@ function compareTasksByDue(a, b) {
 }
 
 function taskMatchesMode(task, mode) {
+  if (mode === "active") return !task.done;
   if (mode === "all") return true;
   return task.mode === mode;
 }
@@ -593,24 +594,6 @@ function renderCollectionRail() {
           `,
         )
         .join("")}
-    </section>
-  `;
-}
-
-function renderRadicaleStatus() {
-  const collection = mockAdapter.getCurrentCollection();
-  const remote = state.remoteCalendar;
-  const status = remote.live
-    ? "Live Radicale read-only"
-    : remote.checked && remote.configured
-      ? "No live collection found · local preview"
-      : remote.checked && remote.error
-        ? "Adapter unavailable · local preview"
-        : "Local preview · CalDAV write adapter pending";
-  return `
-    <section class="adapterNote" aria-label="Radicale adapter status">
-      <strong>${escapeHtml(collection?.name || "Radicale")}</strong>
-      <span>${escapeHtml(status)}</span>
     </section>
   `;
 }
@@ -778,7 +761,6 @@ function renderCalendar() {
   const eventDates = new Set([...events.map((event) => event.date), ...datedTasks.map((task) => task.due)]);
   return `
     ${renderCollectionRail()}
-    ${renderRadicaleStatus()}
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -820,37 +802,27 @@ function renderCalendar() {
 function renderTasks() {
   const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
   const taskTitle = {
-    inbox: "Undated inbox",
-    dated: "Due dates",
+    active: "Active",
     done: "Completed",
     all: "All tasks",
   }[state.taskMode];
   return `
     ${renderCollectionRail()}
-    ${renderRadicaleStatus()}
-    <section class="modeRail" aria-label="Task modes">
-      ${[
-        ["inbox", "Inbox"],
-        ["dated", "Dated"],
-        ["done", "Done"],
-        ["all", "All"],
-      ]
-        .map(
-          ([mode, label]) =>
-            `<button class="${state.taskMode === mode ? "isActive" : ""}" type="button" data-task-mode="${mode}">${label}</button>`,
-        )
-        .join("")}
-    </section>
-    <section class="modeRail compactRail" aria-label="Task order">
-      ${[
-        ["due", "Due"],
-        ["created", "Created"],
-      ]
-        .map(
-          ([sort, label]) =>
-            `<button class="${state.taskSort === sort ? "isActive" : ""}" type="button" data-task-sort="${sort}">${label}</button>`,
-        )
-        .join("")}
+    <section class="taskFilters" aria-label="Task filters">
+      <label>
+        <span>Tasks</span>
+        <select data-task-mode>
+          <option value="active" ${state.taskMode === "active" ? "selected" : ""}>Active</option>
+          <option value="done" ${state.taskMode === "done" ? "selected" : ""}>Done</option>
+        </select>
+      </label>
+      <label>
+        <span>Order</span>
+        <select data-task-sort>
+          <option value="due" ${state.taskSort === "due" ? "selected" : ""}>Due</option>
+          <option value="created" ${state.taskSort === "created" ? "selected" : ""}>Creation</option>
+        </select>
+      </label>
     </section>
     <section class="panel">
       <div class="panelHeader">
@@ -860,7 +832,7 @@ function renderTasks() {
         </div>
         <a class="openButton" href="#/add-task">Add</a>
       </div>
-      <div class="panelBody">${state.taskMode === "dated" ? renderTaskGroups(tasks) : renderTaskRows(tasks)}</div>
+      <div class="panelBody">${renderTaskRows(tasks)}</div>
     </section>
   `;
 }
@@ -1031,20 +1003,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const taskMode = event.target.closest("[data-task-mode]");
-  if (taskMode) {
-    state.taskMode = taskMode.dataset.taskMode;
-    render();
-    return;
-  }
-
-  const taskSort = event.target.closest("[data-task-sort]");
-  if (taskSort) {
-    state.taskSort = taskSort.dataset.taskSort;
-    render();
-    return;
-  }
-
   const collection = event.target.closest("[data-collection]");
   if (collection) {
     state.currentCollection = collection.dataset.collection;
@@ -1126,6 +1084,20 @@ document.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const taskMode = event.target.closest("[data-task-mode]");
+  if (taskMode) {
+    state.taskMode = taskMode.value;
+    render();
+    return;
+  }
+
+  const taskSort = event.target.closest("[data-task-sort]");
+  if (taskSort) {
+    state.taskSort = taskSort.value;
+    render();
+    return;
+  }
+
   const allDayToggle = event.target.closest("[data-all-day-toggle]");
   if (!allDayToggle) return;
   const form = allDayToggle.closest("[data-create-event]");
