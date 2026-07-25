@@ -286,6 +286,18 @@ h3 {
   gap: 5px;
 }
 
+.composer .toggleLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+}
+
+.composer .toggleLine input {
+  width: 20px;
+  min-height: 20px;
+}
+
 .composer label span {
   color: var(--nord7);
   font-size: 0.68rem;

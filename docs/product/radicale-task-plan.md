@@ -43,6 +43,7 @@ KaosGDD task views:
 - `Dated` shows open VTODO items with `DUE`, grouped by due date
 - `Done` shows completed VTODO items
 - Calendar shows dated VTODO items on their `DUE` date
+- Calendar Add can create either events or dated tasks; Task tab defaults to the selected calendar date.
 
 KaosGDD collection filters:
 

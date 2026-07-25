@@ -2,12 +2,15 @@ const routes = {
   today: "Today",
   calendar: "Calendar",
   tasks: "Tasks",
+  add: "Add",
   "add-event": "Add Event",
   "add-task": "Add Task",
   services: "Services",
 };
 
 const DEFAULT_TASK_DUE_TIME = "10:00";
+const DEFAULT_EVENT_START_TIME = "09:00";
+const DEFAULT_EVENT_END_TIME = "10:00";
 
 const taskPriorityOptions = {
   none: { value: "", label: "None", rank: 10 },
@@ -21,6 +24,7 @@ const state = {
   currentCollection: "all",
   taskMode: "all",
   taskSort: "due",
+  addKind: "event",
   addMonthExpanded: false,
   taskDueEnabled: false,
   taskDescriptions: {},
@@ -145,15 +149,23 @@ const mockAdapter = {
   createEvent(formData) {
     const title = String(formData.get("title") || "").trim();
     if (!title) return;
-    const date = String(formData.get("date") || state.selectedDate);
-    const time = String(formData.get("time") || "09:00");
+    const allDay = formData.get("allDay") === "on";
+    const startDate = String(formData.get("startDate") || state.selectedDate);
+    const endDate = String(formData.get("endDate") || startDate);
+    const startTime = String(formData.get("startTime") || DEFAULT_EVENT_START_TIME);
+    const endTime = String(formData.get("endTime") || DEFAULT_EVENT_END_TIME);
     activeCalendarData().events.push({
       uid: `event-${Date.now()}`,
       collection: writableCollectionId(),
       summary: title,
-      dtstart: `${date}T${time}:00`,
+      description: String(formData.get("memo") || "").trim(),
+      dtstart: allDay ? startDate : `${startDate}T${startTime}:00`,
+      dtend: allDay ? endDate : `${endDate}T${endTime}:00`,
+      allDay,
+      repeat: String(formData.get("repeat") || ""),
+      alarm: String(formData.get("alarm") || ""),
     });
-    state.selectedDate = date;
+    state.selectedDate = startDate;
   },
 
   createTask(formData) {
@@ -277,11 +289,16 @@ function normalizeEvent(event) {
     };
   }
   const start = parseDateTime(event.dtstart);
+  const end = parseDateTime(event.dtend);
+  const allDay = Boolean(event.allDay || (event.dtstart && !String(event.dtstart).includes("T")));
   return {
     id: event.uid,
     collection: event.collection,
     date: start.date,
-    time: start.time,
+    time: allDay ? "" : start.time,
+    endDate: end.date,
+    endTime: allDay ? "" : end.time,
+    allDay,
     title: event.summary,
     detail: event.location || event.description || "",
   };
@@ -505,10 +522,11 @@ function addPageCells(monthValue) {
 }
 
 function routeTitle(route) {
-  document.getElementById("routeTitle").textContent = routes[route];
+  const title = route === "add-event" || route === "add-task" ? routes.add : routes[route];
+  document.getElementById("routeTitle").textContent = title;
   document.querySelector(".app").dataset.route = route;
   document.querySelectorAll("[data-nav]").forEach((link) => {
-    const activeRoute = route === "add-event" ? "calendar" : route === "add-task" ? "tasks" : route;
+    const activeRoute = route === "add" || route === "add-event" ? "calendar" : route === "add-task" ? "tasks" : route;
     link.classList.toggle("isActive", link.dataset.nav === activeRoute);
   });
 }
@@ -516,7 +534,8 @@ function routeTitle(route) {
 function renderAddDatePicker({ title, allowNoDate = false }) {
   const month = state.selectedDate.slice(0, 7);
   const cells = addPageCells(month);
-  const dueLabel = state.taskDueEnabled ? `Due ${state.selectedDate}` : "No due date";
+  const dueEnabled = state.taskDueEnabled;
+  const dueLabel = dueEnabled ? `Due ${state.selectedDate}` : "No due date";
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -548,7 +567,7 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
             <div class="panelBody slimBody duePickerRow">
               <span class="formNote">${escapeHtml(dueLabel)}</span>
               ${
-                state.taskDueEnabled
+                dueEnabled
                   ? `<button class="iconTextButton" type="button" data-clear-task-due aria-label="Clear due date">x</button>`
                   : `<button class="plainButton" type="button" data-use-selected-due>Use selected date</button>`
               }
@@ -846,35 +865,88 @@ function renderTasks() {
   `;
 }
 
-function renderAddEvent() {
+function renderAddTabs() {
+  return `
+    <section class="modeRail" aria-label="Add type">
+      ${[
+        ["event", "Event"],
+        ["task", "Task"],
+      ]
+        .map(
+          ([kind, label]) =>
+            `<button class="${state.addKind === kind ? "isActive" : ""}" type="button" data-add-kind="${kind}">${label}</button>`,
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function renderAdd() {
+  return state.addKind === "task" ? renderAddTask({ withTabs: true }) : renderAddEvent({ withTabs: true });
+}
+
+function renderAddEvent({ withTabs = false } = {}) {
   return `
     ${renderCollectionRail()}
-    ${renderAddDatePicker({ title: "Event date" })}
+    ${withTabs ? renderAddTabs() : ""}
     <section class="panel">
       <form class="composer" data-create-event>
         <label>
-          <span>Event</span>
+          <span>Title</span>
           <input name="title" type="text" autocomplete="off" placeholder="New event" required />
         </label>
-        <input name="date" type="hidden" value="${escapeHtml(state.selectedDate)}" />
-        <p class="formNote">Date ${escapeHtml(state.selectedDate)}</p>
+        <label class="toggleLine">
+          <span>All-day</span>
+          <input name="allDay" type="checkbox" />
+        </label>
         <div class="formGrid">
           <label>
-            <span>Time</span>
-            <input name="time" type="time" value="09:00" step="300" required />
+            <span>Start date</span>
+            <input name="startDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
+          </label>
+          <label>
+            <span>Start time</span>
+            <input name="startTime" type="time" value="${escapeHtml(DEFAULT_EVENT_START_TIME)}" step="300" />
+          </label>
+          <label>
+            <span>End date</span>
+            <input name="endDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
+          </label>
+          <label>
+            <span>End time</span>
+            <input name="endTime" type="time" value="${escapeHtml(DEFAULT_EVENT_END_TIME)}" step="300" />
           </label>
         </div>
+        <label>
+          <span>Repeat</span>
+          <select name="repeat">
+            <option value="">None</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </label>
+        <label>
+          <span>Alarm time</span>
+          <input name="alarm" type="time" step="300" />
+        </label>
+        <label>
+          <span>Memo</span>
+          <textarea name="memo" rows="5" placeholder="Event notes"></textarea>
+        </label>
         <button class="primaryButton" type="submit">Create local event</button>
       </form>
     </section>
   `;
 }
 
-function renderAddTask() {
+function renderAddTask({ withTabs = false } = {}) {
+  const dueEnabled = state.taskDueEnabled;
   return `
     ${renderCollectionRail()}
+    ${withTabs ? renderAddTabs() : ""}
     <form class="taskComposer" data-create-task>
-      <input name="due" type="hidden" value="${state.taskDueEnabled ? escapeHtml(state.selectedDate) : ""}" />
+      <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
       <section class="panel">
         <div class="composer">
           <label>
@@ -955,8 +1027,15 @@ function render() {
   const view = document.getElementById("view");
   if (route === "calendar") view.innerHTML = renderCalendar();
   else if (route === "tasks") view.innerHTML = renderTasks();
-  else if (route === "add-event") view.innerHTML = renderAddEvent();
-  else if (route === "add-task") view.innerHTML = renderAddTask();
+  else if (route === "add") view.innerHTML = renderAdd();
+  else if (route === "add-event") {
+    state.addKind = "event";
+    view.innerHTML = renderAddEvent({ withTabs: true });
+  }
+  else if (route === "add-task") {
+    state.addKind = "task";
+    view.innerHTML = renderAddTask({ withTabs: true });
+  }
   else if (route === "services") view.innerHTML = renderServices();
   else view.innerHTML = renderToday();
 }
@@ -965,7 +1044,15 @@ document.addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");
   if (day) {
     state.selectedDate = day.dataset.date;
-    if (getRoute() === "add-task") state.taskDueEnabled = true;
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
+    render();
+    return;
+  }
+
+  const addKind = event.target.closest("[data-add-kind]");
+  if (addKind) {
+    state.addKind = addKind.dataset.addKind;
+    if (state.addKind === "task") state.taskDueEnabled = true;
     render();
     return;
   }
