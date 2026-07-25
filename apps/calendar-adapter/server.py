@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -15,6 +16,7 @@ RADICALE_URL = os.environ.get("RADICALE_INTERNAL_URL", "http://100.94.208.16:523
 RADICALE_USERNAME = os.environ.get("RADICALE_USERNAME", "")
 RADICALE_PASSWORD = os.environ.get("RADICALE_PASSWORD", "")
 TIMEOUT = float(os.environ.get("KAOSGDD_ADAPTER_TIMEOUT_SECONDS", "30"))
+LOCAL_TIMEZONE = timezone(timedelta(hours=int(os.environ.get("KAOSGDD_LOCAL_UTC_OFFSET_HOURS", "9"))))
 
 
 def configured():
@@ -198,14 +200,22 @@ def normalize_task(item, collection):
         "due": parse_ics_datetime(item.get("DUE", ""))["date"],
         "status": item.get("STATUS", "NEEDS-ACTION"),
         "completed": parse_ics_datetime(item.get("COMPLETED", ""))["iso"],
+        "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
+        "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
         "categories": categories,
         "source": "Radicale",
     }
 
 
 def parse_ics_datetime(value):
-    clean = re.sub(r"Z$", "", value or "")
+    raw = value or ""
+    is_utc = raw.endswith("Z")
+    clean = re.sub(r"Z$", "", raw)
     if "T" in clean:
+        if is_utc:
+            local = datetime.strptime(clean[:15], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc).astimezone(LOCAL_TIMEZONE)
+            iso = local.strftime("%Y-%m-%dT%H:%M:%S")
+            return {"date": iso[:10], "time": iso[11:16], "iso": iso}
         return {"date": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}", "time": f"{clean[9:11]}:{clean[11:13]}", "iso": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}T{clean[9:11]}:{clean[11:13]}:00"}
     if len(clean) >= 8:
         return {"date": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}", "time": "", "iso": f"{clean[:4]}-{clean[4:6]}-{clean[6:8]}"}

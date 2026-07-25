@@ -44,6 +44,7 @@ const mockCalendarData = {
       description: "Fax follow-up notes\n\n-- confirm sender\n-- attach PDF\n-x send fax notification",
       due: "2026-07-24",
       status: "NEEDS-ACTION",
+      lastModified: "2026-07-24T08:35:00",
       categories: ["fax", "now", "urgent"],
       source: "Radicale mock",
     },
@@ -54,6 +55,7 @@ const mockCalendarData = {
       description: "PACS check\n\n-- review failed imports\n-- confirm scan queue",
       due: "2026-07-24",
       status: "NEEDS-ACTION",
+      lastModified: "2026-07-24T08:20:00",
       categories: ["pacs", "now"],
       source: "Radicale mock",
     },
@@ -64,6 +66,7 @@ const mockCalendarData = {
       description: "Daily repeat\n\n-- compare low-stock list\n-- update order note",
       due: "2026-07-24",
       status: "NEEDS-ACTION",
+      lastModified: "2026-07-24T07:50:00",
       categories: ["supplies", "today", "repeat"],
       source: "Radicale mock",
     },
@@ -74,6 +77,7 @@ const mockCalendarData = {
       description: "Standalone family module\n\n-- check school pickup window",
       due: "2026-07-24",
       status: "NEEDS-ACTION",
+      lastModified: "2026-07-24T07:30:00",
       categories: ["family", "today"],
       source: "Radicale mock",
     },
@@ -85,6 +89,7 @@ const mockCalendarData = {
       due: "2026-07-24",
       status: "COMPLETED",
       completed: "2026-07-24T08:40:00",
+      lastModified: "2026-07-24T08:40:00",
       categories: ["documents"],
       source: "Radicale mock",
     },
@@ -95,6 +100,7 @@ const mockCalendarData = {
       description: "Knowledge cleanup\n\n-- move vaccine protocol\n-- link from KaosGDD",
       due: "2026-07-30",
       status: "NEEDS-ACTION",
+      lastModified: "2026-07-24T06:10:00",
       categories: ["knowledge", "later"],
       source: "Radicale mock",
     },
@@ -152,6 +158,7 @@ const mockAdapter = {
       description,
       due: String(formData.get("due") || state.selectedDate),
       status: "NEEDS-ACTION",
+      lastModified: new Date().toISOString().slice(0, 19),
       categories: String(formData.get("mode") || "today")
         .split(",")
         .map((category) => category.trim())
@@ -218,6 +225,13 @@ function parseDateTime(value) {
     date: raw.slice(0, 10),
     time: raw.includes("T") ? raw.slice(11, 16) : "",
   };
+}
+
+function formatDateTimeLabel(value) {
+  const parsed = parseDateTime(value);
+  if (!parsed.date) return "";
+  if (parsed.date === state.selectedDate && parsed.time) return `modified ${parsed.time}`;
+  return parsed.time ? `modified ${parsed.date} ${parsed.time}` : `modified ${parsed.date}`;
 }
 
 function normalizeEvent(event) {
@@ -298,6 +312,7 @@ function taskMeta(task, parsed, done) {
   if (collection) parts.push(collection.name);
   if (categories.length) parts.push(categories.join(", "));
   if (task.due) parts.push(task.due === state.selectedDate ? "due today" : `due ${task.due}`);
+  else if (task.lastModified || task.created) parts.push(formatDateTimeLabel(task.lastModified || task.created));
   if (parsed.subtasks.length) parts.push(`${parsed.subtasks.length} subtasks`);
   return parts.join(" · ") || task.source || "Radicale";
 }
@@ -312,6 +327,8 @@ function normalizeTask(task) {
     collection: task.collection,
     title: task.summary,
     description,
+    due: task.due || "",
+    lastModified: task.lastModified || task.created || "",
     notes: parsed.notes,
     subtasks: parsed.subtasks,
     meta: taskMeta(task, parsed, done),
@@ -329,6 +346,10 @@ function sortByDateTime(a, b) {
 
 function sortTasks(a, b) {
   if (a.done !== b.done) return a.done ? 1 : -1;
+  if (a.due && b.due && a.due !== b.due) return a.due.localeCompare(b.due);
+  if (a.due && !b.due) return -1;
+  if (!a.due && b.due) return 1;
+  if (!a.due && !b.due) return (b.lastModified || "").localeCompare(a.lastModified || "");
   return a.title.localeCompare(b.title);
 }
 

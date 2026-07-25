@@ -22,10 +22,17 @@ Use one CalDAV collection per practical sharing boundary. The first planned Kaos
 | due date | `DUE` |
 | completed state | `STATUS` and/or `COMPLETED` |
 | tags | `CATEGORIES` |
+| last activity | `LAST-MODIFIED` |
 
 KaosGDD should not create a separate database for first-pass task data.
 
 Open VTODO items without a `DUE` date should be treated as inbox/now tasks in KaosGDD. This matches common iOS Reminders behavior, where quick reminders may be created without a date.
+
+Task ordering:
+
+- dated tasks sort by `DUE`
+- undated tasks sort by `LAST-MODIFIED`, newest first
+- if `LAST-MODIFIED` is missing, `CREATED` may be used as a fallback
 
 ## Legacy Subtask Grammar
 
