@@ -19,7 +19,8 @@ const taskPriorityOptions = {
 const state = {
   selectedDate: ymd(new Date()),
   currentCollection: "all",
-  taskMode: "inbox",
+  taskMode: "all",
+  taskSort: "due",
   addMonthExpanded: false,
   taskDueEnabled: false,
   taskDescriptions: {},
@@ -396,6 +397,7 @@ function normalizeTask(task) {
     priorityRank: taskPriorityRank(task.priority),
     priorityLabel: taskPriorityLabel(task.priority),
     priorityMark: taskPriorityMark(task.priority),
+    created: task.created || "",
     lastModified: task.lastModified || task.created || "",
     notes: parsed.notes,
     subtasks: parsed.subtasks,
@@ -412,13 +414,23 @@ function sortByDateTime(a, b) {
 
 function sortTasks(a, b) {
   if (a.done !== b.done) return a.done ? 1 : -1;
+  if (state.taskSort === "created") return compareTasksByCreated(a, b);
+  return compareTasksByDue(a, b);
+}
+
+function compareTasksByCreated(a, b) {
+  const created = (a.created || a.lastModified || "").localeCompare(b.created || b.lastModified || "");
+  if (created) return created;
+  return a.title.localeCompare(b.title);
+}
+
+function compareTasksByDue(a, b) {
   if (a.due && b.due && a.due !== b.due) return a.due.localeCompare(b.due);
-  if (a.due && b.due && a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
   if (a.due && b.due && a.dueTime !== b.dueTime) return (a.dueTime || "99:99").localeCompare(b.dueTime || "99:99");
+  if (a.due && b.due) return compareTasksByCreated(a, b);
   if (a.due && !b.due) return -1;
   if (!a.due && b.due) return 1;
-  if (!a.due && !b.due && a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
-  if (!a.due && !b.due) return (b.lastModified || "").localeCompare(a.lastModified || "");
+  if (!a.due && !b.due) return compareTasksByCreated(a, b);
   return a.title.localeCompare(b.title);
 }
 
@@ -810,6 +822,17 @@ function renderTasks() {
         )
         .join("")}
     </section>
+    <section class="modeRail compactRail" aria-label="Task order">
+      ${[
+        ["due", "Due"],
+        ["created", "Created"],
+      ]
+        .map(
+          ([sort, label]) =>
+            `<button class="${state.taskSort === sort ? "isActive" : ""}" type="button" data-task-sort="${sort}">${label}</button>`,
+        )
+        .join("")}
+    </section>
     <section class="panel">
       <div class="panelHeader">
         <div>
@@ -950,6 +973,13 @@ document.addEventListener("click", (event) => {
   const taskMode = event.target.closest("[data-task-mode]");
   if (taskMode) {
     state.taskMode = taskMode.dataset.taskMode;
+    render();
+    return;
+  }
+
+  const taskSort = event.target.closest("[data-task-sort]");
+  if (taskSort) {
+    state.taskSort = taskSort.dataset.taskSort;
     render();
     return;
   }

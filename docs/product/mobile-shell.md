@@ -28,6 +28,7 @@ The calendar and task screens now act as the first Radicale frontend prototype:
 - choose event times in 5-minute increments, matching iOS Reminders
 - split tasks into `Inbox`, `Dated`, `Done`, and `All`
 - show dated VTODO tasks on Calendar by their `DUE` date
+- support saved task orders: `Due` and `Created`
 - use separate `Add Event` and `Add Task` pages
 - keep the collapsed/expandable month picker on add pages only
 - order Add Task fields like iOS Reminders: task name, memo, date picker, time picker, priority

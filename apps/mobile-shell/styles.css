@@ -176,6 +176,16 @@ h3 {
   border-color: var(--line);
 }
 
+.compactRail {
+  margin-top: -6px;
+}
+
+.compactRail button {
+  min-width: 96px;
+  min-height: 30px;
+  font-size: 0.74rem;
+}
+
 .collectionRail button {
   min-width: 104px;
   justify-content: space-between;

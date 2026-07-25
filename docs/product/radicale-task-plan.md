@@ -31,10 +31,11 @@ Open VTODO items without a `DUE` date should be treated as inbox tasks in KaosGD
 
 Task ordering:
 
-- dated tasks sort by `DUE`
-- tasks on the same due date sort by priority, then due time when present
-- undated tasks sort by priority, then `LAST-MODIFIED` newest first
-- if `LAST-MODIFIED` is missing, `CREATED` may be used as a fallback
+- `Created` order sorts active tasks by `CREATED` ascending.
+- `Due` order sorts dated active tasks first by `DUE`, then due time, then `CREATED`.
+- In `Due` order, undated active tasks appear below dated tasks and sort by `CREATED` ascending.
+- Completed tasks stay separate in `Done` and sort after active tasks in `All`.
+- `X-APPLE-SORT-ORDER` is useful for future manual ordering, but first-pass KaosGDD should not depend on it.
 
 KaosGDD task views:
 
