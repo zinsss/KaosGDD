@@ -234,6 +234,20 @@ function writableCollectionId() {
   return activeCalendarData().collections[0]?.id || "zin";
 }
 
+function writableTaskCollectionId() {
+  const data = activeCalendarData();
+  const view = mockAdapter.getCurrentCollection();
+  const collectionIds = view?.id !== "all" && view?.collectionIds.length
+    ? view.collectionIds
+    : data.collections.map((collection) => collection.id);
+  const taskCollectionIds = new Set(data.tasks.map((task) => task.collection));
+  const taskCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && taskCollectionIds.has(collection.id));
+  if (taskCollection) return taskCollection.id;
+  const namedTaskCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && /task|reminder/i.test(collection.name));
+  if (namedTaskCollection) return namedTaskCollection.id;
+  return collectionIds[0] || writableCollectionId();
+}
+
 async function loadRemoteCalendar() {
   try {
     const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
@@ -260,6 +274,32 @@ async function loadRemoteCalendar() {
     };
   }
   render();
+}
+
+async function createRemoteTask(formData) {
+  const due = taskDueFromForm(formData);
+  const response = await fetch("/api/calendar/tasks", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      collectionId: writableTaskCollectionId(),
+      title: String(formData.get("title") || "").trim(),
+      memo: String(formData.get("memo") || "").trim(),
+      dueDate: due.date,
+      dueTime: due.time,
+      priority: taskPriorityFromForm(formData),
+    }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  state.taskMode = "active";
+  window.location.hash = "#/tasks";
+  await loadRemoteCalendar();
 }
 
 function parseDateTime(value) {
@@ -1061,7 +1101,7 @@ document.addEventListener("click", (event) => {
   }
 });
 
-document.addEventListener("submit", (event) => {
+document.addEventListener("submit", async (event) => {
   const eventForm = event.target.closest("[data-create-event]");
   if (eventForm) {
     event.preventDefault();
@@ -1077,6 +1117,14 @@ document.addEventListener("submit", (event) => {
     const formData = new FormData(taskForm);
     const due = taskDueFromForm(formData);
     if (taskDueHasPassed(due) && !window.confirm("This due time has already passed. Create it anyway?")) return;
+    if (state.remoteCalendar.live) {
+      try {
+        await createRemoteTask(formData);
+      } catch (error) {
+        window.alert(`Could not save to Radicale: ${error.message || "unknown error"}`);
+      }
+      return;
+    }
     mockAdapter.createTask(formData);
     window.location.hash = "#/tasks";
     render();
