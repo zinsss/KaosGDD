@@ -6,11 +6,14 @@ The browser shell calls:
 
 ```text
 GET /api/calendar/bootstrap
+POST /api/calendar/events
 POST /api/calendar/tasks
 PUT /api/calendar/tasks
 ```
 
 The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale files or access databases directly.
+
+`POST /api/calendar/events` creates a VEVENT in the selected Radicale calendar collection.
 
 `POST /api/calendar/tasks` creates a VTODO in the selected Radicale task collection. The mobile shell refreshes from `GET /api/calendar/bootstrap` after a successful write, so the UI shows Radicale as the source of truth.
 

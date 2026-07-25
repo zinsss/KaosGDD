@@ -266,6 +266,20 @@ function writableTaskCollectionId() {
   return collectionIds[0] || writableCollectionId();
 }
 
+function writableEventCollectionId() {
+  const data = activeCalendarData();
+  const view = mockAdapter.getCurrentCollection();
+  const collectionIds = view?.id !== "all" && view?.collectionIds.length
+    ? view.collectionIds
+    : data.collections.map((collection) => collection.id);
+  const eventCollectionIds = new Set(data.events.map((event) => event.collection));
+  const eventCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && eventCollectionIds.has(collection.id));
+  if (eventCollection) return eventCollection.id;
+  const namedEventCollection = data.collections.find((collection) => collectionIds.includes(collection.id) && /calendar|event/i.test(collection.name));
+  if (namedEventCollection) return namedEventCollection.id;
+  return collectionIds[0] || writableCollectionId();
+}
+
 function findTaskById(taskId) {
   return activeCalendarData().tasks.map(normalizeTask).find((task) => task.id === taskId);
 }
@@ -321,6 +335,35 @@ async function createRemoteTask(formData) {
   }
   state.taskMode = "active";
   window.location.hash = "#/tasks";
+  await loadRemoteCalendar();
+}
+
+async function createRemoteEvent(formData) {
+  const response = await fetch("/api/calendar/events", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      collectionId: writableEventCollectionId(),
+      title: String(formData.get("title") || "").trim(),
+      allDay: formData.get("allDay") === "on",
+      startDate: String(formData.get("startDate") || state.selectedDate),
+      startTime: String(formData.get("startTime") || DEFAULT_EVENT_START_TIME),
+      endDate: String(formData.get("endDate") || formData.get("startDate") || state.selectedDate),
+      endTime: String(formData.get("endTime") || DEFAULT_EVENT_END_TIME),
+      repeat: String(formData.get("repeat") || ""),
+      alarmTime: String(formData.get("alarm") || ""),
+      memo: String(formData.get("memo") || "").trim(),
+    }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  state.selectedDate = String(formData.get("startDate") || state.selectedDate);
+  window.location.hash = "#/calendar";
   await loadRemoteCalendar();
 }
 
@@ -972,7 +1015,7 @@ function renderAddEvent() {
           <span>Memo</span>
           <textarea name="memo" rows="5" placeholder="Event notes"></textarea>
         </label>
-        <button class="primaryButton" type="submit">Create local event</button>
+        <button class="primaryButton" type="submit">Create event</button>
       </form>
     </section>
   `;
@@ -1217,7 +1260,16 @@ document.addEventListener("submit", async (event) => {
   const eventForm = event.target.closest("[data-create-event]");
   if (eventForm) {
     event.preventDefault();
-    mockAdapter.createEvent(new FormData(eventForm));
+    const formData = new FormData(eventForm);
+    if (state.remoteCalendar.live) {
+      try {
+        await createRemoteEvent(formData);
+      } catch (error) {
+        window.alert(`Could not save to Radicale: ${error.message || "unknown error"}`);
+      }
+      return;
+    }
+    mockAdapter.createEvent(formData);
     window.location.hash = "#/calendar";
     render();
     return;

@@ -390,6 +390,18 @@ def local_due_stamp(date_value, time_value):
     return local.strftime("%Y%m%dT%H%M%S"), utc_stamp(local)
 
 
+def local_datetime(date_value, time_value):
+    return datetime.strptime(f"{date_value}T{time_value}:00", "%Y-%m-%dT%H:%M:%S").replace(tzinfo=LOCAL_TIMEZONE)
+
+
+def local_datetime_stamp(date_value, time_value):
+    return local_datetime(date_value, time_value).strftime("%Y%m%dT%H%M%S")
+
+
+def compact_date(date_value):
+    return date_value.replace("-", "")
+
+
 def build_vtodo(payload, existing=None):
     existing = existing or {}
     title = str(payload.get("title") or "").strip()
@@ -469,6 +481,115 @@ def create_task(payload):
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
+def validate_repeat(value):
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    if raw not in {"weekly", "monthly", "yearly"}:
+        raise ValueError("invalid_repeat")
+    return raw
+
+
+def rrule_for_repeat(repeat):
+    return {
+        "weekly": "FREQ=WEEKLY",
+        "monthly": "FREQ=MONTHLY",
+        "yearly": "FREQ=YEARLY",
+    }.get(repeat, "")
+
+
+def build_vevent(payload):
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise ValueError("title_required")
+
+    start_date = validate_date(payload.get("startDate") or "")
+    if not start_date:
+        raise ValueError("start_date_required")
+    end_date = validate_date(payload.get("endDate") or start_date)
+    all_day = bool(payload.get("allDay"))
+    start_time = validate_time(payload.get("startTime") or "")
+    end_time = validate_time(payload.get("endTime") or "")
+    alarm_time = validate_time(payload.get("alarmTime") or "")
+    repeat = validate_repeat(payload.get("repeat") or "")
+    description = str(payload.get("memo") or "").strip()
+
+    uid = str(uuid.uuid4()).upper()
+    alarm_uid = str(uuid.uuid4()).upper()
+    now = utc_stamp(datetime.now(timezone.utc))
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "PRODID:-//KaosGDD//Calendar Adapter//EN",
+        *SEOUL_VTIMEZONE.splitlines(),
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"CREATED:{now}",
+        f"LAST-MODIFIED:{now}",
+        f"SUMMARY:{escape_ics(title)}",
+    ]
+    if description:
+        lines.append(f"DESCRIPTION:{escape_ics(description)}")
+
+    if all_day:
+        start_compact = compact_date(start_date)
+        end_exclusive = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        lines.extend([f"DTSTART;VALUE=DATE:{start_compact}", f"DTEND;VALUE=DATE:{end_exclusive.strftime('%Y%m%d')}"])
+    else:
+        start_time = start_time or "09:00"
+        end_time = end_time or "10:00"
+        start_dt = local_datetime(start_date, start_time)
+        end_dt = local_datetime(end_date, end_time)
+        if end_dt <= start_dt:
+            raise ValueError("end_before_start")
+        lines.extend(
+            [
+                f"DTSTART;TZID={LOCAL_TZID}:{start_dt.strftime('%Y%m%dT%H%M%S')}",
+                f"DTEND;TZID={LOCAL_TZID}:{end_dt.strftime('%Y%m%dT%H%M%S')}",
+            ]
+        )
+
+    rrule = rrule_for_repeat(repeat)
+    if rrule:
+        lines.append(f"RRULE:{rrule}")
+
+    if alarm_time:
+        alarm_dt = local_datetime(start_date, alarm_time)
+        lines.extend(
+            [
+                "BEGIN:VALARM",
+                "ACTION:DISPLAY",
+                f"DESCRIPTION:{escape_ics(title)}",
+                f"TRIGGER;VALUE=DATE-TIME:{utc_stamp(alarm_dt)}",
+                f"UID:{alarm_uid}",
+                f"X-WR-ALARMUID:{alarm_uid}",
+                "END:VALARM",
+            ]
+        )
+
+    lines.extend(["END:VEVENT", "END:VCALENDAR"])
+    return uid, calendar_body(lines)
+
+
+def create_event(payload):
+    if not configured():
+        raise ValueError("adapter_not_configured")
+    collections = propfind_collections()
+    collection = select_collection(collections, str(payload.get("collectionId") or "").strip(), "VEVENT")
+    uid, body = build_vevent(payload)
+    href = urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    radicale_request(
+        "PUT",
+        href,
+        body,
+        {"Content-Type": "text/calendar; charset=utf-8", "If-None-Match": "*"},
+    )
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
 def find_task(collections, uid, collection_id=""):
     if not uid:
         raise ValueError("uid_required")
@@ -530,6 +651,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
+        if path == "/api/calendar/events":
+            try:
+                json_response(self, 201, create_event(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": configured(), "live": False, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/tasks":
             try:
                 json_response(self, 201, create_task(read_json_request(self)))
