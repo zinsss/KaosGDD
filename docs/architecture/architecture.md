@@ -23,6 +23,8 @@ KaosGDD may call:
 - service-specific APIs
 - Kaos-owned adapter APIs
 
+KaosGDD Brain is the Kaos-owned adapter and orchestration API. It should stay small and should only own logic that cannot cleanly live in the static shell or an independent service.
+
 KaosGDD must not call:
 
 - Paperless PostgreSQL directly
@@ -62,3 +64,7 @@ HylaFAX
 ```
 
 Do not remove that bridge until fax receive/send visibility is owned elsewhere.
+
+## Brain
+
+See [KaosGDD Brain](kaosgdd-brain.md).

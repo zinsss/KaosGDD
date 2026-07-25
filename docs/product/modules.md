@@ -49,3 +49,16 @@ Do not connect it to Radicale/calendar until the workflow need is clear.
 Radicale-backed tasks should use the legacy KaosGDD subtask grammar inside VTODO descriptions.
 
 See [Radicale Task Plan](radicale-task-plan.md).
+
+## Brain Modules
+
+KaosGDD Brain is the backend home for module logic that should not live in the static shell:
+
+- Radicale task/calendar normalization
+- Apple Reminders order compatibility
+- Market Saturday and Claim Day overlays
+- weather history journals for 포항, 대구, and 영덕
+- on-request current-location weather
+- caregiver journals and monthly wage review
+
+See [KaosGDD Brain](../architecture/kaosgdd-brain.md).

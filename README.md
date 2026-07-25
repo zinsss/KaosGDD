@@ -70,11 +70,22 @@ The current temporary launcher is served from:
 /srv/kaos/stacks/platform/kaosgdd/portal
 ```
 
+## Brain
+
+The v2 backend boundary is `KaosGDD Brain`:
+
+```text
+apps/brain
+```
+
+Brain is the small orchestration backend for adapter APIs, Radicale normalization, generated calendar overlays, weather history, caregiver calculations, and service status. The existing `apps/calendar-adapter` is the first live slice that will be folded into Brain after endpoint parity is proven.
+
 ## Source Of Truth
 
 Start with the docs in this repository:
 
 - [Architecture](docs/architecture/architecture.md)
+- [KaosGDD Brain](docs/architecture/kaosgdd-brain.md)
 - [Service Map](docs/architecture/service-map.md)
 - [Module Plan](docs/product/modules.md)
 - [Operations](docs/operations/production.md)

@@ -44,6 +44,17 @@ https://family.kaosgdd.net
 
 Replace this with the real v2 shell when ready.
 
+## KaosGDD Brain
+
+Brain is planned under:
+
+```text
+/srv/kaos/stacks/platform/kaosgdd/brain
+/srv/kaos/data/kaosgdd/brain
+```
+
+The current live first Brain slice remains the calendar adapter until the new Brain endpoint reaches parity.
+
 ## Guardrails
 
 - Do not wipe production.
