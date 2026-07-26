@@ -613,7 +613,7 @@ h3 {
 .dayWeatherGlyph {
   display: block;
   min-height: 18px;
-  color: var(--nord13);
+  color: inherit;
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.08rem;
   font-weight: 400;
@@ -792,7 +792,7 @@ h3 {
 }
 
 .selectedWeatherCompact strong {
-  color: var(--nord13);
+  color: var(--text);
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.2rem;
   font-weight: 400;
@@ -815,6 +815,7 @@ h3 {
 }
 
 .selectedWeatherGlyph {
+  color: var(--text);
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 2.35rem;
   font-weight: 400;
@@ -822,7 +823,7 @@ h3 {
 }
 
 .selectedWeatherRange {
-  color: var(--nord13);
+  color: var(--text);
   font-size: 0.88rem;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
