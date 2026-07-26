@@ -1273,6 +1273,13 @@ h3 {
   min-width: 0;
 }
 
+.rounySlotRow input,
+.rounySlotRow select {
+  min-height: 34px;
+  font-size: 16px;
+  padding: 0 7px;
+}
+
 .rounyMetaGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
