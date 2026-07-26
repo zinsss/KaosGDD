@@ -286,6 +286,30 @@ h3 {
   padding: 0 16px;
 }
 
+.segmentedTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.segmentedTabs button {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.segmentedTabs button.isActive {
+  border-color: rgba(180, 142, 173, 0.58);
+  background: rgba(180, 142, 173, 0.16);
+  color: var(--nord15);
+}
+
 .panel {
   max-width: 100%;
   overflow: hidden;
@@ -425,6 +449,61 @@ h3 {
 .composer input::placeholder,
 .composer textarea::placeholder {
   color: #7f8b9e;
+}
+
+.presetList {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.presetRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.presetChoice {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.presetChoice.isActive {
+  border-color: rgba(180, 142, 173, 0.58);
+  background: rgba(180, 142, 173, 0.14);
+}
+
+.presetChoice strong,
+.presetChoice span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presetChoice strong {
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.presetChoice span {
+  color: var(--dim);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.presetEditor {
+  border-top: 1px solid var(--line);
 }
 
 .formNote {

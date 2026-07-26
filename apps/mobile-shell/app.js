@@ -19,6 +19,7 @@ const MEMOS_URL = "https://memos.kaosgdd.net";
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
 const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
+const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
 
 const rounyDays = [
   { value: "1", label: "Mon" },
@@ -87,6 +88,8 @@ const state = {
   taskMode: "active",
   taskSort: "due",
   addKind: "event",
+  addEventMode: "normal",
+  eventPresetDraft: null,
   addMonthExpanded: false,
   taskDueEnabled: false,
   editingTaskId: "",
@@ -121,6 +124,11 @@ const state = {
     dragItemId: "",
     dragTemplateId: "",
     includeSaturday: false,
+  },
+  eventPresets: {
+    checked: false,
+    items: [],
+    editingId: "",
   },
 };
 
@@ -419,6 +427,79 @@ function writableCollectionIdForOwner(owner, component) {
 function writableCollectionIdFromForm(formData, component) {
   const owner = formData.get("shareFamily") === "on" ? "family" : defaultPersonalOwner();
   return writableCollectionIdForOwner(owner, component);
+}
+
+function defaultEventPreset() {
+  return {
+    id: createId("event-preset"),
+    name: "",
+    title: "",
+    allDay: true,
+    startTime: DEFAULT_EVENT_START_TIME,
+    endTime: DEFAULT_EVENT_END_TIME,
+    alarm: "",
+    memo: "",
+    shareFamily: false,
+  };
+}
+
+function normalizeEventPreset(preset) {
+  if (!preset || typeof preset !== "object") return null;
+  return {
+    id: String(preset.id || createId("event-preset")),
+    name: String(preset.name || preset.title || "Untitled preset").trim() || "Untitled preset",
+    title: String(preset.title || ""),
+    allDay: Boolean(preset.allDay),
+    startTime: String(preset.startTime || DEFAULT_EVENT_START_TIME).slice(0, 5),
+    endTime: String(preset.endTime || DEFAULT_EVENT_END_TIME).slice(0, 5),
+    alarm: String(preset.alarm || "").slice(0, 5),
+    memo: String(preset.memo || ""),
+    shareFamily: Boolean(preset.shareFamily),
+  };
+}
+
+function loadEventPresets() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(EVENT_PRESET_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.map(normalizeEventPreset).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function ensureEventPresets() {
+  if (state.eventPresets.checked) return;
+  state.eventPresets.items = loadEventPresets();
+  state.eventPresets.checked = true;
+}
+
+function saveEventPresets(items) {
+  const normalized = items.map(normalizeEventPreset).filter(Boolean);
+  state.eventPresets.items = normalized;
+  window.localStorage.setItem(EVENT_PRESET_STORAGE_KEY, JSON.stringify(normalized));
+}
+
+function eventPresetFromForm(form) {
+  const preset = normalizeEventPreset({
+    id: form.dataset.eventPresetId || createId("event-preset"),
+    name: form.querySelector('[name="presetName"]')?.value || "",
+    title: form.querySelector('[name="title"]')?.value || "",
+    allDay: form.querySelector('[name="allDay"]')?.checked || false,
+    startTime: form.querySelector('[name="startTime"]')?.value || DEFAULT_EVENT_START_TIME,
+    endTime: form.querySelector('[name="endTime"]')?.value || DEFAULT_EVENT_END_TIME,
+    alarm: form.querySelector('[name="alarm"]')?.value || "",
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
+  });
+  return preset;
+}
+
+function upsertEventPreset(preset) {
+  ensureEventPresets();
+  const exists = state.eventPresets.items.some((item) => item.id === preset.id);
+  saveEventPresets(exists
+    ? state.eventPresets.items.map((item) => (item.id === preset.id ? preset : item))
+    : [...state.eventPresets.items, preset]);
 }
 
 function writableTaskCollectionId() {
@@ -1373,35 +1454,58 @@ function renderAdd() {
 
 function renderAddEvent() {
   ensureAddCollectionDefault();
+  ensureEventPresets();
+  const draft = normalizeEventPreset(state.eventPresetDraft || defaultEventPreset());
+  const shareFamily = Boolean(draft.shareFamily || state.currentCollection === "owner:family");
+  const allDay = Boolean(draft.allDay);
+  if (state.addEventMode === "preset") {
+    return `
+      ${renderCollectionRail()}
+      ${renderAddEventTabs()}
+      <section class="panel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">Preset</p>
+            <h2>Event templates</h2>
+          </div>
+          <a class="openButton" href="#/settings">Manage</a>
+        </div>
+        <div class="panelBody">
+          ${renderEventPresetChoices()}
+        </div>
+      </section>
+    `;
+  }
   return `
     ${renderCollectionRail()}
+    ${renderAddEventTabs()}
     <section class="panel">
       <form class="composer" data-create-event>
-        ${renderFamilyShareToggle()}
+        ${renderFamilyShareToggle(shareFamily)}
         <label>
           <span>Title</span>
-          <input name="title" type="text" autocomplete="off" placeholder="New event" required />
+          <input name="title" type="text" autocomplete="off" placeholder="New event" value="${escapeHtml(draft.title)}" required />
         </label>
         <label class="toggleLine">
           <span>All-day</span>
-          <input name="allDay" type="checkbox" data-all-day-toggle />
+          <input name="allDay" type="checkbox" data-all-day-toggle ${allDay ? "checked" : ""} />
         </label>
         <div class="formGrid">
           <label>
             <span>Start date</span>
             <input name="startDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
-          <label data-event-time-field>
+          <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
             <span>Start time</span>
-            <input name="startTime" type="time" value="${escapeHtml(DEFAULT_EVENT_START_TIME)}" step="300" />
+            <input name="startTime" type="time" value="${escapeHtml(draft.startTime)}" step="300" ${allDay ? "disabled" : ""} />
           </label>
           <label>
             <span>End date</span>
             <input name="endDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
-          <label data-event-time-field>
+          <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
             <span>End time</span>
-            <input name="endTime" type="time" value="${escapeHtml(DEFAULT_EVENT_END_TIME)}" step="300" />
+            <input name="endTime" type="time" value="${escapeHtml(draft.endTime)}" step="300" ${allDay ? "disabled" : ""} />
           </label>
         </div>
         <label>
@@ -1413,17 +1517,46 @@ function renderAddEvent() {
             <option value="yearly">Yearly</option>
           </select>
         </label>
-        <label data-event-time-field>
+        <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
           <span>Alarm time</span>
-          <input name="alarm" type="time" step="300" />
+          <input name="alarm" type="time" step="300" value="${escapeHtml(draft.alarm)}" ${allDay ? "disabled" : ""} />
         </label>
         <label>
           <span>Memo</span>
-          <textarea name="memo" rows="5" placeholder="Event notes"></textarea>
+          <textarea name="memo" rows="5" placeholder="Event notes">${escapeHtml(draft.memo)}</textarea>
         </label>
         <button class="primaryButton" type="submit">Create event</button>
       </form>
     </section>
+  `;
+}
+
+function renderAddEventTabs() {
+  return `
+    <section class="segmentedTabs" aria-label="Add event mode">
+      <button class="${state.addEventMode === "normal" ? "isActive" : ""}" type="button" data-add-event-mode="normal">Normal</button>
+      <button class="${state.addEventMode === "preset" ? "isActive" : ""}" type="button" data-add-event-mode="preset">Preset</button>
+    </section>
+  `;
+}
+
+function renderEventPresetChoices() {
+  if (!state.eventPresets.items.length) {
+    return `<p class="taskMeta">No event presets yet.</p>`;
+  }
+  return `
+    <div class="presetList">
+      ${state.eventPresets.items
+        .map(
+          (preset) => `
+            <button class="presetChoice" type="button" data-use-event-preset="${escapeHtml(preset.id)}">
+              <strong>${escapeHtml(preset.name)}</strong>
+              <span>${escapeHtml([preset.title || "Untitled", preset.allDay ? "all-day" : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? "Family" : "Personal"].join(" · "))}</span>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
   `;
 }
 
@@ -1471,11 +1604,11 @@ function renderAddTask() {
   `;
 }
 
-function renderFamilyShareToggle() {
+function renderFamilyShareToggle(checked = state.currentCollection === "owner:family") {
   return `
     <label class="toggleLine shareLine">
       <span>Family shared</span>
-      <input name="shareFamily" type="checkbox" data-share-family ${state.currentCollection === "owner:family" ? "checked" : ""} />
+      <input name="shareFamily" type="checkbox" data-share-family ${checked ? "checked" : ""} />
     </label>
   `;
 }
@@ -2074,6 +2207,7 @@ function renderMemos() {
 }
 
 function renderSettings() {
+  ensureEventPresets();
   const config = profileConfig();
   const items =
     portalProfile() === "family"
@@ -2112,6 +2246,80 @@ function renderSettings() {
         </dl>
       </div>
     </section>
+    ${renderEventPresetSettings()}
+  `;
+}
+
+function renderEventPresetSettings() {
+  const editing = state.eventPresets.items.find((preset) => preset.id === state.eventPresets.editingId) || defaultEventPreset();
+  const isEditing = Boolean(state.eventPresets.editingId);
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Presets</p>
+          <h2>Event templates</h2>
+        </div>
+        ${isEditing ? `<button class="openButton" type="button" data-event-preset-new>New</button>` : ""}
+      </div>
+      <div class="panelBody">
+        ${
+          state.eventPresets.items.length
+            ? `
+              <div class="presetList">
+                ${state.eventPresets.items
+                  .map(
+                    (preset) => `
+                      <div class="presetRow">
+                        <button class="presetChoice ${preset.id === state.eventPresets.editingId ? "isActive" : ""}" type="button" data-edit-event-preset="${escapeHtml(preset.id)}">
+                          <strong>${escapeHtml(preset.name)}</strong>
+                          <span>${escapeHtml([preset.title || "Untitled", preset.allDay ? "all-day" : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? "Family" : "Personal"].join(" · "))}</span>
+                        </button>
+                        <button class="plainButton" type="button" data-delete-event-preset="${escapeHtml(preset.id)}">Delete</button>
+                      </div>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            `
+            : `<p class="taskMeta">No event presets yet.</p>`
+        }
+      </div>
+      <form class="composer presetEditor" data-event-preset-form data-event-preset-id="${isEditing ? escapeHtml(editing.id) : ""}">
+        <label>
+          <span>Preset name</span>
+          <input name="presetName" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.name) : ""}" placeholder="당직" required />
+        </label>
+        <label>
+          <span>Title</span>
+          <input name="title" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.title) : ""}" placeholder="Event title" required />
+        </label>
+        ${renderFamilyShareToggle(Boolean(isEditing && editing.shareFamily))}
+        <label class="toggleLine">
+          <span>All-day</span>
+          <input name="allDay" type="checkbox" data-all-day-toggle ${!isEditing || editing.allDay ? "checked" : ""} />
+        </label>
+        <div class="formGrid">
+          <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
+            <span>Start time</span>
+            <input name="startTime" type="time" value="${escapeHtml(isEditing ? editing.startTime : DEFAULT_EVENT_START_TIME)}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
+          </label>
+          <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
+            <span>End time</span>
+            <input name="endTime" type="time" value="${escapeHtml(isEditing ? editing.endTime : DEFAULT_EVENT_END_TIME)}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
+          </label>
+        </div>
+        <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
+          <span>Alarm time</span>
+          <input name="alarm" type="time" value="${escapeHtml(isEditing ? editing.alarm : "")}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
+        </label>
+        <label>
+          <span>Memo</span>
+          <textarea name="memo" rows="4" placeholder="Event notes">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
+        </label>
+        <button class="primaryButton" type="submit">${isEditing ? "Save preset" : "Create preset"}</button>
+      </form>
+    </section>
   `;
 }
 
@@ -2142,6 +2350,49 @@ function render() {
 }
 
 document.addEventListener("click", (event) => {
+  const addEventMode = event.target.closest("[data-add-event-mode]");
+  if (addEventMode) {
+    state.addEventMode = addEventMode.dataset.addEventMode === "preset" ? "preset" : "normal";
+    if (state.addEventMode === "normal") state.eventPresetDraft = null;
+    render();
+    return;
+  }
+
+  const useEventPreset = event.target.closest("[data-use-event-preset]");
+  if (useEventPreset) {
+    ensureEventPresets();
+    const preset = state.eventPresets.items.find((item) => item.id === useEventPreset.dataset.useEventPreset);
+    if (!preset) return;
+    state.eventPresetDraft = cloneValue(preset);
+    state.addEventMode = "normal";
+    state.currentCollection = preset.shareFamily ? "owner:family" : defaultPersonalCollectionViewId();
+    render();
+    return;
+  }
+
+  const editEventPreset = event.target.closest("[data-edit-event-preset]");
+  if (editEventPreset) {
+    state.eventPresets.editingId = editEventPreset.dataset.editEventPreset;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-event-preset-new]")) {
+    state.eventPresets.editingId = "";
+    render();
+    return;
+  }
+
+  const deleteEventPreset = event.target.closest("[data-delete-event-preset]");
+  if (deleteEventPreset) {
+    ensureEventPresets();
+    if (!window.confirm("Delete this event preset?")) return;
+    saveEventPresets(state.eventPresets.items.filter((preset) => preset.id !== deleteEventPreset.dataset.deleteEventPreset));
+    if (state.eventPresets.editingId === deleteEventPreset.dataset.deleteEventPreset) state.eventPresets.editingId = "";
+    render();
+    return;
+  }
+
   if (event.target.closest("[data-rouny-new]")) {
     collectRounyDraft();
     state.rouny.draft = defaultRounyTemplate("New template");
@@ -2342,6 +2593,20 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const eventPresetForm = event.target.closest("[data-event-preset-form]");
+  if (eventPresetForm) {
+    event.preventDefault();
+    const preset = eventPresetFromForm(eventPresetForm);
+    if (!preset.name.trim() || !preset.title.trim()) {
+      window.alert("Preset name and title are required.");
+      return;
+    }
+    upsertEventPreset(preset);
+    state.eventPresets.editingId = "";
+    render();
+    return;
+  }
+
   const rounyClassForm = event.target.closest("[data-rouny-class-form]");
   if (rounyClassForm) {
     event.preventDefault();
@@ -2366,12 +2631,14 @@ document.addEventListener("submit", async (event) => {
     if (state.remoteCalendar.live) {
       try {
         await createRemoteEvent(formData);
+        state.eventPresetDraft = null;
       } catch (error) {
         window.alert(`Could not save to Radicale: ${error.message || "unknown error"}`);
       }
       return;
     }
     mockAdapter.createEvent(formData);
+    state.eventPresetDraft = null;
     window.location.hash = "#/calendar";
     render();
     return;
@@ -2482,8 +2749,10 @@ document.addEventListener("dragend", () => {
 document.addEventListener("change", (event) => {
   const shareFamily = event.target.closest("[data-share-family]");
   if (shareFamily) {
-    state.currentCollection = shareFamily.checked ? "owner:family" : defaultPersonalCollectionViewId();
-    render();
+    if (shareFamily.closest("[data-create-event]") || shareFamily.closest("[data-create-task]")) {
+      state.currentCollection = shareFamily.checked ? "owner:family" : defaultPersonalCollectionViewId();
+      render();
+    }
     return;
   }
 
@@ -2511,7 +2780,7 @@ document.addEventListener("change", (event) => {
 
   const allDayToggle = event.target.closest("[data-all-day-toggle]");
   if (!allDayToggle) return;
-  const form = allDayToggle.closest("[data-create-event]");
+  const form = allDayToggle.closest("[data-create-event], [data-event-preset-form]");
   if (!form) return;
   form.querySelectorAll("[data-event-time-field]").forEach((field) => {
     field.classList.toggle("isDisabled", allDayToggle.checked);
