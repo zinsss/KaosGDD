@@ -622,7 +622,7 @@ h3 {
 
 .dayWeatherGlyph {
   position: absolute;
-  top: 5px;
+  top: 2px;
   right: 5px;
   display: inline-flex;
   align-items: center;
