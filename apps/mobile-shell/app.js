@@ -972,6 +972,29 @@ function weatherForDate(dateValue) {
   return activeCalendarData().weather?.find((weather) => weather.date === dateValue) || null;
 }
 
+function countByDate(items, dateKey) {
+  return items.reduce((counts, item) => {
+    const value = item[dateKey];
+    if (value) counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function hasDutyEvent(event) {
+  const title = String(event.title || event.summary || "").trim();
+  const detail = String(event.detail || event.description || "").trim();
+  const categories = Array.isArray(event.categories) ? event.categories : [];
+  return title === "당직" || detail === "당직" || categories.some((category) => String(category).trim() === "당직");
+}
+
+function dateTone(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const day = date.getDay();
+  if (day === 0) return "isSunday";
+  if (day === 6) return "isSaturday";
+  return "";
+}
+
 function tempRange(item) {
   if (!item || item.minTemp === undefined || item.maxTemp === undefined || item.minTemp === "" || item.maxTemp === "") return "";
   return `${item.minTemp}-${item.maxTemp}`;
@@ -1069,7 +1092,9 @@ function renderCalendar() {
   const datedTasks = mockAdapter.getTasks().filter((task) => task.due);
   const selectedEvents = events.filter((event) => event.date === state.selectedDate);
   const selectedTasks = datedTasks.filter((task) => task.due === state.selectedDate);
-  const eventDates = new Set([...events.map((event) => event.date), ...datedTasks.map((task) => task.due)]);
+  const eventCounts = countByDate(events, "date");
+  const taskCounts = countByDate(datedTasks, "due");
+  const dutyDates = new Set(events.filter(hasDutyEvent).map((event) => event.date));
   const weatherByDate = new Map((activeCalendarData().weather || []).map((weather) => [weather.date, weather]));
   return `
     ${renderCollectionRail()}
@@ -1090,15 +1115,31 @@ function renderCalendar() {
               cell.muted ? "isMuted" : "",
               cell.value === ymd(new Date()) ? "isToday" : "",
               cell.value === state.selectedDate ? "isSelected" : "",
-              eventDates.has(cell.value) ? "hasEvents" : "",
+              dateTone(cell.value),
             ]
               .filter(Boolean)
               .join(" ");
             const weather = weatherByDate.get(cell.value);
+            const eventCount = eventCounts[cell.value] || 0;
+            const taskCount = taskCounts[cell.value] || 0;
+            const hasDuty = dutyDates.has(cell.value);
             return `
               <button class="${classes}" type="button" data-date="${cell.value}">
-                <span class="dayNumber">${cell.label}</span>
+                <span class="dayHeader">
+                  <span class="dayNumber">${cell.label}</span>
+                  ${hasDuty ? `<span class="dayDutyMarker" aria-label="당직">•</span>` : ""}
+                </span>
                 ${weather?.glyph ? `<span class="dayWeatherGlyph">${escapeHtml(weather.glyph)}</span>` : ""}
+                ${
+                  eventCount || taskCount
+                    ? `
+                      <span class="dayMarkers">
+                        ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
+                        ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
+                      </span>
+                    `
+                    : ""
+                }
               </button>
             `;
           })
