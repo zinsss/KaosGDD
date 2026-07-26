@@ -96,6 +96,24 @@ svg {
   backdrop-filter: blur(14px);
 }
 
+.settingsButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--nord8);
+}
+
+.settingsButton.isActive {
+  border-color: rgba(129, 161, 193, 0.62);
+  background: rgba(129, 161, 193, 0.14);
+}
+
 .kicker,
 .label {
   margin: 0;
@@ -812,6 +830,43 @@ h3 {
   gap: 8px;
 }
 
+.settingsList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.settingsList div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 38px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.settingsList div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.settingsList dt {
+  color: var(--nord7);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.settingsList dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 760;
+  text-align: right;
+}
+
 .openButton {
   display: inline-flex;
   align-items: center;
@@ -892,6 +947,51 @@ h3 {
 .bottomNav a.isActive {
   background: rgba(129, 161, 193, 0.14);
   color: var(--nord8);
+}
+
+.app[data-profile="family"] {
+  --bg: #302737;
+  --panel: #3b3045;
+  --surface: #45394f;
+  --raised: #50415c;
+  --line: rgba(239, 216, 237, 0.16);
+  --line-strong: rgba(239, 216, 237, 0.3);
+  --text: #f7edf6;
+  --muted: #eadbec;
+  --dim: #cdbbd3;
+  --shadow: rgba(26, 18, 30, 0.32);
+}
+
+.app[data-profile="family"] .appTop,
+.app[data-profile="family"] .bottomNav {
+  border-color: rgba(239, 216, 237, 0.16);
+  background: rgba(48, 39, 55, 0.96);
+}
+
+.app[data-profile="family"] h1 {
+  color: #f3b9d2;
+}
+
+.app[data-profile="family"] .kicker,
+.app[data-profile="family"] .label,
+.app[data-profile="family"] .composer label span,
+.app[data-profile="family"] .taskFilters span,
+.app[data-profile="family"] .settingsList dt {
+  color: #cdb4db;
+}
+
+.app[data-profile="family"] .collectionRail button.isActive,
+.app[data-profile="family"] .bottomNav a.isActive,
+.app[data-profile="family"] .settingsButton.isActive {
+  border-color: rgba(243, 185, 210, 0.62);
+  background: rgba(243, 185, 210, 0.14);
+  color: #f3b9d2;
+}
+
+.app[data-profile="family"] .openButton,
+.app[data-profile="family"] .primaryButton {
+  border-color: rgba(205, 180, 219, 0.42);
+  color: #f3b9d2;
 }
 
 @media (min-width: 780px) {

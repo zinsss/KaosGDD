@@ -7,11 +7,47 @@ const routes = {
   "add-task": "Add Task",
   "edit-task": "Edit Task",
   services: "Services",
+  rouny: "Rouny",
+  memos: "Memos",
+  settings: "Settings",
 };
 
 const DEFAULT_TASK_DUE_TIME = "10:00";
 const DEFAULT_EVENT_START_TIME = "09:00";
 const DEFAULT_EVENT_END_TIME = "10:00";
+const MEMOS_URL = "https://memos.kaosgdd.net";
+
+const navIcons = {
+  today: '<path d="M4 5h16M4 12h16M4 19h10" />',
+  calendar: '<path d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />',
+  tasks: '<path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />',
+  services: '<path d="M12 3v18M3 12h18M5 5h14v14H5z" />',
+  rouny: '<path d="M4 18V7l8-4 8 4v11M8 14h8M9 10h.01M15 10h.01" />',
+  memos: '<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" />',
+};
+
+const profileConfigs = {
+  main: {
+    label: "KaosGDD",
+    defaultRoute: "today",
+    nav: [
+      { route: "today", label: "Today", icon: "today" },
+      { route: "calendar", label: "Calendar", icon: "calendar" },
+      { route: "tasks", label: "Tasks", icon: "tasks" },
+      { route: "services", label: "Services", icon: "services" },
+    ],
+  },
+  family: {
+    label: "Family",
+    defaultRoute: "calendar",
+    nav: [
+      { route: "calendar", label: "Cal", icon: "calendar" },
+      { route: "tasks", label: "Tasks", icon: "tasks" },
+      { route: "rouny", label: "Rouny", icon: "rouny" },
+      { route: "memos", label: "Memos", icon: "memos" },
+    ],
+  },
+};
 
 const taskPriorityOptions = {
   none: { value: "", label: "None", rank: 10 },
@@ -735,7 +771,40 @@ function escapeHtml(value) {
 function getRoute() {
   const raw = window.location.hash.replace(/^#\/?/, "");
   const route = raw.split("?", 1)[0];
-  return routes[route] ? route : "today";
+  if (!routes[route]) return profileConfig().defaultRoute;
+  if (portalProfile() === "family" && (route === "today" || route === "services")) return profileConfig().defaultRoute;
+  if (portalProfile() === "main" && (route === "rouny" || route === "memos")) return profileConfig().defaultRoute;
+  return route;
+}
+
+function portalProfile() {
+  return window.location.hostname === "family.kaosgdd.net" ? "family" : "main";
+}
+
+function profileConfig() {
+  return profileConfigs[portalProfile()];
+}
+
+function activeNavRoute(route) {
+  if (route === "add" || route === "add-event") return "calendar";
+  if (route === "add-task" || route === "edit-task") return "tasks";
+  return route;
+}
+
+function renderBottomNav(route) {
+  const nav = document.getElementById("bottomNav");
+  if (!nav) return;
+  const activeRoute = activeNavRoute(route);
+  nav.innerHTML = profileConfig()
+    .nav.map(
+      (item) => `
+        <a href="#/${item.route}" data-nav="${item.route}" class="${item.route === activeRoute ? "isActive" : ""}" aria-label="${escapeHtml(item.label)}">
+          <svg aria-hidden="true" viewBox="0 0 24 24">${navIcons[item.icon]}</svg>
+          <span>${escapeHtml(item.label)}</span>
+        </a>
+      `,
+    )
+    .join("");
 }
 
 function hashParam(name) {
@@ -789,11 +858,12 @@ function addPageCells(monthValue) {
 function routeTitle(route) {
   const title = route === "add-event" || route === "add-task" ? routes.add : routes[route];
   document.getElementById("routeTitle").textContent = title;
-  document.querySelector(".app").dataset.route = route;
-  document.querySelectorAll("[data-nav]").forEach((link) => {
-    const activeRoute = route === "add" || route === "add-event" ? "calendar" : route === "add-task" || route === "edit-task" ? "tasks" : route;
-    link.classList.toggle("isActive", link.dataset.nav === activeRoute);
-  });
+  document.querySelector(".kicker").textContent = profileConfig().label;
+  const app = document.querySelector(".app");
+  app.dataset.route = route;
+  app.dataset.profile = portalProfile();
+  document.querySelector(".settingsButton")?.classList.toggle("isActive", route === "settings");
+  renderBottomNav(route);
 }
 
 function renderAddDatePicker({ title, allowNoDate = false }) {
@@ -1386,6 +1456,81 @@ function renderServices() {
   `;
 }
 
+function renderRouny() {
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Rouny</p>
+          <h2>Timetable</h2>
+        </div>
+      </div>
+      <div class="panelBody">
+        <p class="taskMeta">ROUN timetable page is ready for the standalone schedule module.</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderMemos() {
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Memos</p>
+          <h2>Notes</h2>
+        </div>
+        <a class="openButton" href="${escapeHtml(MEMOS_URL)}">Open</a>
+      </div>
+      <div class="panelBody">
+        <p class="taskMeta">Memos opens as its own service with its own login.</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettings() {
+  const config = profileConfig();
+  const items =
+    portalProfile() === "family"
+      ? [
+          ["Portal", "Family"],
+          ["Calendar", "Wife + Family shared"],
+          ["Tasks", "Wife + Family shared"],
+          ["Theme", "Pastel family"],
+        ]
+      : [
+          ["Portal", "KaosGDD"],
+          ["Calendar", "ZiN + Family shared"],
+          ["Tasks", "ZiN + Family shared"],
+          ["Weather", "Pohang, Daegu, Yeongdeok"],
+        ];
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${escapeHtml(config.label)}</p>
+          <h2>Settings</h2>
+        </div>
+      </div>
+      <div class="panelBody">
+        <dl class="settingsList">
+          ${items
+            .map(
+              ([label, value]) => `
+                <div>
+                  <dt>${escapeHtml(label)}</dt>
+                  <dd>${escapeHtml(value)}</dd>
+                </div>
+              `,
+            )
+            .join("")}
+        </dl>
+      </div>
+    </section>
+  `;
+}
+
 function render() {
   const route = getRoute();
   routeTitle(route);
@@ -1403,6 +1548,9 @@ function render() {
   }
   else if (route === "edit-task") view.innerHTML = renderEditTask();
   else if (route === "services") view.innerHTML = renderServices();
+  else if (route === "rouny") view.innerHTML = renderRouny();
+  else if (route === "memos") view.innerHTML = renderMemos();
+  else if (route === "settings") view.innerHTML = renderSettings();
   else view.innerHTML = renderToday();
   if (route === "calendar" || route === "today") {
     loadRemoteWeatherForSelectedMonth();
@@ -1571,7 +1719,7 @@ document.addEventListener("change", (event) => {
 window.addEventListener("hashchange", render);
 
 if (!window.location.hash) {
-  window.location.hash = "#/today";
+  window.location.hash = `#/${profileConfig().defaultRoute}`;
 } else {
   render();
 }

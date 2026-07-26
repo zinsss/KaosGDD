@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>KaosGDD</title>
-    <link rel="stylesheet" href="./styles.css?v=42" />
+    <link rel="stylesheet" href="./styles.css?v=43" />
   </head>
   <body>
     <div class="app" data-route="today">
@@ -13,38 +13,19 @@
           <p class="kicker">KaosGDD</p>
           <h1 id="routeTitle">Today</h1>
         </div>
+        <a class="settingsButton" href="#/settings" aria-label="Settings">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" />
+          </svg>
+        </a>
       </header>
 
       <main id="view" class="view" tabindex="-1"></main>
 
-      <nav class="bottomNav" aria-label="Main navigation">
-        <a href="#/today" data-nav="today">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M4 5h16M4 12h16M4 19h10" />
-          </svg>
-          <span>Today</span>
-        </a>
-        <a href="#/calendar" data-nav="calendar">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
-          </svg>
-          <span>Calendar</span>
-        </a>
-        <a href="#/tasks" data-nav="tasks">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-          <span>Tasks</span>
-        </a>
-        <a href="#/services" data-nav="services">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M12 3v18M3 12h18M5 5h14v14H5z" />
-          </svg>
-          <span>Services</span>
-        </a>
-      </nav>
+      <nav class="bottomNav" id="bottomNav" aria-label="Main navigation"></nav>
     </div>
 
-    <script src="./app.js?v=42"></script>
+    <script src="./app.js?v=43"></script>
   </body>
 </html>
