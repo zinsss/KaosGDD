@@ -1678,6 +1678,69 @@ function reorderRounyTemplates(sourceId, targetId) {
   saveRounyTemplates(templates);
 }
 
+function rounyMinutes(timeValue) {
+  const match = String(timeValue || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function sortRounyItems(items) {
+  return [...items].sort((a, b) => Number(a.dayOfWeek) - Number(b.dayOfWeek) || rounyMinutes(a.startTime) - rounyMinutes(b.startTime));
+}
+
+function rounyTimeLabel(item) {
+  return `${String(item.startTime || "").slice(0, 5)}-${String(item.endTime || "").slice(0, 5)}`;
+}
+
+function rounyColorClass(color) {
+  return rounyColors.includes(color) ? `is${color[0].toUpperCase()}${color.slice(1)}` : "isPink";
+}
+
+function renderRounyGrid(template) {
+  const grouped = rounyDays.reduce((days, day) => ({ ...days, [day.value]: [] }), {});
+  sortRounyItems(template.items).forEach((item) => {
+    grouped[item.dayOfWeek]?.push(item);
+  });
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Week</p>
+          <h2>${escapeHtml(template.name)}</h2>
+        </div>
+      </div>
+      <div class="rounyWeekGrid" aria-label="Rouny weekly timetable">
+        ${rounyDays
+          .map(
+            (day) => `
+              <section class="rounyDayColumn">
+                <h3>${escapeHtml(day.label)}</h3>
+                <div class="rounyDayItems">
+                  ${
+                    grouped[day.value].length
+                      ? grouped[day.value]
+                          .map(
+                            (item) => `
+                              <article class="rounyBlock ${rounyColorClass(item.color)}">
+                                <strong>${escapeHtml(item.title || "Untitled")}</strong>
+                                <span>${escapeHtml(rounyTimeLabel(item))}</span>
+                                ${item.memo ? `<em>${escapeHtml(item.memo)}</em>` : ""}
+                              </article>
+                            `,
+                          )
+                          .join("")
+                      : `<p>No items</p>`
+                  }
+                </div>
+              </section>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderRouny() {
   ensureRounyState();
   const draft = state.rouny.draft;
@@ -1710,6 +1773,7 @@ function renderRouny() {
       </div>
     </section>
     <form class="rounyEditor" data-rouny-editor>
+      ${renderRounyGrid(draft)}
       <section class="panel">
         <div class="composer">
           <label>
