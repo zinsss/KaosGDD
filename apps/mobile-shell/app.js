@@ -831,6 +831,18 @@ function monthTitle(monthValue) {
   return `${date.toLocaleString("en", { month: "long" })} ${year}`;
 }
 
+function shiftSelectedMonth(offset) {
+  const [year, month, day] = state.selectedDate.split("-").map(Number);
+  const target = new Date(year, month - 1 + offset, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, lastDay));
+  state.selectedDate = ymd(target);
+}
+
+function selectToday() {
+  state.selectedDate = ymd(new Date());
+}
+
 function monthCells(monthValue) {
   const [year, month] = monthValue.split("-").map(Number);
   const start = new Date(year, month - 1, 1);
@@ -1174,7 +1186,14 @@ function renderCalendar() {
           <p class="label">Calendar</p>
           <h2>${escapeHtml(monthTitle(month))}</h2>
         </div>
-        <a class="openButton" href="#/add-event">Add</a>
+        <div class="calendarHeaderActions" aria-label="Calendar actions">
+          <div class="monthNav" aria-label="Month navigation">
+            <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="Previous month">&lt;&lt;</button>
+            <button class="monthTodayButton" type="button" data-month-today>Today</button>
+            <button class="monthNavButton" type="button" data-month-shift="1" aria-label="Next month">&gt;&gt;</button>
+          </div>
+          <a class="openButton" href="#/add-event">Add</a>
+        </div>
       </div>
       <div class="calendarGrid" aria-label="Month grid">
         ${["S", "M", "T", "W", "T", "F", "S"].map((day) => `<span class="weekday">${day}</span>`).join("")}
@@ -1572,6 +1591,23 @@ document.addEventListener("click", (event) => {
   if (collection) {
     state.currentCollection = collection.dataset.collection;
     render();
+    return;
+  }
+
+  const monthShift = event.target.closest("[data-month-shift]");
+  if (monthShift) {
+    const previousMonth = state.selectedDate.slice(0, 7);
+    shiftSelectedMonth(Number(monthShift.dataset.monthShift));
+    render();
+    if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
+    return;
+  }
+
+  if (event.target.closest("[data-month-today]")) {
+    const previousMonth = state.selectedDate.slice(0, 7);
+    selectToday();
+    render();
+    if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
   }
 

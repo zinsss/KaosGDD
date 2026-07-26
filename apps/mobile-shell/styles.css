@@ -268,6 +268,14 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.panelHeader > div:first-child {
+  min-width: 0;
+}
+
+.panelHeader > div:first-child h2 {
+  overflow-wrap: anywhere;
+}
+
 .panelBody {
   padding: 10px;
 }
@@ -470,8 +478,49 @@ h3 {
 .calendarGrid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 5px;
+  gap: 6px;
   padding: 10px;
+}
+
+.calendarHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.monthNav {
+  display: inline-grid;
+  grid-template-columns: 32px 58px 32px;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.monthNavButton,
+.monthTodayButton {
+  min-width: 0;
+  min-height: 34px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--nord8);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.monthTodayButton {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.monthNavButton:last-child {
+  border-right: 0;
 }
 
 .addCalendarGrid.isCollapsed {
@@ -489,10 +538,11 @@ h3 {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 2px;
+  grid-template-rows: auto 1fr auto;
+  gap: 3px;
   min-width: 0;
-  min-height: 42px;
-  padding: 6px;
+  min-height: 58px;
+  padding: 6px 5px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--surface);
@@ -505,7 +555,7 @@ h3 {
 .dayHeader {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   line-height: 1;
 }
@@ -530,9 +580,9 @@ h3 {
 
 .dayWeatherGlyph {
   display: block;
-  min-height: 14px;
+  min-height: 18px;
   color: var(--nord13);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   line-height: 1;
   text-align: center;
 }
@@ -541,9 +591,9 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 12px;
-  font-size: 0.66rem;
+  gap: 4px;
+  min-height: 14px;
+  font-size: 0.68rem;
   font-weight: 950;
   line-height: 1;
   font-variant-numeric: tabular-nums;
