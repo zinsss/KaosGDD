@@ -31,6 +31,16 @@ const rounyDays = [
 ];
 
 const rounyColors = ["pink", "peach", "yellow", "mint", "sky", "lavender", "gray"];
+const rounyColorMap = {
+  pink: "#f4c7df",
+  peach: "#f6be9f",
+  yellow: "#ebcb8b",
+  mint: "#8fbcbb",
+  sky: "#88c0d0",
+  lavender: "#b48ead",
+  gray: "#d8dee9",
+};
+const DEFAULT_ROUNY_COLOR = "#f4c7df";
 
 const navIcons = {
   today: '<path d="M4 5h16M4 12h16M4 19h10" />',
@@ -1528,14 +1538,25 @@ function cloneValue(value) {
 }
 
 function defaultRounyItem() {
+  const slot = defaultRounySlot();
   return {
     id: createId("rouny-item"),
     title: "",
-    dayOfWeek: String(new Date().getDay()),
+    dayOfWeek: slot.dayOfWeek,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    slots: [slot],
+    memo: "",
+    color: DEFAULT_ROUNY_COLOR,
+  };
+}
+
+function defaultRounySlot() {
+  return {
+    id: createId("rouny-slot"),
+    dayOfWeek: "1",
     startTime: "09:00",
     endTime: "09:40",
-    memo: "",
-    color: "pink",
   };
 }
 
@@ -1552,15 +1573,41 @@ function defaultRounyTemplate(name = "New template") {
 
 function normalizeRounyItem(item) {
   if (!item || typeof item !== "object") return null;
+  const slots = Array.isArray(item.slots) ? item.slots.map(normalizeRounySlot).filter(Boolean) : [];
+  const fallbackSlot = normalizeRounySlot({
+    dayOfWeek: item.dayOfWeek,
+    startTime: item.startTime,
+    endTime: item.endTime,
+  });
+  const normalizedSlots = slots.length ? slots : [fallbackSlot];
+  const firstSlot = normalizedSlots[0] || defaultRounySlot();
   return {
     id: String(item.id || createId("rouny-item")),
     title: String(item.title || ""),
-    dayOfWeek: rounyDays.some((day) => day.value === String(item.dayOfWeek)) ? String(item.dayOfWeek) : "1",
-    startTime: String(item.startTime || "09:00"),
-    endTime: String(item.endTime || "09:40"),
+    dayOfWeek: firstSlot.dayOfWeek,
+    startTime: firstSlot.startTime,
+    endTime: firstSlot.endTime,
+    slots: normalizedSlots,
     memo: String(item.memo || ""),
-    color: rounyColors.includes(item.color) ? item.color : "pink",
+    color: normalizeRounyColor(item.color),
   };
+}
+
+function normalizeRounySlot(slot) {
+  if (!slot || typeof slot !== "object") return defaultRounySlot();
+  return {
+    id: String(slot.id || createId("rouny-slot")),
+    dayOfWeek: rounyDays.some((day) => day.value === String(slot.dayOfWeek)) ? String(slot.dayOfWeek) : "1",
+    startTime: String(slot.startTime || "09:00"),
+    endTime: String(slot.endTime || "09:40"),
+  };
+}
+
+function normalizeRounyColor(color) {
+  const value = String(color || "").trim().toLowerCase();
+  if (rounyColorMap[value]) return rounyColorMap[value];
+  if (/^#[0-9a-f]{6}$/.test(value)) return value;
+  return DEFAULT_ROUNY_COLOR;
 }
 
 function normalizeRounyTemplate(template) {
@@ -1697,13 +1744,21 @@ function updateRounyDraftItem(itemId, patch) {
   );
 }
 
-function moveRounyDraftItem(itemId, dayOfWeek, targetItemId = "") {
+function moveRounyDraftItem(itemId, slotId, dayOfWeek, targetItemId = "", targetSlotId = "") {
   const moving = state.rouny.draft?.items.find((item) => item.id === itemId);
   if (!moving || !rounyDays.some((day) => day.value === String(dayOfWeek))) return;
   const target = state.rouny.draft.items.find((item) => item.id === targetItemId);
+  const targetSlot = target?.slots?.find((slot) => slot.id === targetSlotId);
   updateRounyDraftItem(itemId, {
-    dayOfWeek: String(dayOfWeek),
-    ...(target ? { startTime: target.startTime, endTime: target.endTime } : {}),
+    slots: moving.slots.map((slot) =>
+      slot.id === slotId
+        ? normalizeRounySlot({
+            ...slot,
+            dayOfWeek: String(dayOfWeek),
+            ...(targetSlot ? { startTime: targetSlot.startTime, endTime: targetSlot.endTime } : {}),
+          })
+        : slot,
+    ),
   });
 }
 
@@ -1715,6 +1770,10 @@ function rounyColorClass(color) {
   return rounyColors.includes(color) ? `is${color[0].toUpperCase()}${color.slice(1)}` : "isPink";
 }
 
+function rounyColorStyle(color) {
+  return `style="background:${escapeHtml(normalizeRounyColor(color))}"`;
+}
+
 function rounyGridDays() {
   return rounyDays.filter((day) => Number(day.value) >= 1 && Number(day.value) <= (state.rouny.includeSaturday ? 6 : 5));
 }
@@ -1722,8 +1781,13 @@ function rounyGridDays() {
 function renderRounyGrid(template) {
   const grouped = rounyDays.reduce((days, day) => ({ ...days, [day.value]: [] }), {});
   const visibleDays = rounyGridDays();
-  sortRounyItems(template.items).forEach((item) => {
-    grouped[item.dayOfWeek]?.push(item);
+  template.items.forEach((item) => {
+    item.slots.forEach((slot) => {
+      grouped[slot.dayOfWeek]?.push({ item, slot });
+    });
+  });
+  Object.keys(grouped).forEach((day) => {
+    grouped[day].sort((a, b) => rounyMinutes(a.slot.startTime) - rounyMinutes(b.slot.startTime));
   });
   return `
     <section class="panel">
@@ -1748,10 +1812,10 @@ function renderRounyGrid(template) {
                     grouped[day.value].length
                       ? grouped[day.value]
                           .map(
-                            (item) => `
-                              <article class="rounyBlock ${rounyColorClass(item.color)}" draggable="true" data-rouny-grid-item="${escapeHtml(item.id)}" data-rouny-day="${escapeHtml(day.value)}">
+                            ({ item, slot }) => `
+                              <article class="rounyBlock" ${rounyColorStyle(item.color)} draggable="true" data-rouny-grid-item="${escapeHtml(item.id)}" data-rouny-slot-id="${escapeHtml(slot.id)}" data-rouny-day="${escapeHtml(day.value)}">
                                 <strong>${escapeHtml(item.title || "Untitled")}</strong>
-                                <span>${escapeHtml(rounyTimeLabel(item))}</span>
+                                <span>${escapeHtml(rounyTimeLabel(slot))}</span>
                                 ${item.memo ? `<em>${escapeHtml(item.memo)}</em>` : ""}
                               </article>
                             `,
@@ -1863,40 +1927,77 @@ function renderRounyClassLayer(item, isNew = false) {
   `;
 }
 
+function itemFromRounyClassForm(form) {
+  const itemId = form.dataset.rounyItemId || createId("rouny-item");
+  const slots = [...form.querySelectorAll("[data-rouny-slot-row]")]
+    .map((row) =>
+      normalizeRounySlot({
+        id: row.dataset.rounySlotId || createId("rouny-slot"),
+        dayOfWeek: row.querySelector('[name="slotDay"]')?.value || "1",
+        startTime: row.querySelector('[name="slotStart"]')?.value || "09:00",
+        endTime: row.querySelector('[name="slotEnd"]')?.value || "09:40",
+      }),
+    )
+    .filter(Boolean);
+  return normalizeRounyItem({
+    id: itemId,
+    title: form.querySelector('[name="title"]')?.value || "",
+    slots: slots.length ? slots : [defaultRounySlot()],
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    color: form.querySelector('[name="color"]')?.value || DEFAULT_ROUNY_COLOR,
+  });
+}
+
+function upsertRounyDraftItem(item) {
+  const exists = state.rouny.draft.items.some((draftItem) => draftItem.id === item.id);
+  state.rouny.draft.items = exists
+    ? state.rouny.draft.items.map((draftItem) => (draftItem.id === item.id ? item : draftItem))
+    : [...state.rouny.draft.items, item];
+}
+
 function renderRounyItem(item) {
   return `
     <div class="rounyItem" data-rouny-item-id="${escapeHtml(item.id)}">
-      <div class="rounyItemGrid">
-        <label>
-          <span>Title</span>
-          <input name="title" type="text" autocomplete="off" value="${escapeHtml(item.title)}" placeholder="Activity" />
-        </label>
-        <label>
-          <span>Day</span>
-          <select name="dayOfWeek">
-            ${rounyDays.map((day) => `<option value="${day.value}" ${item.dayOfWeek === day.value ? "selected" : ""}>${day.label}</option>`).join("")}
-          </select>
-        </label>
-        <label>
-          <span>Start</span>
-          <input name="startTime" type="time" step="600" value="${escapeHtml(item.startTime)}" />
-        </label>
-        <label>
-          <span>End</span>
-          <input name="endTime" type="time" step="600" value="${escapeHtml(item.endTime)}" />
-        </label>
+      <label class="rounyTitleField">
+        <span>Title</span>
+        <input name="title" type="text" autocomplete="off" value="${escapeHtml(item.title)}" placeholder="Activity" />
+      </label>
+      <div class="rounySlots">
+        ${item.slots.map((slot) => renderRounySlot(slot, item.slots.length)).join("")}
+      </div>
+      <button class="openButton" type="button" data-rouny-add-slot>+ Add</button>
+      <div class="rounyMetaGrid">
         <label>
           <span>Color</span>
-          <select name="color">
-            ${rounyColors.map((color) => `<option value="${color}" ${item.color === color ? "selected" : ""}>${color}</option>`).join("")}
-          </select>
+          <input name="color" type="color" value="${escapeHtml(normalizeRounyColor(item.color))}" />
         </label>
-        <button class="iconTextButton" type="button" data-rouny-remove-item="${escapeHtml(item.id)}" aria-label="Remove item">×</button>
       </div>
       <label class="rounyMemo">
         <span>Memo</span>
         <input name="memo" type="text" autocomplete="off" value="${escapeHtml(item.memo)}" placeholder="Optional" />
       </label>
+    </div>
+  `;
+}
+
+function renderRounySlot(slot, slotCount) {
+  return `
+    <div class="rounySlotRow" data-rouny-slot-row data-rouny-slot-id="${escapeHtml(slot.id)}">
+      <label>
+        <span>Day</span>
+        <select name="slotDay">
+          ${rounyDays.map((day) => `<option value="${day.value}" ${slot.dayOfWeek === day.value ? "selected" : ""}>${day.label}</option>`).join("")}
+        </select>
+      </label>
+      <label>
+        <span>Start</span>
+        <input name="slotStart" type="time" step="600" value="${escapeHtml(slot.startTime)}" />
+      </label>
+      <label>
+        <span>End</span>
+        <input name="slotEnd" type="time" step="600" value="${escapeHtml(slot.endTime)}" />
+      </label>
+      <button class="iconTextButton" type="button" data-rouny-remove-slot="${escapeHtml(slot.id)}" aria-label="Remove time" ${slotCount <= 1 ? "disabled" : ""}>×</button>
     </div>
   `;
 }
@@ -2059,6 +2160,31 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  if (event.target.closest("[data-rouny-add-slot]")) {
+    const form = event.target.closest("[data-rouny-class-form]");
+    if (!form) return;
+    const item = itemFromRounyClassForm(form);
+    item.slots.push(defaultRounySlot());
+    if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) upsertRounyDraftItem(item);
+    else state.rouny.editingItemDraft = item;
+    state.rouny.editingItemId = item.id;
+    render();
+    return;
+  }
+
+  const rounyRemoveSlot = event.target.closest("[data-rouny-remove-slot]");
+  if (rounyRemoveSlot) {
+    const form = event.target.closest("[data-rouny-class-form]");
+    if (!form) return;
+    const item = itemFromRounyClassForm(form);
+    item.slots = item.slots.length <= 1 ? item.slots : item.slots.filter((slot) => slot.id !== rounyRemoveSlot.dataset.rounyRemoveSlot);
+    if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) upsertRounyDraftItem(item);
+    else state.rouny.editingItemDraft = item;
+    state.rouny.editingItemId = item.id;
+    render();
+    return;
+  }
+
   if (event.target.closest("[data-rouny-save]")) {
     saveRounyDraft();
     render();
@@ -2165,20 +2291,7 @@ document.addEventListener("submit", async (event) => {
   const rounyClassForm = event.target.closest("[data-rouny-class-form]");
   if (rounyClassForm) {
     event.preventDefault();
-    const itemId = rounyClassForm.dataset.rounyItemId || createId("rouny-item");
-    const item = normalizeRounyItem({
-      id: itemId,
-      title: rounyClassForm.querySelector('[name="title"]')?.value || "",
-      dayOfWeek: rounyClassForm.querySelector('[name="dayOfWeek"]')?.value || "1",
-      startTime: rounyClassForm.querySelector('[name="startTime"]')?.value || "09:00",
-      endTime: rounyClassForm.querySelector('[name="endTime"]')?.value || "09:40",
-      memo: rounyClassForm.querySelector('[name="memo"]')?.value || "",
-      color: rounyClassForm.querySelector('[name="color"]')?.value || "pink",
-    });
-    const exists = state.rouny.draft.items.some((draftItem) => draftItem.id === itemId);
-    state.rouny.draft.items = exists
-      ? state.rouny.draft.items.map((draftItem) => (draftItem.id === itemId ? item : draftItem))
-      : [...state.rouny.draft.items, item];
+    upsertRounyDraftItem(itemFromRounyClassForm(rounyClassForm));
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
     render();
@@ -2255,6 +2368,7 @@ document.addEventListener("dragstart", (event) => {
     state.rouny.dragItemId = item.dataset.rounyGridItem;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", state.rouny.dragItemId);
+    event.dataTransfer.setData("text/rouny-slot", item.dataset.rounySlotId || "");
     return;
   }
 
@@ -2284,7 +2398,13 @@ document.addEventListener("drop", (event) => {
   if (day && state.rouny.dragItemId) {
     event.preventDefault();
     const targetItem = event.target.closest("[data-rouny-grid-item]");
-    moveRounyDraftItem(state.rouny.dragItemId, day.dataset.rounyDay, targetItem?.dataset.rounyGridItem || "");
+    moveRounyDraftItem(
+      state.rouny.dragItemId,
+      event.dataTransfer.getData("text/rouny-slot") || "",
+      day.dataset.rounyDay,
+      targetItem?.dataset.rounyGridItem || "",
+      targetItem?.dataset.rounySlotId || "",
+    );
     state.rouny.editingItemId = state.rouny.dragItemId;
     state.rouny.editingItemDraft = null;
     state.rouny.dragItemId = "";
