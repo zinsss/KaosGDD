@@ -160,10 +160,10 @@ svg {
   align-items: center;
   justify-content: center;
   min-height: 30px;
-  padding: 6px 3px 5px;
+  padding: 6px 2px 5px;
   border-bottom: 2px solid transparent;
   color: var(--dim);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   font-weight: 760;
   line-height: 1;
   white-space: nowrap;
@@ -1720,8 +1720,8 @@ h3 {
   }
 
   .topNav a {
-    padding-inline: 2px;
-    font-size: 0.6rem;
+    padding-inline: 1px;
+    font-size: 0.64rem;
   }
 }
 
