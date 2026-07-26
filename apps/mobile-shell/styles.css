@@ -465,6 +465,9 @@ h3 {
 
 .day {
   position: relative;
+  display: grid;
+  align-content: start;
+  gap: 2px;
   min-width: 0;
   min-height: 42px;
   padding: 6px;
@@ -475,6 +478,20 @@ h3 {
   font-size: 0.74rem;
   font-weight: 800;
   text-align: left;
+}
+
+.dayNumber {
+  display: block;
+  line-height: 1;
+}
+
+.dayWeatherGlyph {
+  display: block;
+  min-height: 14px;
+  color: var(--nord13);
+  font-size: 0.78rem;
+  line-height: 1;
+  text-align: center;
 }
 
 .day.isMuted {
@@ -603,6 +620,63 @@ h3 {
 
 .panelBody.withDivider {
   border-top: 1px solid var(--line);
+}
+
+.selectedWeather {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.selectedWeatherSummary {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.selectedWeatherGlyph {
+  font-size: 2.35rem;
+  line-height: 1;
+}
+
+.selectedWeatherRange {
+  color: var(--nord13);
+  font-size: 0.88rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.selectedWeatherParts {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.weatherPart {
+  display: grid;
+  grid-template-columns: minmax(76px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 22px;
+}
+
+.weatherPartLabel {
+  color: var(--dim);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.weatherPartValue {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .legacySubtasks {

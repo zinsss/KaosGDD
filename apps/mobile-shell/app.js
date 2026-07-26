@@ -130,6 +130,22 @@ const mockCalendarData = {
       categories: ["knowledge"],
     },
   ],
+  weather: [
+    {
+      city: "pohang",
+      cityName: "Pohang",
+      date: ymd(new Date()),
+      glyph: "☀️",
+      minTemp: 21,
+      maxTemp: 32,
+      dayparts: [
+        { label: "Morning", glyph: "🌤️", minTemp: 22, maxTemp: 27 },
+        { label: "Afternoon", glyph: "☀️", minTemp: 28, maxTemp: 32 },
+        { label: "Evening", glyph: "🌧️", minTemp: 25, maxTemp: 29 },
+        { label: "Night", glyph: "🌙", minTemp: 21, maxTemp: 24 },
+      ],
+    },
+  ],
 };
 
 const mockAdapter = {
@@ -224,7 +240,7 @@ const mockAdapter = {
 
 function activeCalendarData() {
   if (state.remoteCalendar.live && state.remoteCalendar.collections.length) {
-    return state.remoteCalendar;
+    return { ...state.remoteCalendar, weather: mockCalendarData.weather };
   }
   return mockCalendarData;
 }
@@ -855,10 +871,10 @@ function renderTaskGroups(tasks) {
 }
 
 function renderCalendarAgenda(events, tasks) {
-  if (!events.length && !tasks.length) {
-    return `<div class="panelBody"><p class="taskMeta">No items</p></div>`;
-  }
+  const weather = weatherForDate(state.selectedDate);
+  if (!events.length && !tasks.length && !weather) return `<div class="panelBody"><p class="taskMeta">No items</p></div>`;
   return `
+    ${weather ? renderSelectedWeather(weather) : ""}
     ${events.length ? renderTimeline(events, "") : ""}
     ${
       tasks.length
@@ -870,6 +886,40 @@ function renderCalendarAgenda(events, tasks) {
         `
         : ""
     }
+  `;
+}
+
+function weatherForDate(dateValue) {
+  return activeCalendarData().weather?.find((weather) => weather.date === dateValue) || null;
+}
+
+function tempRange(item) {
+  if (!item || item.minTemp === undefined || item.maxTemp === undefined) return "";
+  return `${item.minTemp}-${item.maxTemp}`;
+}
+
+function renderSelectedWeather(weather) {
+  const dayparts = weather.dayparts || [];
+  return `
+    <div class="selectedWeather" aria-label="Selected day weather">
+      <div class="selectedWeatherSummary">
+        <span class="selectedWeatherGlyph">${escapeHtml(weather.glyph || "")}</span>
+        <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
+      </div>
+      <div class="selectedWeatherParts">
+        ${["Morning", "Afternoon", "Evening", "Night"]
+          .map((label) => {
+            const part = dayparts.find((item) => item.label === label) || {};
+            return `
+              <div class="weatherPart">
+                <span class="weatherPartLabel">${escapeHtml(label)}</span>
+                <span class="weatherPartValue">${escapeHtml([part.glyph, tempRange(part)].filter(Boolean).join(" "))}</span>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -928,6 +978,7 @@ function renderCalendar() {
   const selectedEvents = events.filter((event) => event.date === state.selectedDate);
   const selectedTasks = datedTasks.filter((task) => task.due === state.selectedDate);
   const eventDates = new Set([...events.map((event) => event.date), ...datedTasks.map((task) => task.due)]);
+  const weatherByDate = new Map((activeCalendarData().weather || []).map((weather) => [weather.date, weather]));
   return `
     ${renderCollectionRail()}
     <section class="panel">
@@ -951,7 +1002,13 @@ function renderCalendar() {
             ]
               .filter(Boolean)
               .join(" ");
-            return `<button class="${classes}" type="button" data-date="${cell.value}">${cell.label}</button>`;
+            const weather = weatherByDate.get(cell.value);
+            return `
+              <button class="${classes}" type="button" data-date="${cell.value}">
+                <span class="dayNumber">${cell.label}</span>
+                ${weather?.glyph ? `<span class="dayWeatherGlyph">${escapeHtml(weather.glyph)}</span>` : ""}
+              </button>
+            `;
           })
           .join("")}
       </div>
