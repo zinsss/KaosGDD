@@ -21,7 +21,7 @@ Build the first KaosGDD v2 surface as a service cockpit:
 | Caregiver wage | Standalone family module | KaosGDD |
 | Weather | Reuse/adapt current behavior | KaosGDD or weather adapter |
 | Notes | Link first, adapter/search later | Wiki.js |
-| Memos | Link first, adapter/search later | Memos |
+| Memos | Link first, editor after Caregiver and ROUN | Memos |
 | Documents | Link first, adapter/search later | Paperless-ngx |
 | Files | Link first, adapter later | SFTPGo |
 | PDF | Link first, workflow adapter later | Stirling-PDF |
@@ -43,6 +43,71 @@ Build the first KaosGDD v2 surface as a service cockpit:
 ROUN timetable stays standalone during the first v2 pass.
 
 Do not connect it to Radicale/calendar until the workflow need is clear.
+
+## Priority Order
+
+Next module work should focus on:
+
+1. Caregiver wage/calendar support
+2. ROUN timetable
+3. Memos editor
+
+Do not start the Memos editor before the Caregiver and ROUN shapes are usable.
+
+## Memos Editor Plan
+
+Memos remains the authoritative backend for memos. KaosGDD should not create its own notes database.
+
+Planned flow:
+
+```text
+KaosGDD UI -> Brain -> Memos API
+```
+
+Brain should own the Memos API credential/token. The browser should not store the Memos password.
+
+Main KaosGDD memo UI:
+
+- CodeMirror-style Markdown editor
+- Nord dark theme
+- raw Markdown first
+- optional preview later
+
+Family memo UI:
+
+- simple WYSIWYG editor
+- light family theme
+- no raw Markdown mode by default
+- toolbar limited to:
+  - heading
+  - bold
+  - italic
+  - checklist
+  - bullet list
+  - numbered list
+  - link from pasted URL
+
+Both UIs save normal Markdown to Memos.
+
+Supported first Markdown subset:
+
+```md
+# Heading
+
+plain paragraph
+
+**bold**
+_italic_
+
+- bullet
+1. numbered
+- [ ] checklist
+- [x] completed checklist
+
+[label](https://example.com)
+```
+
+Full Memos Markdown support may remain available inside Memos itself. KaosGDD should only expose the subset that is useful in daily family workflows.
 
 ## Task Grammar
 
