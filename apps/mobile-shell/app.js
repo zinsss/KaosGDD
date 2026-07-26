@@ -6,7 +6,7 @@ const routes = {
   "add-event": "Add Event",
   "add-task": "Add Task",
   "edit-task": "Edit Task",
-  services: "Services",
+  services: "Utils",
   rouny: "Rouny",
   memos: "Memos",
   settings: "Settings",
@@ -43,34 +43,27 @@ const rounyColorMap = {
 };
 const DEFAULT_ROUNY_COLOR = "#f4c7df";
 
-const navIcons = {
-  today: '<path d="M4 5h16M4 12h16M4 19h10" />',
-  calendar: '<path d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />',
-  tasks: '<path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />',
-  services: '<path d="M12 3v18M3 12h18M5 5h14v14H5z" />',
-  rouny: '<path d="M4 18V7l8-4 8 4v11M8 14h8M9 10h.01M15 10h.01" />',
-  memos: '<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" />',
-};
-
 const profileConfigs = {
   main: {
     label: "KaosGDD",
     defaultRoute: "today",
     nav: [
-      { route: "today", label: "Today", icon: "today" },
-      { route: "calendar", label: "Calendar", icon: "calendar" },
-      { route: "tasks", label: "Tasks", icon: "tasks" },
-      { route: "services", label: "Services", icon: "services" },
+      { route: "today", label: "Today" },
+      { route: "calendar", label: "Calendar" },
+      { route: "tasks", label: "Tasks" },
+      { route: "services", label: "Utils" },
+      { route: "settings", label: "Settings" },
     ],
   },
   family: {
     label: "Family",
     defaultRoute: "calendar",
     nav: [
-      { route: "calendar", label: "Cal", icon: "calendar" },
-      { route: "tasks", label: "Tasks", icon: "tasks" },
-      { route: "rouny", label: "Rouny", icon: "rouny" },
-      { route: "memos", label: "Memos", icon: "memos" },
+      { route: "calendar", label: "Calendar" },
+      { route: "tasks", label: "Tasks" },
+      { route: "rouny", label: "Rouny" },
+      { route: "memos", label: "Memos" },
+      { route: "settings", label: "Settings" },
     ],
   },
 };
@@ -950,16 +943,15 @@ function activeNavRoute(route) {
   return route;
 }
 
-function renderBottomNav(route) {
-  const nav = document.getElementById("bottomNav");
+function renderTopNav(route) {
+  const nav = document.getElementById("topNav");
   if (!nav) return;
   const activeRoute = activeNavRoute(route);
   nav.innerHTML = profileConfig()
     .nav.map(
       (item) => `
         <a href="#/${item.route}" data-nav="${item.route}" class="${item.route === activeRoute ? "isActive" : ""}" aria-label="${escapeHtml(item.label)}">
-          <svg aria-hidden="true" viewBox="0 0 24 24">${navIcons[item.icon]}</svg>
-          <span>${escapeHtml(item.label)}</span>
+          ${escapeHtml(item.label)}
         </a>
       `,
     )
@@ -1033,8 +1025,7 @@ function routeTitle(route) {
   const app = document.querySelector(".app");
   app.dataset.route = route;
   app.dataset.profile = portalProfile();
-  document.querySelector(".settingsButton")?.classList.toggle("isActive", route === "settings");
-  renderBottomNav(route);
+  renderTopNav(route);
 }
 
 function renderAddDatePicker({ title, allowNoDate = false }) {

@@ -117,7 +117,7 @@ svg {
 .app {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   max-width: 560px;
   height: 100dvh;
@@ -131,10 +131,10 @@ svg {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
   margin: 0 -12px;
   padding: calc(6px + var(--safe-top)) 12px 8px;
   border-bottom: 1px solid rgba(76, 86, 106, 0.78);
@@ -142,22 +142,36 @@ svg {
   backdrop-filter: blur(14px);
 }
 
-.settingsButton {
+.appIdentity {
+  min-width: 94px;
+}
+
+.topNav {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  align-items: end;
+  justify-content: end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.topNav a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--nord8);
+  min-height: 30px;
+  padding: 6px 3px 5px;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  font-size: 0.62rem;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.settingsButton.isActive {
-  border-color: rgba(129, 161, 193, 0.62);
-  background: rgba(129, 161, 193, 0.14);
+.topNav a.isActive {
+  border-bottom-color: var(--nord8);
+  color: var(--nord8);
 }
 
 .kicker,
@@ -1498,53 +1512,6 @@ h3 {
   font-weight: 900;
 }
 
-.bottomNav {
-  position: static;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  width: calc(100% + 24px);
-  margin: 0 -12px;
-  padding: 4px 10px 1px;
-  border-top: 1px solid rgba(76, 86, 106, 0.92);
-  background: rgba(46, 52, 64, 0.96);
-  backdrop-filter: blur(14px);
-}
-
-.bottomNav::after {
-  content: "KaosGDD v2";
-  grid-column: 1 / -1;
-  display: grid;
-  place-items: center;
-  height: var(--safe-bottom);
-  min-height: 0;
-  overflow: hidden;
-  color: var(--dim);
-  font-size: 0.52rem;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 0.34;
-  pointer-events: none;
-}
-
-.bottomNav a {
-  display: grid;
-  justify-items: center;
-  align-content: end;
-  gap: 1px;
-  min-height: 40px;
-  padding: 3px 2px 2px;
-  border-radius: 8px;
-  color: var(--dim);
-  font-size: 0.66rem;
-  font-weight: 850;
-}
-
-.bottomNav a.isActive {
-  background: rgba(129, 161, 193, 0.14);
-  color: var(--nord8);
-}
-
 .app[data-profile="family"] {
   color-scheme: light;
   --bg: #fbf7fc;
@@ -1559,14 +1526,9 @@ h3 {
   --shadow: rgba(96, 75, 107, 0.14);
 }
 
-.app[data-profile="family"] .appTop,
-.app[data-profile="family"] .bottomNav {
+.app[data-profile="family"] .appTop {
   border-color: rgba(122, 96, 132, 0.16);
   background: rgba(251, 247, 252, 0.94);
-}
-
-.app[data-profile="family"] .bottomNav::after {
-  content: "Kaos Family";
 }
 
 .app[data-profile="family"] h1 {
@@ -1582,10 +1544,8 @@ h3 {
 }
 
 .app[data-profile="family"] .collectionRail button.isActive,
-.app[data-profile="family"] .bottomNav a.isActive,
-.app[data-profile="family"] .settingsButton.isActive {
+.app[data-profile="family"] .topNav a.isActive {
   border-color: rgba(188, 126, 170, 0.42);
-  background: rgba(244, 199, 223, 0.44);
   color: #8c4f83;
 }
 
@@ -1603,7 +1563,6 @@ h3 {
   opacity: 0.54;
 }
 
-.app[data-profile="family"] .settingsButton,
 .app[data-profile="family"] .collectionRail button,
 .app[data-profile="family"] .taskFilters select,
 .app[data-profile="family"] .rounyTemplateRow,
@@ -1667,6 +1626,29 @@ h3 {
 .app[data-profile="family"] .composer input::placeholder,
 .app[data-profile="family"] .composer textarea::placeholder {
   color: #a693ad;
+}
+
+@media (max-width: 380px) {
+  .appTop {
+    gap: 6px;
+  }
+
+  .appIdentity {
+    min-width: 78px;
+  }
+
+  .appTop h1 {
+    font-size: 1.32rem;
+  }
+
+  .topNav {
+    gap: 0;
+  }
+
+  .topNav a {
+    padding-inline: 2px;
+    font-size: 0.56rem;
+  }
 }
 
 @media (max-width: 680px) {
