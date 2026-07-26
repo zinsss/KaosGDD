@@ -67,11 +67,14 @@
 
 * {
   box-sizing: border-box;
+  min-width: 0;
 }
 
 html,
 body {
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -79,6 +82,7 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.4;
+  width: 100%;
 }
 
 body:has(.app[data-profile="family"]) {
@@ -115,6 +119,7 @@ svg {
   min-height: 100dvh;
   margin: 0 auto;
   padding: calc(12px + var(--safe-top)) 12px calc(92px + var(--safe-bottom));
+  overflow-x: hidden;
 }
 
 .appTop {
@@ -187,26 +192,22 @@ h3 {
 .view {
   display: grid;
   gap: 12px;
+  max-width: 100%;
   outline: none;
 }
 
 .collectionRail {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  margin: 0 -12px;
-  padding: 0 12px;
-  scrollbar-width: none;
-}
-
-.collectionRail::-webkit-scrollbar {
-  display: none;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .collectionRail button {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -218,10 +219,16 @@ h3 {
 }
 
 .collectionRail button {
-  min-width: 104px;
+  min-width: 0;
   justify-content: space-between;
   gap: 9px;
   padding: 8px 10px;
+}
+
+.collectionRail button,
+.collectionRail small {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .collectionRail small {
@@ -280,6 +287,8 @@ h3 {
 }
 
 .panel {
+  max-width: 100%;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -309,6 +318,7 @@ h3 {
 }
 
 .panelBody {
+  max-width: 100%;
   padding: 10px;
 }
 
@@ -914,6 +924,17 @@ h3 {
   gap: 12px;
   min-height: 62px;
   padding: 10px 0;
+}
+
+.serviceRow,
+.taskRow,
+.timeline li,
+.rounyTemplateRow,
+.rounyItem,
+.calendarGrid,
+.summaryGrid,
+.servicesGrid {
+  max-width: 100%;
 }
 
 .serviceRow strong {
