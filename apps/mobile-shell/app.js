@@ -105,6 +105,10 @@ const state = {
     templates: [],
     selectedTemplateId: "",
     draft: null,
+    page: "list",
+    editingItemId: "",
+    editingItemDraft: null,
+    dragItemId: "",
     dragTemplateId: "",
     includeSaturday: false,
   },
@@ -1609,20 +1613,9 @@ function ensureRounyState() {
 function collectRounyDraft() {
   const form = document.querySelector("[data-rouny-editor]");
   if (!form || !state.rouny.draft) return state.rouny.draft;
-  const rows = [...form.querySelectorAll("[data-rouny-item-id]")];
-  const items = rows.map((row) => ({
-    id: row.dataset.rounyItemId || createId("rouny-item"),
-    title: row.querySelector('[name="title"]')?.value || "",
-    dayOfWeek: row.querySelector('[name="dayOfWeek"]')?.value || "1",
-    startTime: row.querySelector('[name="startTime"]')?.value || "09:00",
-    endTime: row.querySelector('[name="endTime"]')?.value || "09:40",
-    memo: row.querySelector('[name="memo"]')?.value || "",
-    color: row.querySelector('[name="color"]')?.value || "pink",
-  }));
   state.rouny.draft = normalizeRounyTemplate({
     ...state.rouny.draft,
     name: form.querySelector('[name="templateName"]')?.value || "",
-    items,
   });
   return state.rouny.draft;
 }
@@ -1632,6 +1625,9 @@ function selectRounyTemplate(templateId) {
   if (!template) return;
   state.rouny.selectedTemplateId = template.id;
   state.rouny.draft = cloneValue(template);
+  state.rouny.page = "detail";
+  state.rouny.editingItemId = "";
+  state.rouny.editingItemDraft = null;
   window.localStorage.setItem(ROUNY_SELECTED_STORAGE_KEY, template.id);
 }
 
@@ -1667,6 +1663,9 @@ function deleteRounyTemplate(templateId) {
   const templates = state.rouny.templates.filter((template) => template.id !== templateId);
   state.rouny.selectedTemplateId = templates[0]?.id || "";
   state.rouny.draft = cloneValue(templates[0] || defaultRounyTemplate("Basic"));
+  state.rouny.page = "list";
+  state.rouny.editingItemId = "";
+  state.rouny.editingItemDraft = null;
   saveRounyTemplates(templates);
 }
 
@@ -1689,6 +1688,23 @@ function rounyMinutes(timeValue) {
 
 function sortRounyItems(items) {
   return [...items].sort((a, b) => Number(a.dayOfWeek) - Number(b.dayOfWeek) || rounyMinutes(a.startTime) - rounyMinutes(b.startTime));
+}
+
+function updateRounyDraftItem(itemId, patch) {
+  ensureRounyState();
+  state.rouny.draft.items = state.rouny.draft.items.map((item) =>
+    item.id === itemId ? normalizeRounyItem({ ...item, ...patch }) : item,
+  );
+}
+
+function moveRounyDraftItem(itemId, dayOfWeek, targetItemId = "") {
+  const moving = state.rouny.draft?.items.find((item) => item.id === itemId);
+  if (!moving || !rounyDays.some((day) => day.value === String(dayOfWeek))) return;
+  const target = state.rouny.draft.items.find((item) => item.id === targetItemId);
+  updateRounyDraftItem(itemId, {
+    dayOfWeek: String(dayOfWeek),
+    ...(target ? { startTime: target.startTime, endTime: target.endTime } : {}),
+  });
 }
 
 function rounyTimeLabel(item) {
@@ -1725,7 +1741,7 @@ function renderRounyGrid(template) {
         ${visibleDays
           .map(
             (day) => `
-              <section class="rounyDayColumn">
+              <section class="rounyDayColumn" data-rouny-day="${escapeHtml(day.value)}">
                 <h3>${escapeHtml(day.label)}</h3>
                 <div class="rounyDayItems">
                   ${
@@ -1733,7 +1749,7 @@ function renderRounyGrid(template) {
                       ? grouped[day.value]
                           .map(
                             (item) => `
-                              <article class="rounyBlock ${rounyColorClass(item.color)}">
+                              <article class="rounyBlock ${rounyColorClass(item.color)}" draggable="true" data-rouny-grid-item="${escapeHtml(item.id)}" data-rouny-day="${escapeHtml(day.value)}">
                                 <strong>${escapeHtml(item.title || "Untitled")}</strong>
                                 <span>${escapeHtml(rounyTimeLabel(item))}</span>
                                 ${item.memo ? `<em>${escapeHtml(item.memo)}</em>` : ""}
@@ -1755,7 +1771,12 @@ function renderRounyGrid(template) {
 
 function renderRouny() {
   ensureRounyState();
-  const draft = state.rouny.draft;
+  if (state.rouny.page !== "detail") return renderRounyTemplateList();
+  return renderRounyTemplateDetail();
+}
+
+function renderRounyTemplateList() {
+  ensureRounyState();
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -1774,7 +1795,7 @@ function renderRouny() {
                   <button class="rounyDragHandle" type="button" aria-label="Drag template">≡</button>
                   <button class="rounyTemplateButton" type="button" data-rouny-select="${escapeHtml(template.id)}">
                     <strong>${escapeHtml(template.name)}</strong>
-                    <span>${template.items.length} item${template.items.length === 1 ? "" : "s"}</span>
+                    <span>${template.items.length} class${template.items.length === 1 ? "" : "es"}</span>
                   </button>
                   <button class="plainButton" type="button" data-rouny-delete="${escapeHtml(template.id)}">Delete</button>
                 </div>
@@ -1784,9 +1805,24 @@ function renderRouny() {
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderRounyTemplateDetail() {
+  const draft = state.rouny.draft;
+  const editingItem = state.rouny.editingItemId
+    ? draft.items.find((item) => item.id === state.rouny.editingItemId) || state.rouny.editingItemDraft
+    : null;
+  return `
     <form class="rounyEditor" data-rouny-editor>
-      ${renderRounyGrid(draft)}
       <section class="panel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">Rouny</p>
+            <h2>${escapeHtml(draft.name)}</h2>
+          </div>
+          <button class="openButton" type="button" data-rouny-back>List</button>
+        </div>
         <div class="composer">
           <label>
             <span>Template name</span>
@@ -1794,23 +1830,36 @@ function renderRouny() {
           </label>
         </div>
       </section>
-      <section class="panel">
-        <div class="panelHeader">
-          <div>
-            <p class="label">Schedule</p>
-            <h2>${escapeHtml(draft.name)}</h2>
-          </div>
-          <button class="openButton" type="button" data-rouny-add-item>Add</button>
-        </div>
-        <div class="rounyItems">
-          ${draft.items.map(renderRounyItem).join("")}
-        </div>
-      </section>
+      ${renderRounyGrid(draft)}
       <section class="rounyActions">
+        <button class="openButton" type="button" data-rouny-add-item>Add class</button>
         <button class="primaryButton" type="button" data-rouny-save>Save</button>
         <button class="openButton" type="button" data-rouny-save-as>Save as</button>
       </section>
     </form>
+    ${editingItem ? renderRounyClassLayer(editingItem, !draft.items.some((item) => item.id === editingItem.id)) : ""}
+  `;
+}
+
+function renderRounyClassLayer(item, isNew = false) {
+  return `
+    <div class="rounyLayerBackdrop" data-rouny-close-layer></div>
+    <aside class="rounyLayer" aria-label="${isNew ? "Add class" : "Edit class"}">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Rouny</p>
+          <h2>${isNew ? "Add class" : "Edit class"}</h2>
+        </div>
+        <button class="iconTextButton" type="button" data-rouny-close-layer aria-label="Close">×</button>
+      </div>
+      <form class="rounyLayerForm" data-rouny-class-form data-rouny-item-id="${escapeHtml(item.id)}">
+        ${renderRounyItem(item)}
+        <div class="rounyActions">
+          ${isNew ? "" : `<button class="plainButton" type="button" data-rouny-remove-item="${escapeHtml(item.id)}">Delete</button>`}
+          <button class="primaryButton" type="submit">Done</button>
+        </div>
+      </form>
+    </aside>
   `;
 }
 
@@ -1942,6 +1991,18 @@ document.addEventListener("click", (event) => {
     collectRounyDraft();
     state.rouny.draft = defaultRounyTemplate("New template");
     state.rouny.selectedTemplateId = state.rouny.draft.id;
+    state.rouny.page = "detail";
+    state.rouny.editingItemId = "";
+    state.rouny.editingItemDraft = null;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-back]")) {
+    collectRounyDraft();
+    state.rouny.page = "list";
+    state.rouny.editingItemId = "";
+    state.rouny.editingItemDraft = null;
     render();
     return;
   }
@@ -1962,7 +2023,24 @@ document.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-rouny-add-item]")) {
     collectRounyDraft();
-    state.rouny.draft.items.push(defaultRounyItem());
+    const item = defaultRounyItem();
+    state.rouny.editingItemId = item.id;
+    state.rouny.editingItemDraft = item;
+    render();
+    return;
+  }
+
+  const rounyGridItem = event.target.closest("[data-rouny-grid-item]");
+  if (rounyGridItem) {
+    state.rouny.editingItemId = rounyGridItem.dataset.rounyGridItem;
+    state.rouny.editingItemDraft = null;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-close-layer]")) {
+    state.rouny.editingItemId = "";
+    state.rouny.editingItemDraft = null;
     render();
     return;
   }
@@ -1975,6 +2053,8 @@ document.addEventListener("click", (event) => {
     } else {
       state.rouny.draft.items = state.rouny.draft.items.filter((item) => item.id !== rounyRemoveItem.dataset.rounyRemoveItem);
     }
+    state.rouny.editingItemId = "";
+    state.rouny.editingItemDraft = null;
     render();
     return;
   }
@@ -2082,6 +2162,29 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const rounyClassForm = event.target.closest("[data-rouny-class-form]");
+  if (rounyClassForm) {
+    event.preventDefault();
+    const itemId = rounyClassForm.dataset.rounyItemId || createId("rouny-item");
+    const item = normalizeRounyItem({
+      id: itemId,
+      title: rounyClassForm.querySelector('[name="title"]')?.value || "",
+      dayOfWeek: rounyClassForm.querySelector('[name="dayOfWeek"]')?.value || "1",
+      startTime: rounyClassForm.querySelector('[name="startTime"]')?.value || "09:00",
+      endTime: rounyClassForm.querySelector('[name="endTime"]')?.value || "09:40",
+      memo: rounyClassForm.querySelector('[name="memo"]')?.value || "",
+      color: rounyClassForm.querySelector('[name="color"]')?.value || "pink",
+    });
+    const exists = state.rouny.draft.items.some((draftItem) => draftItem.id === itemId);
+    state.rouny.draft.items = exists
+      ? state.rouny.draft.items.map((draftItem) => (draftItem.id === itemId ? item : draftItem))
+      : [...state.rouny.draft.items, item];
+    state.rouny.editingItemId = "";
+    state.rouny.editingItemDraft = null;
+    render();
+    return;
+  }
+
   if (event.target.closest("[data-rouny-editor]")) {
     event.preventDefault();
     saveRounyDraft();
@@ -2147,6 +2250,14 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("dragstart", (event) => {
+  const item = event.target.closest("[data-rouny-grid-item]");
+  if (item) {
+    state.rouny.dragItemId = item.dataset.rounyGridItem;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", state.rouny.dragItemId);
+    return;
+  }
+
   const row = event.target.closest("[data-rouny-template-id]");
   if (!row) return;
   state.rouny.dragTemplateId = row.dataset.rounyTemplateId;
@@ -2155,6 +2266,13 @@ document.addEventListener("dragstart", (event) => {
 });
 
 document.addEventListener("dragover", (event) => {
+  const day = event.target.closest("[data-rouny-day]");
+  if (day && state.rouny.dragItemId) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    return;
+  }
+
   const row = event.target.closest("[data-rouny-template-id]");
   if (!row || !state.rouny.dragTemplateId) return;
   event.preventDefault();
@@ -2162,6 +2280,18 @@ document.addEventListener("dragover", (event) => {
 });
 
 document.addEventListener("drop", (event) => {
+  const day = event.target.closest("[data-rouny-day]");
+  if (day && state.rouny.dragItemId) {
+    event.preventDefault();
+    const targetItem = event.target.closest("[data-rouny-grid-item]");
+    moveRounyDraftItem(state.rouny.dragItemId, day.dataset.rounyDay, targetItem?.dataset.rounyGridItem || "");
+    state.rouny.editingItemId = state.rouny.dragItemId;
+    state.rouny.editingItemDraft = null;
+    state.rouny.dragItemId = "";
+    render();
+    return;
+  }
+
   const row = event.target.closest("[data-rouny-template-id]");
   if (!row || !state.rouny.dragTemplateId) return;
   event.preventDefault();
@@ -2172,6 +2302,7 @@ document.addEventListener("drop", (event) => {
 
 document.addEventListener("dragend", () => {
   state.rouny.dragTemplateId = "";
+  state.rouny.dragItemId = "";
 });
 
 document.addEventListener("change", (event) => {

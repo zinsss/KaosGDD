@@ -1134,6 +1134,7 @@ h3 {
   padding: 6px 4px;
   background: var(--surface);
   color: var(--text);
+  cursor: pointer;
 }
 
 .rounyBlock strong,
@@ -1251,6 +1252,54 @@ h3 {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rounyLayerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(15, 17, 23, 0.44);
+}
+
+.rounyLayer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  width: min(420px, 94vw);
+  max-width: 100%;
+  padding: calc(18px + var(--safe-top)) 12px calc(18px + var(--safe-bottom));
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: -18px 0 36px rgba(0, 0, 0, 0.26);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rounyLayerForm {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rounyLayer .rounyItem {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rounyLayer .rounyItemGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 0.55fr);
+}
+
+.rounyLayer .rounyItemGrid .iconTextButton {
+  display: none;
 }
 
 .openButton {
