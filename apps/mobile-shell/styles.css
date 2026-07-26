@@ -624,11 +624,9 @@ h3 {
   position: absolute;
   top: 2px;
   right: 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
+  display: block;
+  width: auto;
+  height: auto;
   color: inherit;
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.18rem;
