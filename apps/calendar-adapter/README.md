@@ -103,6 +103,19 @@ Example payload:
 }
 ```
 
+The browser calendar reads month weather through a public read-only endpoint:
+
+```text
+GET /api/weather/month?city=pohang&start=2026-06-28&end=2026-08-08
+```
+
+The month endpoint merges:
+
+- saved `Kaos_Weather` history for past dates
+- live Open-Meteo forecast for today/future dates
+
+Past history returns a daily summary only. Today/future forecast may include dayparts for selected-day detail.
+
 ## Production Behavior
 
 If credentials are missing or Radicale has no discoverable collections, the API returns a non-live payload and the mobile shell keeps its local preview data.

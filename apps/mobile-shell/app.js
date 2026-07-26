@@ -40,6 +40,15 @@ const state = {
     events: [],
     tasks: [],
   },
+  weatherLocation: "pohang",
+  remoteWeather: {
+    checked: false,
+    live: false,
+    key: "",
+    loadingKey: "",
+    error: "",
+    items: [],
+  },
 };
 
 const mockCalendarData = {
@@ -240,9 +249,13 @@ const mockAdapter = {
 
 function activeCalendarData() {
   if (state.remoteCalendar.live && state.remoteCalendar.collections.length) {
-    return { ...state.remoteCalendar, weather: mockCalendarData.weather };
+    return { ...state.remoteCalendar, weather: activeWeatherItems() };
   }
-  return mockCalendarData;
+  return { ...mockCalendarData, weather: activeWeatherItems() };
+}
+
+function activeWeatherItems() {
+  return state.remoteWeather.live ? state.remoteWeather.items : mockCalendarData.weather;
 }
 
 function collectionViews() {
@@ -358,6 +371,72 @@ async function loadRemoteCalendar() {
     };
   }
   render();
+}
+
+function visibleMonthRange(monthValue = state.selectedDate.slice(0, 7)) {
+  const cells = monthCells(monthValue);
+  return { start: cells[0]?.value || state.selectedDate, end: cells[cells.length - 1]?.value || state.selectedDate };
+}
+
+async function loadRemoteWeatherForSelectedMonth() {
+  const month = state.selectedDate.slice(0, 7);
+  const range = visibleMonthRange(month);
+  const key = `${state.weatherLocation}:${range.start}:${range.end}`;
+  if (state.remoteWeather.key === key || state.remoteWeather.loadingKey === key) return;
+  state.remoteWeather.loadingKey = key;
+  try {
+    const params = new URLSearchParams({
+      city: state.weatherLocation,
+      start: range.start,
+      end: range.end,
+    });
+    const response = await fetch(`/api/weather/month?${params.toString()}`, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    state.remoteWeather = {
+      checked: true,
+      live: Boolean(payload.ok && Array.isArray(payload.items)),
+      key,
+      loadingKey: "",
+      error: payload.error || "",
+      items: normalizeWeatherItems(payload.items || []),
+    };
+  } catch (error) {
+    state.remoteWeather = {
+      ...state.remoteWeather,
+      checked: true,
+      live: false,
+      key,
+      loadingKey: "",
+      error: error.message || "Weather unavailable",
+    };
+  }
+  if (getRoute() === "calendar" || getRoute() === "today") render();
+}
+
+function normalizeWeatherItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => ({
+      city: String(item?.city || ""),
+      cityName: String(item?.cityName || item?.city || ""),
+      date: String(item?.date || ""),
+      glyph: String(item?.glyph || ""),
+      condition: String(item?.condition || ""),
+      minTemp: item?.minTemp ?? "",
+      maxTemp: item?.maxTemp ?? "",
+      source: String(item?.source || ""),
+      dayparts: Array.isArray(item?.dayparts)
+        ? item.dayparts.map((part) => ({
+            label: String(part?.label || ""),
+            glyph: String(part?.glyph || ""),
+            condition: String(part?.condition || ""),
+            minTemp: part?.minTemp ?? "",
+            maxTemp: part?.maxTemp ?? "",
+          }))
+        : [],
+    }))
+    .filter((item) => item.date);
 }
 
 async function createRemoteTask(formData) {
@@ -894,12 +973,25 @@ function weatherForDate(dateValue) {
 }
 
 function tempRange(item) {
-  if (!item || item.minTemp === undefined || item.maxTemp === undefined) return "";
+  if (!item || item.minTemp === undefined || item.maxTemp === undefined || item.minTemp === "" || item.maxTemp === "") return "";
   return `${item.minTemp}-${item.maxTemp}`;
+}
+
+function isPastDate(dateValue) {
+  return String(dateValue || "") < ymd(new Date());
 }
 
 function renderSelectedWeather(weather) {
   const dayparts = weather.dayparts || [];
+  if (isPastDate(weather.date) || !dayparts.length) {
+    return `
+      <div class="selectedWeatherCompact" aria-label="Selected day weather">
+        <span>Weather</span>
+        <strong>${escapeHtml(weather.glyph || "")}</strong>
+        <em>${escapeHtml(tempRange(weather))}</em>
+      </div>
+    `;
+  }
   return `
     <div class="selectedWeather" aria-label="Selected day weather">
       <div class="selectedWeatherSummary">
@@ -1271,14 +1363,19 @@ function render() {
   else if (route === "edit-task") view.innerHTML = renderEditTask();
   else if (route === "services") view.innerHTML = renderServices();
   else view.innerHTML = renderToday();
+  if (route === "calendar" || route === "today") {
+    loadRemoteWeatherForSelectedMonth();
+  }
 }
 
 document.addEventListener("click", (event) => {
   const day = event.target.closest("[data-date]");
   if (day) {
+    const previousMonth = state.selectedDate.slice(0, 7);
     state.selectedDate = day.dataset.date;
     if (getRoute() === "add-task" || getRoute() === "edit-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
     render();
+    if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
   }
 

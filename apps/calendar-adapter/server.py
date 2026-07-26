@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -33,6 +33,38 @@ WEATHER_CITIES = {
     "pohang": "포항",
     "daegu": "대구",
     "yeongdeok": "영덕",
+}
+WEATHER_LOCATIONS = {
+    "pohang": {"label": "포항", "latitude": 36.0190, "longitude": 129.3435},
+    "daegu": {"label": "대구", "latitude": 35.8714, "longitude": 128.6014},
+    "yeongdeok": {"label": "영덕", "latitude": 36.4151, "longitude": 129.3650},
+}
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+WEATHER_DAYPARTS = [
+    ("Morning", range(6, 12)),
+    ("Afternoon", range(12, 18)),
+    ("Evening", range(18, 22)),
+    ("Night", (*range(0, 6), *range(22, 24))),
+]
+WEATHER_CONDITION_SEVERITY = {
+    "unknown": 0,
+    "clear": 1,
+    "partly_cloudy": 2,
+    "cloudy": 3,
+    "fog": 4,
+    "rain": 5,
+    "snow": 6,
+    "thunderstorm": 7,
+}
+WEATHER_GLYPHS = {
+    "clear": "☀️",
+    "partly_cloudy": "🌤️",
+    "cloudy": "☁️",
+    "rain": "🌧️",
+    "snow": "❄️",
+    "thunderstorm": "⛈️",
+    "fog": "🌫️",
+    "unknown": "·",
 }
 
 SEOUL_VTIMEZONE = """BEGIN:VTIMEZONE
@@ -567,6 +599,197 @@ def create_weather_history(payload):
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
+def weather_code_to_condition(weather_code):
+    try:
+        code = int(weather_code)
+    except (TypeError, ValueError):
+        return "unknown"
+    if code == 0:
+        return "clear"
+    if code in {1, 2}:
+        return "partly_cloudy"
+    if code == 3:
+        return "cloudy"
+    if code in {45, 48}:
+        return "fog"
+    if code in {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82}:
+        return "rain"
+    if code in {71, 73, 75, 77, 85, 86}:
+        return "snow"
+    if code in {95, 96, 99}:
+        return "thunderstorm"
+    return "unknown"
+
+
+def weather_glyph_for_condition(condition):
+    return WEATHER_GLYPHS.get(condition, WEATHER_GLYPHS["unknown"])
+
+
+def round_celsius(value):
+    return round(float(value))
+
+
+def parse_date_or_default(value, default):
+    try:
+        return date.fromisoformat(str(value or ""))
+    except ValueError:
+        return default
+
+
+def date_range(start_date, end_date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += timedelta(days=1)
+
+
+def weather_history_map(city, start_date, end_date):
+    try:
+        payload = list_weather_history()
+    except Exception:
+        return {}
+    entries = {}
+    for item in payload.get("weather", []):
+        item_date = str(item.get("date") or "")
+        if item.get("city") == city and start_date <= item_date <= end_date:
+            entries[item_date] = {
+                "city": item["city"],
+                "cityName": item.get("cityName") or WEATHER_CITIES.get(city, city),
+                "date": item_date,
+                "glyph": item.get("glyph") or "",
+                "condition": item.get("condition") or "",
+                "minTemp": item.get("minTemp"),
+                "maxTemp": item.get("maxTemp"),
+                "source": item.get("source") or "history",
+                "dayparts": [],
+            }
+    return entries
+
+
+def fetch_open_meteo_forecast(city, start_date, end_date):
+    location = WEATHER_LOCATIONS[city]
+    query = urllib.parse.urlencode(
+        {
+            "latitude": location["latitude"],
+            "longitude": location["longitude"],
+            "daily": "weather_code,temperature_2m_min,temperature_2m_max",
+            "hourly": "weather_code,temperature_2m",
+            "timezone": LOCAL_TZID,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+    with urllib.request.urlopen(f"{OPEN_METEO_URL}?{query}", timeout=TIMEOUT) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def forecast_daily_items(city, payload):
+    daily = payload.get("daily") if isinstance(payload.get("daily"), dict) else {}
+    times = daily.get("time") or []
+    codes = daily.get("weather_code") or []
+    min_values = daily.get("temperature_2m_min") or []
+    max_values = daily.get("temperature_2m_max") or []
+    items = {}
+    for index, date_value in enumerate(times):
+        try:
+            condition = weather_code_to_condition(codes[index])
+            items[str(date_value)] = {
+                "city": city,
+                "cityName": WEATHER_CITIES[city],
+                "date": str(date_value),
+                "glyph": weather_glyph_for_condition(condition),
+                "condition": condition,
+                "minTemp": round_celsius(min_values[index]),
+                "maxTemp": round_celsius(max_values[index]),
+                "source": "forecast",
+                "dayparts": [],
+            }
+        except (IndexError, TypeError, ValueError):
+            continue
+    return items
+
+
+def forecast_dayparts(payload):
+    hourly = payload.get("hourly") if isinstance(payload.get("hourly"), dict) else {}
+    times = hourly.get("time") or []
+    codes = hourly.get("weather_code") or []
+    temperatures = hourly.get("temperature_2m") or []
+    by_date = {}
+    for index, timestamp in enumerate(times):
+        try:
+            parsed = datetime.fromisoformat(str(timestamp))
+            temp_c = round_celsius(temperatures[index])
+            weather_code = int(codes[index])
+        except (IndexError, TypeError, ValueError):
+            continue
+        by_date.setdefault(parsed.date().isoformat(), {})[parsed.hour] = {"temp": temp_c, "weatherCode": weather_code}
+
+    results = {}
+    for date_value, by_hour in by_date.items():
+        parts = []
+        for label, hours in WEATHER_DAYPARTS:
+            rows = [by_hour[hour] for hour in hours if hour in by_hour]
+            if not rows:
+                continue
+            representative_code = max(
+                [row["weatherCode"] for row in rows],
+                key=lambda code: WEATHER_CONDITION_SEVERITY.get(weather_code_to_condition(code), 0),
+            )
+            condition = weather_code_to_condition(representative_code)
+            temps = [row["temp"] for row in rows]
+            parts.append(
+                {
+                    "label": label,
+                    "glyph": weather_glyph_for_condition(condition),
+                    "condition": condition,
+                    "weatherCode": representative_code,
+                    "minTemp": min(temps),
+                    "maxTemp": max(temps),
+                }
+            )
+        results[date_value] = parts
+    return results
+
+
+def month_weather_payload(query):
+    city = validate_weather_city(query.get("city", ["pohang"])[0])
+    today = datetime.now(LOCAL_TIMEZONE).date()
+    start = parse_date_or_default(query.get("start", [""])[0], today.replace(day=1))
+    end = parse_date_or_default(query.get("end", [""])[0], start + timedelta(days=41))
+    if end < start:
+        raise ValueError("invalid_weather_range")
+    if (end - start).days > 62:
+        raise ValueError("weather_range_too_large")
+
+    items = weather_history_map(city, start.isoformat(), min(end, today - timedelta(days=1)).isoformat())
+    forecast_error = ""
+    if end >= today:
+        forecast_start = max(start, today)
+        try:
+            payload = fetch_open_meteo_forecast(city, forecast_start.isoformat(), end.isoformat())
+            forecast_items = forecast_daily_items(city, payload)
+            dayparts_by_date = forecast_dayparts(payload)
+            for date_value, item in forecast_items.items():
+                item["dayparts"] = dayparts_by_date.get(date_value, [])
+                items[date_value] = item
+        except Exception:
+            forecast_error = "weather unavailable"
+
+    ordered = [items[day.isoformat()] for day in date_range(start, end) if day.isoformat() in items]
+    return {
+        "ok": not forecast_error or bool(ordered),
+        "error": forecast_error,
+        "city": city,
+        "cityName": WEATHER_CITIES[city],
+        "locations": [{"id": key, "label": value["label"]} for key, value in WEATHER_LOCATIONS.items()],
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "today": today.isoformat(),
+        "items": ordered,
+    }
+
+
 def bootstrap_payload(profile="main"):
     accounts = profile_accounts(profile)
     if not accounts:
@@ -921,6 +1144,7 @@ def update_task(payload, profile="main"):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         profile = profile_from_headers(self.headers)
         if path == "/health":
             json_response(self, 200, {"ok": True, "configured": configured(profile), "provider": "radicale", "profile": profile})
@@ -946,6 +1170,14 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
+        if path == "/api/weather/month":
+            try:
+                json_response(self, 200, month_weather_payload(query))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return
         json_response(self, 404, {"error": "not_found"})
 

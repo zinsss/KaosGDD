@@ -631,6 +631,36 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.selectedWeatherCompact {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.selectedWeatherCompact span {
+  color: var(--dim);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.selectedWeatherCompact strong {
+  color: var(--nord13);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.selectedWeatherCompact em {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-style: normal;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
 .selectedWeatherSummary {
   display: grid;
   justify-items: center;
