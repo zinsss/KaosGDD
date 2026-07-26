@@ -57,6 +57,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Kaos Weather Icons";
+  src: url("./fonts/SymbolsNerdFontMono-Regular.ttf?v=48") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -606,9 +614,9 @@ h3 {
   display: block;
   min-height: 18px;
   color: var(--nord13);
-  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.08rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   text-align: center;
 }
@@ -785,9 +793,9 @@ h3 {
 
 .selectedWeatherCompact strong {
   color: var(--nord13);
-  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.2rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -807,9 +815,9 @@ h3 {
 }
 
 .selectedWeatherGlyph {
-  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 2.35rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -843,7 +851,7 @@ h3 {
 
 .weatherPartValue {
   color: var(--text);
-  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-family: "Kaos Weather Icons", "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 0.82rem;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
