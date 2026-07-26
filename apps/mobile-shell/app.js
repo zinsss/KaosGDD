@@ -257,7 +257,7 @@ const mockAdapter = {
     const endTime = String(formData.get("endTime") || DEFAULT_EVENT_END_TIME);
     activeCalendarData().events.push({
       uid: `event-${Date.now()}`,
-      collection: writableCollectionId(),
+      collection: writableCollectionIdFromForm(formData, "VEVENT"),
       summary: title,
       description: String(formData.get("memo") || "").trim(),
       dtstart: allDay ? startDate : `${startDate}T${startTime}:00`,
@@ -276,7 +276,7 @@ const mockAdapter = {
     const due = taskDueFromForm(formData);
     activeCalendarData().tasks.push({
       uid: `task-${Date.now()}`,
-      collection: writableCollectionId(),
+      collection: writableCollectionIdFromForm(formData, "VTODO"),
       summary: title,
       description,
       due: due.date,
@@ -337,7 +337,7 @@ function collectionViews() {
   const ownerLabels = {
     zin: "GDD_ZiN",
     family: "Family",
-    wife: "Wife",
+    wife: "Bling02",
   };
   const ownerSubtitles = {
     zin: "personal",
@@ -357,9 +357,10 @@ function collectionViews() {
   owners.forEach((owner) => {
     const collectionIds = data.collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
     if (collectionIds.length) {
+      const ownerCollection = data.collections.find((collection) => collection.owner === owner);
       views.push({
         id: `owner:${owner}`,
-        name: ownerLabels[owner] || owner,
+        name: ownerLabels[owner] || ownerCollection?.ownerLabel || owner,
         owner: ownerSubtitles[owner] || owner,
         collectionIds,
       });
@@ -378,6 +379,46 @@ function writableCollectionId() {
   const view = mockAdapter.getCurrentCollection();
   if (view?.id !== "all" && view?.collectionIds.length) return view.collectionIds[0];
   return activeCalendarData().collections[0]?.id || "zin";
+}
+
+function defaultPersonalOwner() {
+  return portalProfile() === "family" ? "wife" : "zin";
+}
+
+function defaultPersonalCollectionViewId() {
+  return `owner:${defaultPersonalOwner()}`;
+}
+
+function ensureAddCollectionDefault() {
+  if (state.currentCollection === "owner:family") return;
+  const defaultView = defaultPersonalCollectionViewId();
+  if (collectionViews().some((collection) => collection.id === defaultView)) {
+    state.currentCollection = defaultView;
+  }
+}
+
+function collectionIdsForOwner(owner) {
+  return activeCalendarData().collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
+}
+
+function writableCollectionIdForOwner(owner, component) {
+  const data = activeCalendarData();
+  const collectionIds = collectionIdsForOwner(owner);
+  const collections = collectionIds.length
+    ? data.collections.filter((collection) => collectionIds.includes(collection.id))
+    : data.collections;
+  const typedCollection = collections.find((collection) => collection.components?.includes(component));
+  if (typedCollection) return typedCollection.id;
+  const namedCollection = collections.find((collection) =>
+    component === "VTODO" ? /task|reminder/i.test(collection.name) : /calendar|event/i.test(collection.name),
+  );
+  if (namedCollection) return namedCollection.id;
+  return collections[0]?.id || writableCollectionId();
+}
+
+function writableCollectionIdFromForm(formData, component) {
+  const owner = formData.get("shareFamily") === "on" ? "family" : defaultPersonalOwner();
+  return writableCollectionIdForOwner(owner, component);
 }
 
 function writableTaskCollectionId() {
@@ -521,7 +562,7 @@ async function createRemoteTask(formData) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      collectionId: writableTaskCollectionId(),
+      collectionId: writableCollectionIdFromForm(formData, "VTODO"),
       title: String(formData.get("title") || "").trim(),
       memo: String(formData.get("memo") || "").trim(),
       dueDate: due.date,
@@ -546,7 +587,7 @@ async function createRemoteEvent(formData) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      collectionId: writableEventCollectionId(),
+      collectionId: writableCollectionIdFromForm(formData, "VEVENT"),
       title: String(formData.get("title") || "").trim(),
       allDay: formData.get("allDay") === "on",
       startDate: String(formData.get("startDate") || state.selectedDate),
@@ -1331,10 +1372,12 @@ function renderAdd() {
 }
 
 function renderAddEvent() {
+  ensureAddCollectionDefault();
   return `
     ${renderCollectionRail()}
     <section class="panel">
       <form class="composer" data-create-event>
+        ${renderFamilyShareToggle()}
         <label>
           <span>Title</span>
           <input name="title" type="text" autocomplete="off" placeholder="New event" required />
@@ -1385,6 +1428,7 @@ function renderAddEvent() {
 }
 
 function renderAddTask() {
+  ensureAddCollectionDefault();
   const dueEnabled = state.taskDueEnabled;
   return `
     ${renderCollectionRail()}
@@ -1392,6 +1436,7 @@ function renderAddTask() {
       <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
       <section class="panel">
         <div class="composer">
+          ${renderFamilyShareToggle()}
           <label>
             <span>Task</span>
             <input name="title" type="text" autocomplete="off" placeholder="New task" required />
@@ -1423,6 +1468,15 @@ function renderAddTask() {
         </div>
       </section>
     </form>
+  `;
+}
+
+function renderFamilyShareToggle() {
+  return `
+    <label class="toggleLine shareLine">
+      <span>Family shared</span>
+      <input name="shareFamily" type="checkbox" data-share-family ${state.currentCollection === "owner:family" ? "checked" : ""} />
+    </label>
   `;
 }
 
@@ -2025,8 +2079,8 @@ function renderSettings() {
     portalProfile() === "family"
       ? [
           ["Portal", "Family"],
-          ["Calendar", "Wife + Family shared"],
-          ["Tasks", "Wife + Family shared"],
+          ["Calendar", "Bling02 + Family shared"],
+          ["Tasks", "Bling02 + Family shared"],
           ["Theme", "Pastel family"],
         ]
       : [
@@ -2426,6 +2480,13 @@ document.addEventListener("dragend", () => {
 });
 
 document.addEventListener("change", (event) => {
+  const shareFamily = event.target.closest("[data-share-family]");
+  if (shareFamily) {
+    state.currentCollection = shareFamily.checked ? "owner:family" : defaultPersonalCollectionViewId();
+    render();
+    return;
+  }
+
   const rounySaturday = event.target.closest("[data-rouny-saturday]");
   if (rounySaturday) {
     state.rouny.includeSaturday = rounySaturday.checked;
