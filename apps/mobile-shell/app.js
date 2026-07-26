@@ -1086,15 +1086,15 @@ function weatherGlyph(weather) {
   const raw = String(weather?.glyph || weather?.condition || "").toLowerCase();
   const condition = String(weather?.condition || "").toLowerCase();
   const value = `${raw} ${condition}`;
-  if (value.includes("thunder") || value.includes("storm") || value.includes("⛈")) return "\uf01e";
-  if (value.includes("snow") || value.includes("sleet") || value.includes("❄")) return "\uf01b";
-  if (value.includes("rain") || value.includes("shower") || value.includes("drizzle") || value.includes("🌧") || value.includes("☔")) return "\uf019";
-  if (value.includes("cloud") || value.includes("overcast") || value.includes("☁")) return "\uf013";
-  if (value.includes("part") || value.includes("few") || value.includes("🌤") || value.includes("⛅")) return "\uf002";
-  if (value.includes("night") || value.includes("moon") || value.includes("🌙")) return "\uf02e";
-  if (value.includes("fog") || value.includes("mist") || value.includes("haze")) return "\uf014";
-  if (value.includes("sun") || value.includes("clear") || value.includes("☀")) return "\uf00d";
-  return raw ? "\uf07b" : "";
+  if (value.includes("thunder") || value.includes("storm") || value.includes("⛈")) return "\ue31d";
+  if (value.includes("snow") || value.includes("sleet") || value.includes("❄")) return "\ue31a";
+  if (value.includes("rain") || value.includes("shower") || value.includes("drizzle") || value.includes("🌧") || value.includes("☔")) return "\ue318";
+  if (value.includes("cloud") || value.includes("overcast") || value.includes("☁")) return "\ue312";
+  if (value.includes("part") || value.includes("few") || value.includes("🌤") || value.includes("⛅")) return "\ue302";
+  if (value.includes("night") || value.includes("moon") || value.includes("🌙")) return "\ue32b";
+  if (value.includes("fog") || value.includes("mist") || value.includes("haze")) return "\ue313";
+  if (value.includes("sun") || value.includes("clear") || value.includes("☀")) return "\ue30d";
+  return raw ? "\ue371" : "";
 }
 
 function isPastDate(dateValue) {
