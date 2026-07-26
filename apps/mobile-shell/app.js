@@ -1292,11 +1292,13 @@ function renderCalendar() {
         ${["S", "M", "T", "W", "T", "F", "S"].map((day) => `<span class="weekday">${day}</span>`).join("")}
         ${monthCells(month)
           .map((cell) => {
+            const hasDuty = dutyDates.has(cell.value);
             const classes = [
               "day",
               cell.muted ? "isMuted" : "",
               cell.value === ymd(new Date()) ? "isToday" : "",
               cell.value === state.selectedDate ? "isSelected" : "",
+              hasDuty ? "isDuty" : "",
               dateTone(cell.value),
             ]
               .filter(Boolean)
@@ -1304,12 +1306,10 @@ function renderCalendar() {
             const weather = weatherByDate.get(cell.value);
             const eventCount = eventCounts[cell.value] || 0;
             const taskCount = taskCounts[cell.value] || 0;
-            const hasDuty = dutyDates.has(cell.value);
             return `
               <button class="${classes}" type="button" data-date="${cell.value}">
                 <span class="dayHeader">
                   <span class="dayNumber">${cell.label}</span>
-                  ${hasDuty ? `<span class="dayDutyMarker" aria-label="당직">•</span>` : ""}
                 </span>
                 ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
                 ${
