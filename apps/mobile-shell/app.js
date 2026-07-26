@@ -1082,6 +1082,21 @@ function tempRange(item) {
   return `${item.minTemp}-${item.maxTemp}`;
 }
 
+function weatherGlyph(weather) {
+  const raw = String(weather?.glyph || weather?.condition || "").toLowerCase();
+  const condition = String(weather?.condition || "").toLowerCase();
+  const value = `${raw} ${condition}`;
+  if (value.includes("thunder") || value.includes("storm") || value.includes("⛈")) return "ϟ";
+  if (value.includes("snow") || value.includes("sleet") || value.includes("❄")) return "❄";
+  if (value.includes("rain") || value.includes("shower") || value.includes("drizzle") || value.includes("🌧") || value.includes("☔")) return "☂";
+  if (value.includes("cloud") || value.includes("overcast") || value.includes("☁")) return "☁";
+  if (value.includes("part") || value.includes("few") || value.includes("🌤") || value.includes("⛅")) return "◐";
+  if (value.includes("night") || value.includes("moon") || value.includes("🌙")) return "☾";
+  if (value.includes("fog") || value.includes("mist") || value.includes("haze")) return "≋";
+  if (value.includes("sun") || value.includes("clear") || value.includes("☀")) return "☼";
+  return raw ? "•" : "";
+}
+
 function isPastDate(dateValue) {
   return String(dateValue || "") < ymd(new Date());
 }
@@ -1092,7 +1107,7 @@ function renderSelectedWeather(weather) {
     return `
       <div class="selectedWeatherCompact" aria-label="Selected day weather">
         <span>Weather</span>
-        <strong>${escapeHtml(weather.glyph || "")}</strong>
+        <strong>${escapeHtml(weatherGlyph(weather))}</strong>
         <em>${escapeHtml(tempRange(weather))}</em>
       </div>
     `;
@@ -1100,7 +1115,7 @@ function renderSelectedWeather(weather) {
   return `
     <div class="selectedWeather" aria-label="Selected day weather">
       <div class="selectedWeatherSummary">
-        <span class="selectedWeatherGlyph">${escapeHtml(weather.glyph || "")}</span>
+        <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
       </div>
       <div class="selectedWeatherParts">
@@ -1110,7 +1125,7 @@ function renderSelectedWeather(weather) {
             return `
               <div class="weatherPart">
                 <span class="weatherPartLabel">${escapeHtml(label)}</span>
-                <span class="weatherPartValue">${escapeHtml([part.glyph, tempRange(part)].filter(Boolean).join(" "))}</span>
+                <span class="weatherPartValue">${escapeHtml([weatherGlyph(part), tempRange(part)].filter(Boolean).join(" "))}</span>
               </div>
             `;
           })
@@ -1218,7 +1233,7 @@ function renderCalendar() {
                   <span class="dayNumber">${cell.label}</span>
                   ${hasDuty ? `<span class="dayDutyMarker" aria-label="당직">•</span>` : ""}
                 </span>
-                ${weather?.glyph ? `<span class="dayWeatherGlyph">${escapeHtml(weather.glyph)}</span>` : ""}
+                ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
                 ${
                   eventCount || taskCount
                     ? `
