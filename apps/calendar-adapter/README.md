@@ -116,6 +116,12 @@ The month endpoint merges:
 
 Past history returns a daily summary only. Today/future forecast may include dayparts for selected-day detail.
 
+Weather history is saved lazily:
+
+- today/future forecast is never written to `Kaos_Weather`
+- missing past dates are fetched from Open-Meteo archive when a month is viewed
+- existing `Kaos_Weather` entries are not overwritten automatically
+
 ## Production Behavior
 
 If credentials are missing or Radicale has no discoverable collections, the API returns a non-live payload and the mobile shell keeps its local preview data.

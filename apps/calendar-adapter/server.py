@@ -40,6 +40,7 @@ WEATHER_LOCATIONS = {
     "yeongdeok": {"label": "영덕", "latitude": 36.4151, "longitude": 129.3650},
 }
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 WEATHER_DAYPARTS = [
     ("Morning", range(6, 12)),
     ("Afternoon", range(12, 18)),
@@ -684,6 +685,23 @@ def fetch_open_meteo_forecast(city, start_date, end_date):
     return payload if isinstance(payload, dict) else {}
 
 
+def fetch_open_meteo_archive(city, start_date, end_date):
+    location = WEATHER_LOCATIONS[city]
+    query = urllib.parse.urlencode(
+        {
+            "latitude": location["latitude"],
+            "longitude": location["longitude"],
+            "daily": "weather_code,temperature_2m_min,temperature_2m_max",
+            "timezone": LOCAL_TZID,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+    with urllib.request.urlopen(f"{OPEN_METEO_ARCHIVE_URL}?{query}", timeout=TIMEOUT) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
 def forecast_daily_items(city, payload):
     daily = payload.get("daily") if isinstance(payload.get("daily"), dict) else {}
     times = daily.get("time") or []
@@ -708,6 +726,21 @@ def forecast_daily_items(city, payload):
         except (IndexError, TypeError, ValueError):
             continue
     return items
+
+
+def save_missing_weather_history(city, items):
+    for item in items.values():
+        create_weather_history(
+            {
+                "city": city,
+                "date": item["date"],
+                "minTemp": item["minTemp"],
+                "maxTemp": item["maxTemp"],
+                "glyph": item["glyph"],
+                "condition": item["condition"],
+                "source": "open-meteo-archive",
+            }
+        )
 
 
 def forecast_dayparts(payload):
@@ -762,7 +795,24 @@ def month_weather_payload(query):
     if (end - start).days > 62:
         raise ValueError("weather_range_too_large")
 
-    items = weather_history_map(city, start.isoformat(), min(end, today - timedelta(days=1)).isoformat())
+    history_end = min(end, today - timedelta(days=1))
+    items = weather_history_map(city, start.isoformat(), history_end.isoformat())
+    history_error = ""
+    if start <= history_end:
+        missing_dates = [day.isoformat() for day in date_range(start, history_end) if day.isoformat() not in items]
+        if missing_dates:
+            try:
+                payload = fetch_open_meteo_archive(city, missing_dates[0], missing_dates[-1])
+                archive_items = forecast_daily_items(city, payload)
+                missing_items = {date_value: archive_items[date_value] for date_value in missing_dates if date_value in archive_items}
+                for item in missing_items.values():
+                    item["source"] = "open-meteo-archive"
+                    item["dayparts"] = []
+                save_missing_weather_history(city, missing_items)
+                items.update(missing_items)
+            except Exception:
+                history_error = "history unavailable"
+
     forecast_error = ""
     if end >= today:
         forecast_start = max(start, today)
@@ -778,8 +828,8 @@ def month_weather_payload(query):
 
     ordered = [items[day.isoformat()] for day in date_range(start, end) if day.isoformat() in items]
     return {
-        "ok": not forecast_error or bool(ordered),
-        "error": forecast_error,
+        "ok": not (forecast_error or history_error) or bool(ordered),
+        "error": forecast_error or history_error,
         "city": city,
         "cityName": WEATHER_CITIES[city],
         "locations": [{"id": key, "label": value["label"]} for key, value in WEATHER_LOCATIONS.items()],
