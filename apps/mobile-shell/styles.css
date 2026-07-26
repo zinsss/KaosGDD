@@ -970,6 +970,135 @@ h3 {
   text-align: right;
 }
 
+.rounyTemplateList,
+.rounyEditor,
+.rounyItems {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rounyTemplateRow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 7px;
+}
+
+.rounyTemplateRow.isActive {
+  border-color: rgba(129, 161, 193, 0.55);
+  background: rgba(129, 161, 193, 0.13);
+}
+
+.rounyDragHandle {
+  width: 30px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 1.1rem;
+  font-weight: 900;
+  cursor: grab;
+}
+
+.rounyTemplateButton {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.rounyTemplateButton strong,
+.rounyTemplateButton span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rounyTemplateButton strong {
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.rounyTemplateButton span {
+  color: var(--dim);
+  font-size: 0.75rem;
+  font-weight: 780;
+}
+
+.rounyItem {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rounyItem:last-child {
+  border-bottom: 0;
+}
+
+.rounyItemGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px 80px 80px 86px 30px;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rounyItem label,
+.rounyMemo {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rounyItem label span,
+.rounyMemo span {
+  color: var(--nord7);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.rounyItem input,
+.rounyItem select,
+.rounyMemo input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  padding: 0 9px;
+}
+
+.rounyItem input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: center;
+}
+
+.rounyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .openButton {
   display: inline-flex;
   align-items: center;
@@ -1109,15 +1238,39 @@ h3 {
 .app[data-profile="family"] .settingsButton,
 .app[data-profile="family"] .collectionRail button,
 .app[data-profile="family"] .taskFilters select,
+.app[data-profile="family"] .rounyTemplateRow,
+.app[data-profile="family"] .rounyItem input,
+.app[data-profile="family"] .rounyItem select,
+.app[data-profile="family"] .rounyMemo input,
 .app[data-profile="family"] .composer input,
 .app[data-profile="family"] .composer select,
 .app[data-profile="family"] .composer textarea {
   background: var(--surface);
 }
 
+.app[data-profile="family"] .rounyTemplateRow.isActive {
+  border-color: rgba(188, 126, 170, 0.42);
+  background: rgba(244, 199, 223, 0.36);
+}
+
+.app[data-profile="family"] .rounyItem label span,
+.app[data-profile="family"] .rounyMemo span {
+  color: #7f6aa6;
+}
+
 .app[data-profile="family"] .composer input::placeholder,
 .app[data-profile="family"] .composer textarea::placeholder {
   color: #a693ad;
+}
+
+@media (max-width: 680px) {
+  .rounyItemGrid {
+    grid-template-columns: minmax(0, 1fr) 72px 72px;
+  }
+
+  .rounyItemGrid .iconTextButton {
+    align-self: end;
+  }
 }
 
 @media (min-width: 780px) {

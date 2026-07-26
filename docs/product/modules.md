@@ -40,9 +40,42 @@ Build the first KaosGDD v2 surface as a service cockpit:
 
 ## ROUN
 
-ROUN timetable stays standalone during the first v2 pass.
+ROUN timetable stays standalone during the first v2 pass as a template library.
 
-Do not connect it to Radicale/calendar until the workflow need is clear.
+Do not connect it to Radicale/calendar or monthly calendar assignment until the workflow need is clear.
+
+First ROUN behavior:
+
+- edit one weekly template at a time
+- save current template
+- save as a copy
+- rename template
+- delete template
+- add/edit/remove schedule rows
+- show saved templates as a document-like list
+- drag/drop saved templates to reorder the list
+
+The first v2 data shape should stay close to the legacy model for easier migration:
+
+```json
+{
+  "id": "template-id",
+  "name": "Basic",
+  "items": [
+    {
+      "id": "item-id",
+      "title": "Activity",
+      "dayOfWeek": "1",
+      "startTime": "09:00",
+      "endTime": "09:40",
+      "memo": "",
+      "color": "pink"
+    }
+  ]
+}
+```
+
+Legacy named plans, assignment start dates, and calendar overrides should remain reference material only for now.
 
 ## Priority Order
 
