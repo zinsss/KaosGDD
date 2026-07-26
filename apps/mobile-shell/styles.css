@@ -49,6 +49,10 @@ body {
   line-height: 1.4;
 }
 
+body:has(.app[data-profile="family"]) {
+  background: #fbf7fc;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;
@@ -950,26 +954,27 @@ h3 {
 }
 
 .app[data-profile="family"] {
-  --bg: #302737;
-  --panel: #3b3045;
-  --surface: #45394f;
-  --raised: #50415c;
-  --line: rgba(239, 216, 237, 0.16);
-  --line-strong: rgba(239, 216, 237, 0.3);
-  --text: #f7edf6;
-  --muted: #eadbec;
-  --dim: #cdbbd3;
-  --shadow: rgba(26, 18, 30, 0.32);
+  color-scheme: light;
+  --bg: #fbf7fc;
+  --panel: #fffaff;
+  --surface: #f4edf8;
+  --raised: #eee4f4;
+  --line: rgba(122, 96, 132, 0.18);
+  --line-strong: rgba(122, 96, 132, 0.32);
+  --text: #34283b;
+  --muted: #594964;
+  --dim: #826f8a;
+  --shadow: rgba(96, 75, 107, 0.14);
 }
 
 .app[data-profile="family"] .appTop,
 .app[data-profile="family"] .bottomNav {
-  border-color: rgba(239, 216, 237, 0.16);
-  background: rgba(48, 39, 55, 0.96);
+  border-color: rgba(122, 96, 132, 0.16);
+  background: rgba(251, 247, 252, 0.94);
 }
 
 .app[data-profile="family"] h1 {
-  color: #f3b9d2;
+  color: #9b5f8f;
 }
 
 .app[data-profile="family"] .kicker,
@@ -977,21 +982,36 @@ h3 {
 .app[data-profile="family"] .composer label span,
 .app[data-profile="family"] .taskFilters span,
 .app[data-profile="family"] .settingsList dt {
-  color: #cdb4db;
+  color: #7f6aa6;
 }
 
 .app[data-profile="family"] .collectionRail button.isActive,
 .app[data-profile="family"] .bottomNav a.isActive,
 .app[data-profile="family"] .settingsButton.isActive {
-  border-color: rgba(243, 185, 210, 0.62);
-  background: rgba(243, 185, 210, 0.14);
-  color: #f3b9d2;
+  border-color: rgba(188, 126, 170, 0.42);
+  background: rgba(244, 199, 223, 0.44);
+  color: #8c4f83;
 }
 
 .app[data-profile="family"] .openButton,
 .app[data-profile="family"] .primaryButton {
-  border-color: rgba(205, 180, 219, 0.42);
-  color: #f3b9d2;
+  border-color: rgba(151, 124, 184, 0.34);
+  background: rgba(231, 220, 244, 0.62);
+  color: #755b98;
+}
+
+.app[data-profile="family"] .settingsButton,
+.app[data-profile="family"] .collectionRail button,
+.app[data-profile="family"] .taskFilters select,
+.app[data-profile="family"] .composer input,
+.app[data-profile="family"] .composer select,
+.app[data-profile="family"] .composer textarea {
+  background: var(--surface);
+}
+
+.app[data-profile="family"] .composer input::placeholder,
+.app[data-profile="family"] .composer textarea::placeholder {
+  color: #a693ad;
 }
 
 @media (min-width: 780px) {
