@@ -33,6 +33,30 @@
     sans-serif;
 }
 
+@font-face {
+  font-family: "Sarasa Gothic Mono";
+  src: url("./fonts/sarasa-mono-k-regular.woff2?v=47") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarasa Gothic Mono";
+  src: url("./fonts/sarasa-mono-k-semibold.woff2?v=47") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sarasa Gothic Mono";
+  src: url("./fonts/sarasa-mono-k-bold.woff2?v=47") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -582,9 +606,9 @@ h3 {
   display: block;
   min-height: 18px;
   color: var(--nord13);
-  font-family: "Symbols Nerd Font", "Nerd Font Symbols", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
-  font-size: 1rem;
-  font-weight: 900;
+  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-size: 1.08rem;
+  font-weight: 700;
   line-height: 1;
   text-align: center;
 }
@@ -761,7 +785,9 @@ h3 {
 
 .selectedWeatherCompact strong {
   color: var(--nord13);
+  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 1.2rem;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -781,7 +807,9 @@ h3 {
 }
 
 .selectedWeatherGlyph {
+  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 2.35rem;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -815,6 +843,7 @@ h3 {
 
 .weatherPartValue {
   color: var(--text);
+  font-family: "Sarasa Gothic Mono", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 0.82rem;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
