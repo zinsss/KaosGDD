@@ -18,15 +18,16 @@ const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
+const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 
 const rounyDays = [
-  { value: "0", label: "Sun" },
   { value: "1", label: "Mon" },
   { value: "2", label: "Tue" },
   { value: "3", label: "Wed" },
   { value: "4", label: "Thu" },
   { value: "5", label: "Fri" },
   { value: "6", label: "Sat" },
+  { value: "0", label: "Sun" },
 ];
 
 const rounyColors = ["pink", "peach", "yellow", "mint", "sky", "lavender", "gray"];
@@ -105,6 +106,7 @@ const state = {
     selectedTemplateId: "",
     draft: null,
     dragTemplateId: "",
+    includeSaturday: false,
   },
 };
 
@@ -1591,6 +1593,7 @@ function ensureRounyState() {
   if (!state.rouny.checked) {
     state.rouny.templates = loadRounyTemplates();
     state.rouny.selectedTemplateId = window.localStorage.getItem(ROUNY_SELECTED_STORAGE_KEY) || state.rouny.templates[0]?.id || "";
+    state.rouny.includeSaturday = window.localStorage.getItem(ROUNY_INCLUDE_SATURDAY_KEY) === "true";
     if (!state.rouny.templates.some((template) => template.id === state.rouny.selectedTemplateId)) {
       state.rouny.selectedTemplateId = state.rouny.templates[0]?.id || "";
     }
@@ -1696,8 +1699,13 @@ function rounyColorClass(color) {
   return rounyColors.includes(color) ? `is${color[0].toUpperCase()}${color.slice(1)}` : "isPink";
 }
 
+function rounyGridDays() {
+  return rounyDays.filter((day) => Number(day.value) >= 1 && Number(day.value) <= (state.rouny.includeSaturday ? 6 : 5));
+}
+
 function renderRounyGrid(template) {
   const grouped = rounyDays.reduce((days, day) => ({ ...days, [day.value]: [] }), {});
+  const visibleDays = rounyGridDays();
   sortRounyItems(template.items).forEach((item) => {
     grouped[item.dayOfWeek]?.push(item);
   });
@@ -1708,9 +1716,13 @@ function renderRounyGrid(template) {
           <p class="label">Week</p>
           <h2>${escapeHtml(template.name)}</h2>
         </div>
+        <label class="rounyGridToggle">
+          <input type="checkbox" data-rouny-saturday ${state.rouny.includeSaturday ? "checked" : ""} />
+          <span>Sat</span>
+        </label>
       </div>
-      <div class="rounyWeekGrid" aria-label="Rouny weekly timetable">
-        ${rounyDays
+      <div class="rounyWeekGrid ${state.rouny.includeSaturday ? "hasSaturday" : "isWeekdays"}" aria-label="Rouny weekly timetable">
+        ${visibleDays
           .map(
             (day) => `
               <section class="rounyDayColumn">
@@ -2163,6 +2175,14 @@ document.addEventListener("dragend", () => {
 });
 
 document.addEventListener("change", (event) => {
+  const rounySaturday = event.target.closest("[data-rouny-saturday]");
+  if (rounySaturday) {
+    state.rouny.includeSaturday = rounySaturday.checked;
+    window.localStorage.setItem(ROUNY_INCLUDE_SATURDAY_KEY, String(state.rouny.includeSaturday));
+    render();
+    return;
+  }
+
   const taskMode = event.target.closest("[data-task-mode]");
   if (taskMode) {
     state.taskMode = taskMode.value;

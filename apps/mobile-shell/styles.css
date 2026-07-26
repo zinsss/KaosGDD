@@ -1039,10 +1039,34 @@ h3 {
 
 .rounyWeekGrid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(88px, 1fr));
+  grid-template-columns: repeat(5, minmax(88px, 1fr));
   gap: 0;
   overflow-x: auto;
   padding: 10px;
+}
+
+.rounyWeekGrid.hasSaturday {
+  grid-template-columns: repeat(6, minmax(88px, 1fr));
+}
+
+.rounyGridToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.rounyGridToggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
 }
 
 .rounyDayColumn {
@@ -1397,6 +1421,11 @@ h3 {
 .app[data-profile="family"] .rounyItem label span,
 .app[data-profile="family"] .rounyMemo span {
   color: #7f6aa6;
+}
+
+.app[data-profile="family"] .rounyGridToggle {
+  background: var(--surface);
+  color: #594964;
 }
 
 .app[data-profile="family"] .composer input::placeholder,
