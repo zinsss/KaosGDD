@@ -118,7 +118,7 @@ svg {
 .app {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   width: 100%;
   max-width: 560px;
   height: 100dvh;
@@ -201,7 +201,7 @@ h3 {
   gap: 12px;
   max-width: 100%;
   min-height: 0;
-  padding: 10px 0 calc(46px + var(--nav-safe-bottom));
+  padding: 10px 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -1500,14 +1500,12 @@ h3 {
 }
 
 .bottomNav {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
+  position: static;
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  width: min(100%, 560px);
-  transform: translateX(-50%);
+  width: calc(100% + 24px);
+  margin: 0 -12px;
   padding: 4px 10px calc(1px + var(--nav-safe-bottom));
   border-top: 1px solid rgba(76, 86, 106, 0.92);
   background: rgba(46, 52, 64, 0.96);
