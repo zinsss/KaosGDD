@@ -163,7 +163,7 @@ svg {
   padding: 6px 3px 5px;
   border-bottom: 2px solid transparent;
   color: var(--dim);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 760;
   line-height: 1;
   white-space: nowrap;
@@ -1647,7 +1647,7 @@ h3 {
 
   .topNav a {
     padding-inline: 2px;
-    font-size: 0.56rem;
+    font-size: 0.6rem;
   }
 }
 
