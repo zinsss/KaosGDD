@@ -627,11 +627,11 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   color: inherit;
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
-  font-size: 0.98rem;
+  font-size: 1.18rem;
   font-weight: 400;
   line-height: 1;
   text-align: right;
