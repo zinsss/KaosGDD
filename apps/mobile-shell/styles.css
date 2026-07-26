@@ -1108,6 +1108,79 @@ h3 {
   text-align: right;
 }
 
+.settingsDisclosure {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.settingsDisclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding-top: 10px;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.settingsDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.settingsDisclosure summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--nord8);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.settingsDisclosure[open] summary::after {
+  content: "-";
+}
+
+.settingsDisclosure summary span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settingsDisclosure summary strong {
+  color: var(--nord7);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.settingsDisclosure summary small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.settingsDisclosureBody {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.presetInlineActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settingsDisclosure .presetEditor {
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
 .rounyTemplateList,
 .rounyEditor,
 .rounyItems {
@@ -1539,7 +1612,8 @@ h3 {
 .app[data-profile="family"] .label,
 .app[data-profile="family"] .composer label span,
 .app[data-profile="family"] .taskFilters span,
-.app[data-profile="family"] .settingsList dt {
+.app[data-profile="family"] .settingsList dt,
+.app[data-profile="family"] .settingsDisclosure summary strong {
   color: #7f6aa6;
 }
 

@@ -122,6 +122,7 @@ const state = {
     checked: false,
     items: [],
     editingId: "",
+    expanded: false,
   },
 };
 
@@ -2235,27 +2236,28 @@ function renderSettings() {
             )
             .join("")}
         </dl>
+        ${renderEventPresetSettings()}
       </div>
     </section>
-    ${renderEventPresetSettings()}
   `;
 }
 
 function renderEventPresetSettings() {
   const editing = state.eventPresets.items.find((preset) => preset.id === state.eventPresets.editingId) || defaultEventPreset();
   const isEditing = Boolean(state.eventPresets.editingId);
+  const presetCount = state.eventPresets.items.length;
   return `
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">Presets</p>
-          <h2>Event templates</h2>
-        </div>
-        ${isEditing ? `<button class="openButton" type="button" data-event-preset-new>New</button>` : ""}
-      </div>
-      <div class="panelBody">
+    <details class="settingsDisclosure" data-event-presets ${state.eventPresets.expanded ? "open" : ""}>
+      <summary>
+        <span>
+          <strong>Event presets</strong>
+          <small>${presetCount ? `${presetCount} saved` : "None saved"}</small>
+        </span>
+      </summary>
+      <div class="settingsDisclosureBody">
+        ${isEditing ? `<div class="presetInlineActions"><button class="openButton" type="button" data-event-preset-new>New</button></div>` : ""}
         ${
-          state.eventPresets.items.length
+          presetCount
             ? `
               <div class="presetList">
                 ${state.eventPresets.items
@@ -2275,8 +2277,7 @@ function renderEventPresetSettings() {
             `
             : `<p class="taskMeta">No event presets yet.</p>`
         }
-      </div>
-      <form class="composer presetEditor" data-event-preset-form data-event-preset-id="${isEditing ? escapeHtml(editing.id) : ""}">
+        <form class="composer presetEditor" data-event-preset-form data-event-preset-id="${isEditing ? escapeHtml(editing.id) : ""}">
         <label>
           <span>Preset name</span>
           <input name="presetName" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.name) : ""}" placeholder="당직" required />
@@ -2309,8 +2310,9 @@ function renderEventPresetSettings() {
           <textarea name="memo" rows="4" placeholder="Event notes">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
         </label>
         <button class="primaryButton" type="submit">${isEditing ? "Save preset" : "Create preset"}</button>
-      </form>
-    </section>
+        </form>
+      </div>
+    </details>
   `;
 }
 
@@ -2364,12 +2366,14 @@ document.addEventListener("click", (event) => {
   const editEventPreset = event.target.closest("[data-edit-event-preset]");
   if (editEventPreset) {
     state.eventPresets.editingId = editEventPreset.dataset.editEventPreset;
+    state.eventPresets.expanded = true;
     render();
     return;
   }
 
   if (event.target.closest("[data-event-preset-new]")) {
     state.eventPresets.editingId = "";
+    state.eventPresets.expanded = true;
     render();
     return;
   }
@@ -2380,6 +2384,7 @@ document.addEventListener("click", (event) => {
     if (!window.confirm("Delete this event preset?")) return;
     saveEventPresets(state.eventPresets.items.filter((preset) => preset.id !== deleteEventPreset.dataset.deleteEventPreset));
     if (state.eventPresets.editingId === deleteEventPreset.dataset.deleteEventPreset) state.eventPresets.editingId = "";
+    state.eventPresets.expanded = true;
     render();
     return;
   }
@@ -2594,6 +2599,7 @@ document.addEventListener("submit", async (event) => {
     }
     upsertEventPreset(preset);
     state.eventPresets.editingId = "";
+    state.eventPresets.expanded = true;
     render();
     return;
   }
@@ -2736,6 +2742,16 @@ document.addEventListener("dragend", () => {
   state.rouny.dragTemplateId = "";
   state.rouny.dragItemId = "";
 });
+
+document.addEventListener(
+  "toggle",
+  (event) => {
+    const disclosure = event.target;
+    if (!(disclosure instanceof HTMLDetailsElement) || !disclosure.matches("[data-event-presets]")) return;
+    state.eventPresets.expanded = disclosure.open;
+  },
+  true,
+);
 
 document.addEventListener("change", (event) => {
   const shareFamily = event.target.closest("[data-share-family]");
