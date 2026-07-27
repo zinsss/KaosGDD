@@ -136,10 +136,9 @@ svg {
   align-items: end;
   gap: 10px;
   margin: 0 -12px;
-  padding: calc(6px + var(--safe-top)) 12px 8px;
+  padding: var(--safe-top) 12px 5px;
   border-bottom: 1px solid rgba(76, 86, 106, 0.78);
-  background: rgba(46, 52, 64, 0.94);
-  backdrop-filter: blur(14px);
+  background: var(--nord0);
 }
 
 .appIdentity {
@@ -1601,7 +1600,7 @@ h3 {
 
 .app[data-profile="family"] .appTop {
   border-color: rgba(122, 96, 132, 0.16);
-  background: rgba(251, 247, 252, 0.94);
+  background: #fbf7fc;
 }
 
 .app[data-profile="family"] h1 {
