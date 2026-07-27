@@ -246,43 +246,25 @@ h3 {
 .collectionRail button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: 1 1 0;
+  min-width: 0;
   min-height: 34px;
+  padding: 8px 10px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 720;
-  white-space: nowrap;
-}
-
-.collectionRail button {
-  min-width: 0;
-  justify-content: space-between;
-  gap: 9px;
-  padding: 8px 10px;
-}
-
-.collectionRail button,
-.collectionRail small {
-  overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.collectionRail small {
-  color: var(--dim);
-  font-size: 0.68rem;
-  font-weight: 800;
+  white-space: nowrap;
 }
 
 .collectionRail button.isActive {
   border-color: rgba(180, 142, 173, 0.62);
   background: rgba(180, 142, 173, 0.14);
-  color: var(--nord15);
-}
-
-.collectionRail button.isActive small {
   color: var(--nord15);
 }
 

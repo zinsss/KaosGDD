@@ -341,11 +341,6 @@ function collectionViews() {
     family: "Family",
     wife: "Bling02",
   };
-  const ownerSubtitles = {
-    zin: "personal",
-    family: "shared",
-    wife: "personal",
-  };
   const ownerOrder = ["family", "zin", "wife"];
   const owners = [...new Set(data.collections.map((collection) => collection.owner).filter(Boolean))].sort((a, b) => {
     const rankA = ownerOrder.includes(a) ? ownerOrder.indexOf(a) : ownerOrder.length;
@@ -353,9 +348,7 @@ function collectionViews() {
     if (rankA !== rankB) return rankA - rankB;
     return a.localeCompare(b);
   });
-  const views = [
-    { id: "all", name: "All", owner: "Radicale", collectionIds: allIds },
-  ];
+  const views = [{ id: "all", name: "All", collectionIds: allIds }];
   owners.forEach((owner) => {
     const collectionIds = data.collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
     if (collectionIds.length) {
@@ -363,7 +356,6 @@ function collectionViews() {
       views.push({
         id: `owner:${owner}`,
         name: ownerLabels[owner] || ownerCollection?.ownerLabel || owner,
-        owner: ownerSubtitles[owner] || owner,
         collectionIds,
       });
     }
@@ -1086,7 +1078,6 @@ function renderCollectionRail() {
           (collection) => `
             <button class="${state.currentCollection === collection.id ? "isActive" : ""}" type="button" data-collection="${escapeHtml(collection.id)}">
               <span>${escapeHtml(collection.name)}</span>
-              <small>${escapeHtml(collection.owner)}</small>
             </button>
           `,
         )
