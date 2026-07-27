@@ -3,9 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" id="themeColor" content="#2E3440" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" id="appleStatusBarStyle" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" id="appleAppTitle" content="KaosGDD" />
     <title>KaosGDD</title>
+    <link rel="icon" href="./favicon.ico?v=92" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png?v=92" />
+    <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png?v=92" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=92" />
+    <link rel="manifest" id="appManifest" href="./manifest.webmanifest?v=92" crossorigin="use-credentials" />
+    <script>
+      if (window.location.hostname === "family.kaosgdd.net") {
+        document.title = "Kaos Family";
+        document.getElementById("themeColor").content = "#FBF7FC";
+        document.getElementById("appleStatusBarStyle").content = "default";
+        document.getElementById("appleAppTitle").content = "Kaos Family";
+        document.getElementById("appManifest").href = "./manifest-family.webmanifest?v=92";
+      }
+    </script>
     <link rel="preload" href="./fonts/SymbolsNerdFontMono-Regular.ttf?v=83" as="font" type="font/ttf" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=90" />
+    <link rel="stylesheet" href="./styles.css?v=92" />
   </head>
   <body>
     <div class="app" data-route="today">
@@ -20,6 +38,6 @@
       <main id="view" class="view" tabindex="-1"></main>
     </div>
 
-    <script src="./app.js?v=90"></script>
+    <script src="./app.js?v=92"></script>
   </body>
 </html>
