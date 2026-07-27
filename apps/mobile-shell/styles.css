@@ -139,6 +139,12 @@ svg {
   padding: var(--safe-top) 12px 5px;
   border-bottom: 1px solid rgba(76, 86, 106, 0.78);
   background: var(--nord0);
+  box-shadow: none;
+  transition: box-shadow 140ms ease;
+}
+
+.appTop.hasScrolled {
+  box-shadow: 0 6px 14px rgba(20, 24, 32, 0.34);
 }
 
 .appIdentity {
@@ -213,7 +219,7 @@ h3 {
   gap: 12px;
   max-width: 100%;
   min-height: 0;
-  padding: 10px 0;
+  padding: 14px 0 10px;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -1601,6 +1607,10 @@ h3 {
 .app[data-profile="family"] .appTop {
   border-color: rgba(122, 96, 132, 0.16);
   background: #fbf7fc;
+}
+
+.app[data-profile="family"] .appTop.hasScrolled {
+  box-shadow: 0 6px 14px rgba(96, 75, 107, 0.18);
 }
 
 .app[data-profile="family"] h1 {

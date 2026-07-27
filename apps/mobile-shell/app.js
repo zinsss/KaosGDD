@@ -2340,6 +2340,12 @@ function render() {
   if (route === "calendar" || route === "today") {
     loadRemoteWeatherForSelectedMonth();
   }
+  updateTopBarShadow();
+}
+
+function updateTopBarShadow() {
+  const view = document.getElementById("view");
+  document.querySelector(".appTop")?.classList.toggle("hasScrolled", Boolean(view && view.scrollTop > 4));
 }
 
 document.addEventListener("click", (event) => {
@@ -2797,7 +2803,13 @@ document.addEventListener("change", (event) => {
   });
 });
 
-window.addEventListener("hashchange", render);
+document.getElementById("view")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
+
+window.addEventListener("hashchange", () => {
+  const view = document.getElementById("view");
+  if (view) view.scrollTop = 0;
+  render();
+});
 
 if (!window.location.hash) {
   window.location.hash = `#/${profileConfig().defaultRoute}`;
