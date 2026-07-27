@@ -151,7 +151,7 @@ svg {
   grid-template-columns: repeat(5, auto);
   align-items: end;
   justify-content: end;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -1716,7 +1716,7 @@ h3 {
   }
 
   .topNav {
-    gap: 0;
+    gap: 2px;
   }
 
   .topNav a {
