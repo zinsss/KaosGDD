@@ -219,11 +219,20 @@ h3 {
   gap: 12px;
   max-width: 100%;
   min-height: 0;
-  padding: 14px 0 10px;
+  padding: 14px 0 calc(18px + var(--safe-bottom));
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   outline: none;
+}
+
+.app[data-route="settings"] .view {
+  display: block;
+}
+
+.app[data-route="settings"] .view > .panel {
+  height: auto;
+  min-height: max-content;
 }
 
 .collectionRail {
