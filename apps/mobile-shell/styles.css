@@ -1624,6 +1624,13 @@ h3 {
   color: #8c4f83;
 }
 
+.app[data-profile="family"] .collectionRail button.isActive {
+  border-color: #b474a6;
+  background: #ead5e9;
+  box-shadow: inset 0 -3px 0 #b474a6;
+  color: #713f6a;
+}
+
 .app[data-profile="family"] .openButton,
 .app[data-profile="family"] .primaryButton {
   border-color: rgba(151, 124, 184, 0.34);
