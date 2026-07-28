@@ -1627,7 +1627,6 @@ h3 {
 .app[data-profile="family"] .collectionRail button.isActive {
   border-color: #b474a6;
   background: #ead5e9;
-  box-shadow: inset 0 -3px 0 #b474a6;
   color: #713f6a;
 }
 
