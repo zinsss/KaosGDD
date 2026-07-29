@@ -2,7 +2,7 @@
 
 Mobile-first KaosGDD app shell.
 
-This is the first app-shaped version after the mobile v1 prototype. It remains static and mock-backed so the interface can settle before service adapters are attached.
+This is the first app-shaped version after the mobile v1 prototype. The frontend remains static and keeps mock fallback data, while production calendar/task operations go through the server-side calendar adapter.
 
 ## Routes
 
@@ -13,7 +13,7 @@ This is the first app-shaped version after the mobile v1 prototype. It remains s
 
 ## Boundaries
 
-Data enters the UI through adapter-shaped functions in `app.js`. The current adapter is mock-only and performs no production writes.
+Data enters the UI through adapter-shaped functions in `app.js`. Calendar and task reads/writes use `/api/calendar/*`; mock data remains a local fallback when the adapter is unavailable.
 
 Future adapters:
 

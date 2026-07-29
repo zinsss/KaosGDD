@@ -241,36 +241,45 @@ def parse_calendar_data(xml):
     calendars = []
     for response in root.findall("d:response", namespace):
         href = text_of(response, "d:href", namespace)
+        etag = text_of(response, ".//d:getetag", namespace)
         calendar_data = text_of(response, ".//cal:calendar-data", namespace)
         if calendar_data:
-            calendars.extend(parse_ics(calendar_data, href))
+            calendars.extend(parse_ics(calendar_data, href, etag))
     return calendars
 
 
-def parse_ics(data, href):
+def parse_ics(data, href, etag=""):
     lines = unfold_ics(data)
     items = []
     current = None
     alarm_depth = 0
+    alarm_lines = None
 
     for line in lines:
         if line == "BEGIN:VEVENT":
-            current = {"component": "VEVENT", "href": href}
+            current = {"component": "VEVENT", "href": href, "etag": etag, "_raw_properties": [], "_subcomponents": []}
         elif line == "BEGIN:VTODO":
-            current = {"component": "VTODO", "href": href}
+            current = {"component": "VTODO", "href": href, "etag": etag, "_raw_properties": [], "_subcomponents": []}
         elif line == "BEGIN:VJOURNAL":
-            current = {"component": "VJOURNAL", "href": href}
+            current = {"component": "VJOURNAL", "href": href, "etag": etag, "_raw_properties": [], "_subcomponents": []}
         elif current is not None and line == "BEGIN:VALARM":
-            alarm_depth += 1
-        elif current is not None and line == "END:VALARM":
-            alarm_depth = max(0, alarm_depth - 1)
+            alarm_depth = 1
+            alarm_lines = [line]
         elif alarm_depth:
-            continue
+            alarm_lines.append(line)
+            if line.startswith("BEGIN:"):
+                alarm_depth += 1
+            elif line.startswith("END:"):
+                alarm_depth = max(0, alarm_depth - 1)
+                if alarm_depth == 0:
+                    current["_subcomponents"].append(alarm_lines)
+                    alarm_lines = None
         elif line in {"END:VEVENT", "END:VTODO", "END:VJOURNAL"}:
             if current:
                 items.append(current)
             current = None
         elif current is not None:
+            current["_raw_properties"].append(line)
             name, value = parse_property(line)
             if name:
                 current[name] = value
@@ -343,18 +352,112 @@ def calendar_body(lines):
 def normalize_event(item, collection):
     start = item.get("DTSTART", "")
     parsed = parse_ics_datetime(start)
+    all_day = property_has_parameter(item, "DTSTART", "VALUE", "DATE") or bool(start and "T" not in start)
+    parsed_end = parse_ics_datetime(item.get("DTEND", ""))
+    end_date = parsed_end["date"]
+    if all_day and end_date:
+        end_date = (datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    repeat, preserve_repeat = normalized_repeat(item.get("RRULE", ""))
+    has_recurrence_exceptions = bool(property_lines(item, "RDATE") or property_lines(item, "EXDATE"))
+    if has_recurrence_exceptions:
+        repeat = "custom"
+        preserve_repeat = True
+    alarm_time, preserve_alarm = normalized_alarm(item)
+    start_timezone = property_parameter(item, "DTSTART", "TZID")
+    editable_timezone = all_day or not start_timezone or start_timezone == LOCAL_TZID
+    unsupported_duration = bool(item.get("DURATION") and not item.get("DTEND"))
+    editable = (
+        bool(parsed["date"])
+        and not item.get("_unsafe_multiple")
+        and not item.get("RECURRENCE-ID")
+        and not has_recurrence_exceptions
+        and not unsupported_duration
+        and editable_timezone
+    )
     return {
         "uid": item.get("UID") or item.get("href"),
         "collection": collection["id"],
         "summary": item.get("SUMMARY", "Untitled event"),
         "description": item.get("DESCRIPTION", ""),
         "dtstart": parsed["iso"] or start,
-        "dtend": parse_ics_datetime(item.get("DTEND", ""))["iso"],
+        "dtend": parsed_end["iso"],
+        "startDate": parsed["date"],
+        "startTime": "" if all_day else parsed["time"],
+        "endDate": end_date or parsed["date"],
+        "endTime": "" if all_day else parsed_end["time"],
+        "allDay": all_day,
+        "repeat": repeat,
+        "preserveRepeat": preserve_repeat,
+        "alarmTime": alarm_time,
+        "preserveAlarm": preserve_alarm,
+        "editable": editable,
+        "editReason": "" if editable else "event_requires_native_client",
         "location": item.get("LOCATION", ""),
         "status": item.get("STATUS", ""),
         "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
         "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
     }
+
+
+def property_lines(item, property_name):
+    expected = property_name.upper()
+    return [line for line in item.get("_raw_properties", []) if parse_property(line)[0] == expected]
+
+
+def property_parameter(item, property_name, parameter_name):
+    expected_property = property_name.upper()
+    expected_parameter = parameter_name.upper()
+    for line in item.get("_raw_properties", []):
+        if ":" not in line:
+            continue
+        head = line.split(":", 1)[0]
+        parts = head.split(";")
+        if parts[0].upper() != expected_property:
+            continue
+        for part in parts[1:]:
+            if "=" not in part:
+                continue
+            name, value = part.split("=", 1)
+            if name.upper() == expected_parameter:
+                return value.strip('"')
+    return ""
+
+
+def property_has_parameter(item, property_name, parameter_name, expected_value):
+    return property_parameter(item, property_name, parameter_name).upper() == expected_value.upper()
+
+
+def normalized_repeat(rrule):
+    raw = str(rrule or "").strip().upper()
+    simple = {
+        "FREQ=WEEKLY": "weekly",
+        "FREQ=MONTHLY": "monthly",
+        "FREQ=YEARLY": "yearly",
+    }
+    if not raw:
+        return "", False
+    if raw in simple:
+        return simple[raw], False
+    return "custom", True
+
+
+def normalized_alarm(item):
+    subcomponents = item.get("_subcomponents", [])
+    if not subcomponents:
+        return "", False
+    if len(subcomponents) != 1:
+        return "", True
+    for line in subcomponents[0]:
+        if parse_property(line)[0] != "TRIGGER":
+            continue
+        trigger = parse_property(line)[1]
+        if not re.fullmatch(r"\d{8}T\d{6}Z?", trigger):
+            return "", True
+        parsed = parse_ics_datetime(trigger)
+        if parsed["time"]:
+            return parsed["time"], False
+        return "", True
+    return "", True
 
 
 def normalize_task(item, collection):
@@ -861,8 +964,14 @@ def bootstrap_payload(profile="main"):
         account_collections = propfind_collections(item_account)
         collections.extend(account_collections)
         for collection in account_collections:
-            for item in report_collection(item_account, collection["href"]):
+            collection_items = report_collection(item_account, collection["href"])
+            event_counts = {}
+            for item in collection_items:
                 if item.get("component") == "VEVENT":
+                    event_counts[item.get("href")] = event_counts.get(item.get("href"), 0) + 1
+            for item in collection_items:
+                if item.get("component") == "VEVENT":
+                    item["_unsafe_multiple"] = event_counts.get(item.get("href"), 0) > 1
                     events.append(normalize_event(item, collection))
                 elif item.get("component") == "VTODO":
                     tasks.append(normalize_task(item, collection))
@@ -1061,7 +1170,8 @@ def rrule_for_repeat(repeat):
     }.get(repeat, "")
 
 
-def build_vevent(payload):
+def build_vevent(payload, existing=None):
+    existing = existing or {}
     title = str(payload.get("title") or "").strip()
     if not title:
         raise ValueError("title_required")
@@ -1074,12 +1184,41 @@ def build_vevent(payload):
     start_time = validate_time(payload.get("startTime") or "")
     end_time = validate_time(payload.get("endTime") or "")
     alarm_time = validate_time(payload.get("alarmTime") or "")
-    repeat = validate_repeat(payload.get("repeat") or "")
+    preserve_repeat = bool(payload.get("preserveRepeat")) and bool(existing)
+    preserve_alarm = bool(payload.get("preserveAlarm")) and bool(existing)
+    repeat = "" if preserve_repeat else validate_repeat(payload.get("repeat") or "")
     description = str(payload.get("memo") or "").strip()
 
-    uid = str(uuid.uuid4()).upper()
+    uid = str(payload.get("uid") or existing.get("UID") or uuid.uuid4()).upper()
     alarm_uid = str(uuid.uuid4()).upper()
     now = utc_stamp(datetime.now(timezone.utc))
+    created = existing.get("CREATED") or now
+    try:
+        sequence = int(existing.get("SEQUENCE") or -1) + 1
+    except (TypeError, ValueError):
+        sequence = 0
+
+    rebuilt_properties = {
+        "UID",
+        "DTSTAMP",
+        "CREATED",
+        "LAST-MODIFIED",
+        "SEQUENCE",
+        "SUMMARY",
+        "DESCRIPTION",
+        "DTSTART",
+        "DTEND",
+        "DURATION",
+        "RRULE",
+        "RDATE",
+        "EXDATE",
+        "RECURRENCE-ID",
+    }
+    preserved_properties = [
+        line
+        for line in existing.get("_raw_properties", [])
+        if parse_property(line)[0] not in rebuilt_properties
+    ]
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -1090,9 +1229,11 @@ def build_vevent(payload):
         "BEGIN:VEVENT",
         f"UID:{uid}",
         f"DTSTAMP:{now}",
-        f"CREATED:{now}",
+        f"CREATED:{created}",
         f"LAST-MODIFIED:{now}",
+        f"SEQUENCE:{sequence}",
         f"SUMMARY:{escape_ics(title)}",
+        *preserved_properties,
     ]
     if description:
         lines.append(f"DESCRIPTION:{escape_ics(description)}")
@@ -1115,11 +1256,18 @@ def build_vevent(payload):
             ]
         )
 
-    rrule = rrule_for_repeat(repeat)
-    if rrule:
-        lines.append(f"RRULE:{rrule}")
+    if preserve_repeat:
+        for property_name in ("RRULE", "RDATE", "EXDATE"):
+            lines.extend(property_lines(existing, property_name))
+    else:
+        rrule = rrule_for_repeat(repeat)
+        if rrule:
+            lines.append(f"RRULE:{rrule}")
 
-    if alarm_time:
+    if preserve_alarm:
+        for subcomponent in existing.get("_subcomponents", []):
+            lines.extend(subcomponent)
+    elif alarm_time:
         alarm_dt = local_datetime(start_date, alarm_time)
         lines.extend(
             [
@@ -1155,7 +1303,7 @@ def create_event(payload, profile="main"):
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
-def find_task(collections, uid, collection_id=""):
+def find_component(collections, uid, component, collection_id=""):
     if not uid:
         raise ValueError("uid_required")
     targets = [collection for collection in collections if not collection_id or collection["id"] == collection_id]
@@ -1163,14 +1311,26 @@ def find_task(collections, uid, collection_id=""):
         raise ValueError("collection_not_found")
 
     for collection in targets:
-        if collection.get("components") and "VTODO" not in collection["components"]:
+        if collection.get("components") and component not in collection["components"]:
             continue
         item_account = account_for_collection(collection)
-        for item in report_collection(item_account, collection["href"]):
-            if item.get("component") == "VTODO" and item.get("UID") == uid:
+        collection_items = report_collection(item_account, collection["href"])
+        matches = [item for item in collection_items if item.get("component") == component and item.get("UID") == uid]
+        if matches:
+            for item in matches:
+                item["_unsafe_multiple"] = len([candidate for candidate in collection_items if candidate.get("component") == component and candidate.get("href") == item.get("href")]) > 1
                 return collection, item
 
-    raise ValueError("task_not_found")
+    raise ValueError(f"{component.lower()}_not_found")
+
+
+def find_task(collections, uid, collection_id=""):
+    try:
+        return find_component(collections, uid, "VTODO", collection_id)
+    except ValueError as exc:
+        if str(exc) == "vtodo_not_found":
+            raise ValueError("task_not_found") from exc
+        raise
 
 
 def update_task(payload, profile="main"):
@@ -1181,14 +1341,72 @@ def update_task(payload, profile="main"):
     collection, existing = find_task(collections, uid, str(payload.get("collectionId") or "").strip())
     item_account = account_for_collection(collection)
     _, body = build_vtodo(payload, existing)
+    headers = {"Content-Type": "text/calendar; charset=utf-8"}
+    if existing.get("etag"):
+        headers["If-Match"] = existing["etag"]
     radicale_request(
         item_account,
         "PUT",
         existing["href"],
         body,
-        {"Content-Type": "text/calendar; charset=utf-8"},
+        headers,
     )
     return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
+def update_event(payload, profile="main"):
+    if not configured(profile):
+        raise ValueError("adapter_not_configured")
+    uid = str(payload.get("uid") or "").strip()
+    collections = collections_for_profile(profile)
+    try:
+        collection, existing = find_component(collections, uid, "VEVENT", str(payload.get("collectionId") or "").strip())
+    except ValueError as exc:
+        if str(exc) == "vevent_not_found":
+            raise ValueError("event_not_found") from exc
+        raise
+    if existing.get("_unsafe_multiple") or existing.get("RECURRENCE-ID"):
+        raise ValueError("event_requires_native_client")
+    item_account = account_for_collection(collection)
+    _, body = build_vevent(payload, existing)
+    headers = {"Content-Type": "text/calendar; charset=utf-8"}
+    if existing.get("etag"):
+        headers["If-Match"] = existing["etag"]
+    radicale_request(item_account, "PUT", existing["href"], body, headers)
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
+def delete_component(payload, profile, component):
+    if not configured(profile):
+        raise ValueError("adapter_not_configured")
+    uid = str(payload.get("uid") or "").strip()
+    collection_id = str(payload.get("collectionId") or "").strip()
+    collections = collections_for_profile(profile)
+    collection, existing = find_component(collections, uid, component, collection_id)
+    item_account = account_for_collection(collection)
+    headers = {}
+    if existing.get("etag"):
+        headers["If-Match"] = existing["etag"]
+    radicale_request(item_account, "DELETE", existing["href"], "", headers)
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
+def delete_event(payload, profile="main"):
+    try:
+        return delete_component(payload, profile, "VEVENT")
+    except ValueError as exc:
+        if str(exc) == "vevent_not_found":
+            raise ValueError("event_not_found") from exc
+        raise
+
+
+def delete_task(payload, profile="main"):
+    try:
+        return delete_component(payload, profile, "VTODO")
+    except ValueError as exc:
+        if str(exc) == "vtodo_not_found":
+            raise ValueError("task_not_found") from exc
+        raise
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1234,9 +1452,38 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         path = urllib.parse.urlparse(self.path).path
         profile = profile_from_headers(self.headers)
+        if path == "/api/calendar/events":
+            try:
+                json_response(self, 200, update_event(read_json_request(self), profile))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": configured(profile), "live": False, "profile": profile, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/tasks":
             try:
                 json_response(self, 200, update_task(read_json_request(self), profile))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": configured(profile), "live": False, "profile": profile, "error": type(exc).__name__})
+            return
+        json_response(self, 404, {"error": "not_found"})
+
+    def do_DELETE(self):
+        path = urllib.parse.urlparse(self.path).path
+        profile = profile_from_headers(self.headers)
+        if path == "/api/calendar/events":
+            try:
+                json_response(self, 200, delete_event(read_json_request(self), profile))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": configured(profile), "live": False, "profile": profile, "error": type(exc).__name__})
+            return
+        if path == "/api/calendar/tasks":
+            try:
+                json_response(self, 200, delete_task(read_json_request(self), profile))
             except ValueError as exc:
                 json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:

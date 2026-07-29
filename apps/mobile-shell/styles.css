@@ -611,6 +611,11 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+.timelineLink {
+  display: block;
+  min-width: 0;
+}
+
 .timeline strong {
   display: block;
   color: var(--text);
@@ -1563,6 +1568,45 @@ h3 {
   color: var(--nord14);
   font-size: 0.8rem;
   font-weight: 850;
+}
+
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid rgba(191, 97, 106, 0.46);
+  border-radius: 7px;
+  background: rgba(191, 97, 106, 0.12);
+  color: var(--nord11);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.formActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.formActions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.eventReadOnly {
+  display: grid;
+  gap: 10px;
+}
+
+.eventReadOnly > strong {
+  font-size: 1rem;
+}
+
+.eventReadOnly > span,
+.eventReadOnly > p {
+  margin: 0;
+  color: var(--dim);
+  white-space: pre-wrap;
 }
 
 .plainButton {

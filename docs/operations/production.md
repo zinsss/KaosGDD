@@ -28,21 +28,31 @@ cloudflared: outbound connector
 PACS:        host :80
 ```
 
-## Temporary KaosGDD Launcher
+KaosGDD adapter routes are host-scoped in Caddy:
 
-Current placeholder:
+```text
+kaosgdd.net/api/calendar/*
+family.kaosgdd.net/api/calendar/*
+kaosgdd.net/api/weather/*
+family.kaosgdd.net/api/weather/*
+```
+
+Do not use path-only adapter matchers because they expose the adapter under unrelated Kaos service hostnames.
+
+## KaosGDD Portal
+
+Current shell:
 
 ```text
 /srv/kaos/stacks/platform/kaosgdd/portal
 ```
 
-Public URL:
+Public URLs:
 
 ```text
+https://kaosgdd.net
 https://family.kaosgdd.net
 ```
-
-Replace this with the real v2 shell when ready.
 
 ## KaosGDD Brain
 

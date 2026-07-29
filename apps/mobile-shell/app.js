@@ -4,6 +4,7 @@ const routes = {
   tasks: "Tasks",
   add: "Add",
   "add-event": "Add Event",
+  "edit-event": "Edit Event",
   "add-task": "Add Task",
   "edit-task": "Edit Task",
   services: "Utils",
@@ -18,6 +19,7 @@ const familyRoutes = {
   tasks: uiText("route.tasks", "Tasks"),
   add: uiText("route.add", "Add"),
   "add-event": uiText("route.addEvent", "Add Event"),
+  "edit-event": uiText("route.editEvent", "Edit Event"),
   "add-task": uiText("route.addTask", "Add Task"),
   "edit-task": uiText("route.editTask", "Edit Task"),
   services: uiText("route.services", "Utils"),
@@ -106,6 +108,7 @@ const state = {
   eventPresetDraft: null,
   addMonthExpanded: false,
   taskDueEnabled: false,
+  editingEventId: "",
   editingTaskId: "",
   taskDescriptions: {},
   remoteCalendar: {
@@ -292,6 +295,35 @@ const mockAdapter = {
     state.selectedDate = startDate;
   },
 
+  updateEvent(formData) {
+    const uid = String(formData.get("uid") || "");
+    const rawEvent = activeCalendarData().events.find((event) => event.uid === uid);
+    if (!rawEvent) return;
+    const allDay = formData.get("allDay") === "on";
+    const startDate = String(formData.get("startDate") || state.selectedDate);
+    const endDate = String(formData.get("endDate") || startDate);
+    const startTime = String(formData.get("startTime") || DEFAULT_EVENT_START_TIME);
+    const endTime = String(formData.get("endTime") || DEFAULT_EVENT_END_TIME);
+    rawEvent.summary = String(formData.get("title") || "").trim();
+    rawEvent.description = String(formData.get("memo") || "").trim();
+    rawEvent.dtstart = allDay ? startDate : `${startDate}T${startTime}:00`;
+    rawEvent.dtend = allDay ? endDate : `${endDate}T${endTime}:00`;
+    rawEvent.startDate = startDate;
+    rawEvent.startTime = allDay ? "" : startTime;
+    rawEvent.endDate = endDate;
+    rawEvent.endTime = allDay ? "" : endTime;
+    rawEvent.allDay = allDay;
+    rawEvent.repeat = String(formData.get("repeat") || "");
+    rawEvent.alarmTime = String(formData.get("alarm") || "");
+    rawEvent.lastModified = new Date().toISOString().slice(0, 19);
+    state.selectedDate = startDate;
+  },
+
+  deleteEvent(uid) {
+    const data = activeCalendarData();
+    data.events = data.events.filter((event) => event.uid !== uid);
+  },
+
   createTask(formData) {
     const title = String(formData.get("title") || "").trim();
     if (!title) return;
@@ -326,6 +358,11 @@ const mockAdapter = {
     rawTask.priority = taskPriorityFromForm(formData);
     rawTask.lastModified = new Date().toISOString().slice(0, 19);
     state.taskMode = rawTask.status === "COMPLETED" ? "done" : "active";
+  },
+
+  deleteTask(uid) {
+    const data = activeCalendarData();
+    data.tasks = data.tasks.filter((task) => task.uid !== uid);
   },
 
   getServices() {
@@ -545,6 +582,10 @@ function findTaskById(taskId) {
   return activeCalendarData().tasks.map(normalizeTask).find((task) => task.id === taskId);
 }
 
+function findEventById(eventId) {
+  return activeCalendarData().events.map(normalizeEvent).find((event) => event.id === eventId);
+}
+
 async function loadRemoteCalendar() {
   try {
     const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
@@ -696,6 +737,58 @@ async function createRemoteEvent(formData) {
   await loadRemoteCalendar();
 }
 
+function eventPayloadFromForm(formData) {
+  return {
+    uid: String(formData.get("uid") || ""),
+    collectionId: String(formData.get("collectionId") || ""),
+    title: String(formData.get("title") || "").trim(),
+    allDay: formData.get("allDay") === "on",
+    startDate: String(formData.get("startDate") || state.selectedDate),
+    startTime: String(formData.get("startTime") || DEFAULT_EVENT_START_TIME),
+    endDate: String(formData.get("endDate") || formData.get("startDate") || state.selectedDate),
+    endTime: String(formData.get("endTime") || DEFAULT_EVENT_END_TIME),
+    repeat: String(formData.get("repeat") || ""),
+    preserveRepeat: formData.get("preserveRepeat") === "1",
+    alarmTime: String(formData.get("alarm") || ""),
+    preserveAlarm: formData.get("preserveAlarm") === "1",
+    memo: String(formData.get("memo") || "").trim(),
+  };
+}
+
+async function updateRemoteEvent(formData) {
+  const response = await fetch("/api/calendar/events", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(eventPayloadFromForm(formData)),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  state.selectedDate = String(formData.get("startDate") || state.selectedDate);
+  window.location.hash = "#/calendar";
+  await loadRemoteCalendar();
+}
+
+async function deleteRemoteCalendarItem(kind, uid, collectionId) {
+  const response = await fetch(`/api/calendar/${kind}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ uid, collectionId }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  await loadRemoteCalendar();
+}
+
 async function updateRemoteTask(formData) {
   const due = taskDueFromForm(formData);
   const response = await fetch("/api/calendar/tasks", {
@@ -730,6 +823,15 @@ function parseDateTime(value) {
   };
 }
 
+function addLocalMinutes(dateValue, timeValue, minutes) {
+  const date = new Date(`${dateValue}T${timeValue || DEFAULT_EVENT_START_TIME}:00`);
+  date.setMinutes(date.getMinutes() + minutes);
+  return {
+    date: ymd(date),
+    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+  };
+}
+
 function formatDateTimeLabel(value) {
   const parsed = parseDateTime(value);
   if (!parsed.date) return "";
@@ -746,23 +848,44 @@ function normalizeEvent(event) {
       collection: event.collection,
       date: event.date,
       time: event.time || "",
+      startDate: event.date,
+      startTime: event.time || "",
+      endDate: event.endDate || event.date,
+      endTime: event.endTime || "",
+      allDay: Boolean(event.allDay || !event.time),
       title: event.title || event.summary || uiText("event.untitled", "Untitled event"),
+      description: event.description || "",
       detail: event.location || event.description || "",
+      repeat: event.repeat || "",
+      preserveRepeat: Boolean(event.preserveRepeat),
+      alarmTime: event.alarmTime || event.alarm || "",
+      preserveAlarm: Boolean(event.preserveAlarm),
+      editable: event.editable !== false,
+      editReason: event.editReason || "",
     };
   }
-  const start = parseDateTime(event.dtstart);
-  const end = parseDateTime(event.dtend);
+  const start = parseDateTime(event.startDate || event.dtstart);
+  const end = parseDateTime(event.endDate || event.dtend);
   const allDay = Boolean(event.allDay || (event.dtstart && !String(event.dtstart).includes("T")));
   return {
     id: event.uid,
     collection: event.collection,
-    date: start.date,
-    time: allDay ? "" : start.time,
-    endDate: end.date,
-    endTime: allDay ? "" : end.time,
+    date: event.startDate || start.date,
+    time: allDay ? "" : event.startTime || start.time,
+    startDate: event.startDate || start.date,
+    startTime: allDay ? "" : event.startTime || start.time,
+    endDate: event.endDate || end.date || event.startDate || start.date,
+    endTime: allDay ? "" : event.endTime || end.time,
     allDay,
-    title: event.summary,
+    title: event.summary || uiText("event.untitled", "Untitled event"),
+    description: event.description || "",
     detail: event.location || event.description || "",
+    repeat: event.repeat || "",
+    preserveRepeat: Boolean(event.preserveRepeat),
+    alarmTime: event.alarmTime || event.alarm || "",
+    preserveAlarm: Boolean(event.preserveAlarm),
+    editable: event.editable !== false,
+    editReason: event.editReason || "",
   };
 }
 
@@ -979,7 +1102,7 @@ function profileConfig() {
 }
 
 function activeNavRoute(route) {
-  if (route === "add" || route === "add-event") return "calendar";
+  if (route === "add" || route === "add-event" || route === "edit-event") return "calendar";
   if (route === "add-task" || route === "edit-task") return "tasks";
   return route;
 }
@@ -1160,10 +1283,10 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
             (event) => `
               <li>
                 <time>${escapeHtml(event.time)}</time>
-                <div>
+                <a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
                   <strong>${escapeHtml(event.title)}</strong>
                   ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
-                </div>
+                </a>
               </li>
             `,
           )
@@ -1616,10 +1739,16 @@ function renderEventPresetPanel() {
 }
 
 function renderEventFormPanel(draft, shareFamily, allDay) {
+  const editing = Boolean(draft.eventId);
+  const startDate = draft.startDate || state.selectedDate;
+  const endDate = draft.endDate || startDate;
+  const customRepeat = draft.repeat === "custom";
   return `
     <section class="panel">
-      <form class="composer" data-create-event>
-        ${renderFamilyShareToggle(shareFamily)}
+      <form class="composer" ${editing ? "data-edit-event" : "data-create-event"}>
+        ${editing ? `<input name="uid" type="hidden" value="${escapeHtml(draft.eventId)}" />` : ""}
+        ${editing ? `<input name="collectionId" type="hidden" value="${escapeHtml(draft.collection)}" />` : ""}
+        ${editing ? "" : renderFamilyShareToggle(shareFamily)}
         <label>
           <span>${uiText("common.title", "Title")}</span>
           <input name="title" type="text" autocomplete="off" placeholder="${uiText("event.new", "New event")}" value="${escapeHtml(draft.title)}" required />
@@ -1631,7 +1760,7 @@ function renderEventFormPanel(draft, shareFamily, allDay) {
         <div class="formGrid">
           <label>
             <span>${uiText("event.startDate", "Start date")}</span>
-            <input name="startDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
+            <input name="startDate" type="date" value="${escapeHtml(startDate)}" required />
           </label>
           <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
             <span>${uiText("event.startTime", "Start time")}</span>
@@ -1639,7 +1768,7 @@ function renderEventFormPanel(draft, shareFamily, allDay) {
           </label>
           <label>
             <span>${uiText("event.endDate", "End date")}</span>
-            <input name="endDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
+            <input name="endDate" type="date" value="${escapeHtml(endDate)}" required />
           </label>
           <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
             <span>${uiText("event.endTime", "End time")}</span>
@@ -1648,25 +1777,89 @@ function renderEventFormPanel(draft, shareFamily, allDay) {
         </div>
         <label>
           <span>${uiText("event.repeat", "Repeat")}</span>
-          <select name="repeat">
-            <option value="">${uiText("common.none", "None")}</option>
-            <option value="weekly">${uiText("event.weekly", "Weekly")}</option>
-            <option value="monthly">${uiText("event.monthly", "Monthly")}</option>
-            <option value="yearly">${uiText("event.yearly", "Yearly")}</option>
+          <select name="repeat" ${customRepeat ? "disabled" : ""}>
+            <option value="" ${!draft.repeat ? "selected" : ""}>${uiText("common.none", "None")}</option>
+            <option value="weekly" ${draft.repeat === "weekly" ? "selected" : ""}>${uiText("event.weekly", "Weekly")}</option>
+            <option value="monthly" ${draft.repeat === "monthly" ? "selected" : ""}>${uiText("event.monthly", "Monthly")}</option>
+            <option value="yearly" ${draft.repeat === "yearly" ? "selected" : ""}>${uiText("event.yearly", "Yearly")}</option>
+            ${customRepeat ? `<option value="custom" selected>${uiText("event.customRepeat", "Custom (preserved)")}</option>` : ""}
           </select>
+          ${draft.preserveRepeat ? `<input name="preserveRepeat" type="hidden" value="1" />` : ""}
         </label>
-        <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
+        <label data-event-time-field ${draft.preserveAlarm ? "data-preserve-disabled" : ""} ${allDay || draft.preserveAlarm ? 'class="isDisabled"' : ""}>
           <span>${uiText("event.alarmTime", "Alarm time")}</span>
-          <input name="alarm" type="time" step="300" value="${escapeHtml(draft.alarm)}" ${allDay ? "disabled" : ""} />
+          <input name="alarm" type="time" step="300" value="${escapeHtml(draft.alarm)}" ${allDay || draft.preserveAlarm ? "disabled" : ""} />
+          ${draft.preserveAlarm ? `<input name="preserveAlarm" type="hidden" value="1" /><small class="formNote">${uiText("event.alarmPreserved", "Existing alarm is preserved")}</small>` : ""}
         </label>
         <label>
           <span>${uiText("common.memo", "Memo")}</span>
           <textarea name="memo" rows="5" placeholder="${uiText("event.notes", "Event notes")}">${escapeHtml(draft.memo)}</textarea>
         </label>
-        <button class="primaryButton" type="submit">${uiText("event.create", "Create event")}</button>
+        <div class="formActions">
+          ${editing ? `<button class="dangerButton" type="button" data-delete-event data-event-id="${escapeHtml(draft.eventId)}" data-collection-id="${escapeHtml(draft.collection)}">${uiText("event.delete", "Delete event")}</button>` : ""}
+          <button class="primaryButton" type="submit">${editing ? uiText("event.save", "Save event") : uiText("event.create", "Create event")}</button>
+        </div>
       </form>
     </section>
   `;
+}
+
+function renderEditEvent() {
+  const eventId = hashParam("uid");
+  const calendarEvent = findEventById(eventId);
+  if (!calendarEvent) {
+    const notFound = `
+      <section class="panel desktopContextPane">
+        <div class="panelBody"><p class="taskMeta">${uiText("event.notFound", "Event not found")}</p></div>
+      </section>
+    `;
+    return isDesktopLayout() ? renderCalendarWorkspace(notFound) : `${renderCollectionRail()}${notFound}`;
+  }
+
+  if (state.editingEventId !== calendarEvent.id) {
+    state.editingEventId = calendarEvent.id;
+    state.selectedDate = calendarEvent.startDate || calendarEvent.date;
+  }
+
+  const header = renderContextHeader(uiText("event.details", "Event details"), uiText("route.editEvent", "Edit Event"), "#/calendar");
+  let body;
+  if (!calendarEvent.editable) {
+    body = `
+      <section class="panel">
+        <div class="panelBody eventReadOnly">
+          <strong>${escapeHtml(calendarEvent.title)}</strong>
+          <span>${escapeHtml([calendarEvent.startDate, calendarEvent.startTime].filter(Boolean).join(" "))}</span>
+          ${calendarEvent.description ? `<p>${escapeHtml(calendarEvent.description)}</p>` : ""}
+          <p class="formNote">${uiText("event.nativeClientRequired", "This event has recurrence or timezone data that must be edited in a native calendar client.")}</p>
+          <button class="dangerButton" type="button" data-delete-event data-event-id="${escapeHtml(calendarEvent.id)}" data-collection-id="${escapeHtml(calendarEvent.collection)}">${uiText("event.deleteSeries", "Delete event or series")}</button>
+        </div>
+      </section>
+    `;
+  } else {
+    const fallbackEnd = addLocalMinutes(calendarEvent.startDate, calendarEvent.startTime, 60);
+    body = renderEventFormPanel(
+      {
+        eventId: calendarEvent.id,
+        collection: calendarEvent.collection,
+        title: calendarEvent.title,
+        memo: calendarEvent.description,
+        allDay: calendarEvent.allDay,
+        startDate: calendarEvent.startDate,
+        startTime: calendarEvent.startTime || DEFAULT_EVENT_START_TIME,
+        endDate: calendarEvent.allDay || calendarEvent.endTime ? calendarEvent.endDate : fallbackEnd.date,
+        endTime: calendarEvent.endTime || fallbackEnd.time,
+        repeat: calendarEvent.repeat,
+        preserveRepeat: calendarEvent.preserveRepeat,
+        alarm: calendarEvent.alarmTime,
+        preserveAlarm: calendarEvent.preserveAlarm,
+      },
+      false,
+      calendarEvent.allDay,
+    );
+  }
+
+  const context = `<aside class="desktopContextPane contextPaneStack">${header}${body}</aside>`;
+  return isDesktopLayout() ? renderCalendarWorkspace(context) : `${renderCollectionRail()}${header}${body}`;
 }
 
 function renderAddEventTabs() {
@@ -1791,7 +1984,10 @@ function renderTaskEditorForm(task = null) {
               <option value="1" ${editing && task.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
             </select>
           </label>
-          <button class="primaryButton" type="submit">${editing ? uiText("common.save", "Save task") : uiText("task.create", "Create local task")}</button>
+          <div class="formActions">
+            ${editing ? `<button class="dangerButton" type="button" data-delete-task data-task-id="${escapeHtml(task.id)}" data-collection-id="${escapeHtml(task.collection)}">${uiText("task.delete", "Delete task")}</button>` : ""}
+            <button class="primaryButton" type="submit">${editing ? uiText("common.save", "Save task") : uiText("task.create", "Create local task")}</button>
+          </div>
         </div>
       </section>
     </form>
@@ -2457,6 +2653,7 @@ function render() {
     state.addKind = "event";
     view.innerHTML = renderAddEvent();
   }
+  else if (route === "edit-event") view.innerHTML = renderEditEvent();
   else if (route === "add-task") {
     state.addKind = "task";
     view.innerHTML = renderAddTask();
@@ -2467,7 +2664,7 @@ function render() {
   else if (route === "memos") view.innerHTML = renderMemos();
   else if (route === "settings") view.innerHTML = renderSettings();
   else view.innerHTML = renderToday();
-  if (route === "calendar" || route === "today" || (route === "add-event" && isDesktopLayout())) {
+  if (route === "calendar" || route === "today" || ((route === "add-event" || route === "edit-event") && isDesktopLayout())) {
     loadRemoteWeatherForSelectedMonth();
   }
   updateTopBarShadow();
@@ -2478,7 +2675,7 @@ function updateTopBarShadow() {
   document.querySelector(".appTop")?.classList.toggle("hasScrolled", Boolean(view && view.scrollTop > 4));
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const addEventMode = event.target.closest("[data-add-event-mode]");
   if (addEventMode) {
     state.addEventMode = addEventMode.dataset.addEventMode === "preset" ? "preset" : "normal";
@@ -2522,6 +2719,42 @@ document.addEventListener("click", (event) => {
     if (state.eventPresets.editingId === deleteEventPreset.dataset.deleteEventPreset) state.eventPresets.editingId = "";
     state.eventPresets.expanded = true;
     render();
+    return;
+  }
+
+  const deleteEvent = event.target.closest("[data-delete-event]");
+  if (deleteEvent) {
+    if (!window.confirm(uiText("dialog.deleteEvent", "Delete this event? Repeating events will be deleted as a series."))) return;
+    const uid = deleteEvent.dataset.eventId || "";
+    const collectionId = deleteEvent.dataset.collectionId || "";
+    try {
+      if (state.remoteCalendar.live) await deleteRemoteCalendarItem("events", uid, collectionId);
+      else mockAdapter.deleteEvent(uid);
+      window.location.hash = "#/calendar";
+      render();
+    } catch (error) {
+      window.alert(uiText("dialog.radicaleDeleteError", "Could not delete from Radicale: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
+  const deleteTask = event.target.closest("[data-delete-task]");
+  if (deleteTask) {
+    if (!window.confirm(uiText("dialog.deleteTask", "Delete this task?"))) return;
+    const uid = deleteTask.dataset.taskId || "";
+    const collectionId = deleteTask.dataset.collectionId || "";
+    try {
+      if (state.remoteCalendar.live) await deleteRemoteCalendarItem("tasks", uid, collectionId);
+      else mockAdapter.deleteTask(uid);
+      window.location.hash = "#/tasks";
+      render();
+    } catch (error) {
+      window.alert(uiText("dialog.radicaleDeleteError", "Could not delete from Radicale: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
     return;
   }
 
@@ -2779,6 +3012,26 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
+  const editEventForm = event.target.closest("[data-edit-event]");
+  if (editEventForm) {
+    event.preventDefault();
+    const formData = new FormData(editEventForm);
+    if (state.remoteCalendar.live) {
+      try {
+        await updateRemoteEvent(formData);
+      } catch (error) {
+        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
+      }
+      return;
+    }
+    mockAdapter.updateEvent(formData);
+    window.location.hash = "#/calendar";
+    render();
+    return;
+  }
+
   const taskForm = event.target.closest("[data-create-task]");
   if (taskForm) {
     event.preventDefault();
@@ -2929,12 +3182,13 @@ document.addEventListener("change", (event) => {
 
   const allDayToggle = event.target.closest("[data-all-day-toggle]");
   if (!allDayToggle) return;
-  const form = allDayToggle.closest("[data-create-event], [data-event-preset-form]");
+  const form = allDayToggle.closest("[data-create-event], [data-edit-event], [data-event-preset-form]");
   if (!form) return;
   form.querySelectorAll("[data-event-time-field]").forEach((field) => {
-    field.classList.toggle("isDisabled", allDayToggle.checked);
+    const disabled = allDayToggle.checked || field.hasAttribute("data-preserve-disabled");
+    field.classList.toggle("isDisabled", disabled);
     field.querySelectorAll("input").forEach((input) => {
-      input.disabled = allDayToggle.checked;
+      input.disabled = disabled && input.type !== "hidden";
     });
   });
 });

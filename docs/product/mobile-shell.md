@@ -11,11 +11,7 @@ It keeps the Nord visual language from the mobile v1 prototype and adds route se
 
 ## Adapter Shape
 
-The current data source is a mock adapter in `apps/mobile-shell/app.js`.
-
-This is intentional. The UI should stabilize before Radicale or Kaos service adapters are attached.
-
-The mock adapter now uses Radicale-shaped `VEVENT` and `VTODO` records, then normalizes them for the UI. This keeps the shell close to the future backend without touching live Radicale.
+The shell uses adapter-shaped functions in `apps/mobile-shell/app.js`. Production calendar/task data comes through `/api/calendar/*`; Radicale-shaped mock `VEVENT` and `VTODO` records remain available as a local fallback.
 
 The calendar and task screens now act as the first Radicale frontend prototype:
 
@@ -24,6 +20,8 @@ The calendar and task screens now act as the first Radicale frontend prototype:
 - read live Radicale data through `/api/calendar/bootstrap` when the adapter is configured
 - create local draft events shaped like `VEVENT`
 - create local draft tasks shaped like `VTODO`
+- create, edit, and delete live Radicale events through the calendar adapter
+- create, edit, and delete live Radicale tasks through the calendar adapter
 - render legacy description subtasks as interactive checkboxes
 - choose event times in 5-minute increments, matching iOS Reminders
 - split tasks into `Inbox`, `Dated`, `Done`, and `All`
@@ -70,7 +68,7 @@ The shell is intended to become the main KaosGDD surface and is served at the po
 
 It does not:
 
-- write to Radicale
+- talk directly to Radicale; writes go through the calendar adapter
 - call KaosSupplies
 - touch PACS
 - touch Fax

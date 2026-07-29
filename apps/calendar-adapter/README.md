@@ -7,17 +7,26 @@ The browser shell calls:
 ```text
 GET /api/calendar/bootstrap
 POST /api/calendar/events
+PUT /api/calendar/events
+DELETE /api/calendar/events
 POST /api/calendar/tasks
 PUT /api/calendar/tasks
+DELETE /api/calendar/tasks
 ```
 
 The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale files or access databases directly.
 
 `POST /api/calendar/events` creates a VEVENT in the selected Radicale calendar collection.
 
+`PUT /api/calendar/events` updates a VEVENT by UID. It preserves properties that the KaosGDD form does not own, preserves unsupported custom recurrence/alarm data, increments `SEQUENCE`, and uses the Radicale ETag as an `If-Match` write guard. Multi-component recurrence resources must be edited in a native calendar client.
+
+`DELETE /api/calendar/events` deletes the matching Radicale resource. A recurring series stored in that resource is deleted as a series.
+
 `POST /api/calendar/tasks` creates a VTODO in the selected Radicale task collection. The mobile shell refreshes from `GET /api/calendar/bootstrap` after a successful write, so the UI shows Radicale as the source of truth.
 
-`PUT /api/calendar/tasks` updates an existing VTODO by UID while preserving the original task UID, created timestamp, and completion status.
+`PUT /api/calendar/tasks` updates an existing VTODO by UID while preserving the original task UID, created timestamp, and completion status. Updates use the Radicale ETag as an `If-Match` write guard.
+
+`DELETE /api/calendar/tasks` deletes an existing VTODO by UID.
 
 ## Environment
 

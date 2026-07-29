@@ -62,7 +62,7 @@ The first app-shaped mobile shell is in:
 apps/mobile-shell
 ```
 
-It has separate Today, Calendar, Tasks, and Services routes with mock adapter data. It is still static and performs no production writes.
+It has separate Today, Calendar, Tasks, and Services routes. The frontend is static, but its calendar and task writes go through the authenticated server-side calendar adapter.
 
 The current temporary launcher is served from:
 
