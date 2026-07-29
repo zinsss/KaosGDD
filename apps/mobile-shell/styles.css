@@ -346,6 +346,12 @@ h3 {
   gap: 12px;
 }
 
+.todayDesktopGrid,
+.calendarDesktopGrid {
+  display: grid;
+  gap: 12px;
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
@@ -1804,5 +1810,235 @@ h3 {
     border-radius: 8px;
     background: var(--surface);
     padding: 11px;
+  }
+}
+
+@media (min-width: 1120px) {
+  body {
+    background:
+      linear-gradient(90deg, #242933 0, #2e3440 12%, #2e3440 88%, #242933 100%);
+  }
+
+  body:has(.app[data-profile="family"]) {
+    background: #f4edf8;
+  }
+
+  .app {
+    max-width: 1420px;
+    padding-inline: 28px;
+  }
+
+  .appTop {
+    min-height: 72px;
+    margin-inline: -28px;
+    padding: 10px 28px 8px;
+    align-items: center;
+  }
+
+  .appIdentity {
+    min-width: 220px;
+  }
+
+  .appTop h1 {
+    font-size: 1.9rem;
+  }
+
+  .topNav {
+    gap: 24px;
+  }
+
+  .topNav a {
+    min-height: 42px;
+    padding: 10px 2px 8px;
+    font-size: 0.9rem;
+  }
+
+  .view {
+    gap: 16px;
+    padding: 20px 0 28px;
+  }
+
+  .collectionRail {
+    gap: 10px;
+  }
+
+  .collectionRail button {
+    flex: 0 1 230px;
+    min-height: 40px;
+    font-size: 0.84rem;
+  }
+
+  .panelHeader {
+    min-height: 68px;
+    padding: 15px 16px;
+  }
+
+  .panelBody {
+    padding: 14px 16px;
+  }
+
+  .todayDesktopGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .todayDesktopGrid > .panel {
+    min-height: 216px;
+  }
+
+  .metric {
+    min-height: 84px;
+    padding: 14px;
+  }
+
+  .metric strong {
+    font-size: 1.5rem;
+  }
+
+  .metric span {
+    font-size: 0.78rem;
+  }
+
+  .calendarDesktopGrid {
+    grid-template-columns: minmax(720px, 1.65fr) minmax(360px, 0.75fr);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .calendarGrid {
+    gap: 8px;
+    padding: 14px 16px 16px;
+  }
+
+  .calendarMonthPanel .weekday {
+    font-size: 0.72rem;
+  }
+
+  .calendarMonthPanel .day {
+    min-height: 84px;
+    padding: 9px 8px;
+    font-size: 0.88rem;
+  }
+
+  .calendarMonthPanel .dayWeatherGlyph {
+    top: 6px;
+    right: 8px;
+    font-size: 1.35rem;
+  }
+
+  .calendarMonthPanel .dayMarkers {
+    gap: 7px;
+    font-size: 0.76rem;
+  }
+
+  .calendarAgendaPanel {
+    position: sticky;
+    top: 20px;
+  }
+
+  .calendarAgendaPanel .selectedWeather {
+    grid-template-columns: 116px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .calendarAgendaPanel .selectedWeatherGlyph {
+    font-size: 3.3rem;
+  }
+
+  .taskFilters {
+    grid-template-columns: 220px 220px auto;
+    justify-content: start;
+  }
+
+  .app[data-route="tasks"] .view > .panel {
+    max-width: 1040px;
+  }
+
+  .taskRow {
+    min-height: 68px;
+    padding: 13px 0;
+  }
+
+  .taskTitle,
+  .serviceRow strong {
+    font-size: 0.98rem;
+  }
+
+  .taskMeta,
+  .serviceMeta {
+    font-size: 0.8rem;
+  }
+
+  .servicesGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .servicesGrid .serviceRow {
+    min-height: 82px;
+    padding: 14px;
+  }
+
+  .formGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .composer {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .app[data-route="add-event"] .view > .panel,
+  .app[data-route="add-event"] .segmentedTabs {
+    width: min(100%, 1040px);
+    justify-self: center;
+  }
+
+  .taskComposer {
+    width: min(100%, 1200px);
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
+    grid-template-rows: auto auto;
+    gap: 16px;
+    justify-self: center;
+  }
+
+  .taskComposer > .panel:first-of-type {
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .app[data-route="settings"] .view > .panel,
+  .app[data-route="memos"] .view > .panel {
+    width: min(100%, 900px);
+    margin-inline: auto;
+  }
+
+  .rounyWeekGrid {
+    padding: 16px;
+  }
+
+  .rounyDayColumn {
+    min-height: 320px;
+    padding: 10px 8px;
+  }
+
+  .rounyBlock {
+    padding: 9px 8px;
+  }
+
+  .rounyBlock strong {
+    font-size: 0.82rem;
+  }
+
+  .rounyBlock span,
+  .rounyBlock em {
+    font-size: 0.7rem;
+  }
+
+  .rounyLayer {
+    width: min(520px, 94vw);
+    padding-inline: 20px;
   }
 }

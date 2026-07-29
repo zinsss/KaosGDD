@@ -1348,22 +1348,22 @@ function renderToday() {
     .slice(0, 4);
   return `
     ${renderCollectionRail()}
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">Overview</p>
-          <h2>${escapeHtml(compactDateLabel(state.selectedDate))} · Pohang 21-32 ☀️</h2>
+    <div class="todayDesktopGrid">
+      <section class="panel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">Overview</p>
+            <h2>${escapeHtml(compactDateLabel(state.selectedDate))} · Pohang 21-32 ☀️</h2>
+          </div>
         </div>
-      </div>
-      <div class="panelBody">
-        <div class="summaryGrid">
-          <div class="metric"><strong>${events.length}</strong><span>events</span></div>
-          <div class="metric"><strong>${tasks.length}</strong><span>tasks</span></div>
-          <div class="metric"><strong>7</strong><span>services</span></div>
+        <div class="panelBody">
+          <div class="summaryGrid">
+            <div class="metric"><strong>${events.length}</strong><span>events</span></div>
+            <div class="metric"><strong>${tasks.length}</strong><span>tasks</span></div>
+            <div class="metric"><strong>7</strong><span>services</span></div>
+          </div>
         </div>
-      </div>
-    </section>
-    <div class="desktopGrid">
+      </section>
       <section class="panel">
         <div class="panelHeader">
           <div>
@@ -1400,70 +1400,72 @@ function renderCalendar() {
   const weatherByDate = new Map((activeCalendarData().weather || []).map((weather) => [weather.date, weather]));
   return `
     ${renderCollectionRail()}
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">${uiText("calendar.label", "Calendar")}</p>
-          <h2>${escapeHtml(monthTitle(month))}</h2>
-        </div>
-        <div class="calendarHeaderActions" aria-label="${uiText("calendar.actionsAria", "Calendar actions")}">
-          <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
-            <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
-            <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
-            <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
+    <div class="calendarDesktopGrid">
+      <section class="panel calendarMonthPanel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">${uiText("calendar.label", "Calendar")}</p>
+            <h2>${escapeHtml(monthTitle(month))}</h2>
           </div>
-          <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
+          <div class="calendarHeaderActions" aria-label="${uiText("calendar.actionsAria", "Calendar actions")}">
+            <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
+              <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
+              <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
+              <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
+            </div>
+            <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
+          </div>
         </div>
-      </div>
-      <div class="calendarGrid" aria-label="${uiText("calendar.monthGridAria", "Month grid")}">
-        ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
-        ${monthCells(month)
-          .map((cell) => {
-            const hasDuty = dutyDates.has(cell.value);
-            const classes = [
-              "day",
-              cell.muted ? "isMuted" : "",
-              cell.value === ymd(new Date()) ? "isToday" : "",
-              cell.value === state.selectedDate ? "isSelected" : "",
-              hasDuty ? "isDuty" : "",
-              dateTone(cell.value),
-            ]
-              .filter(Boolean)
-              .join(" ");
-            const weather = weatherByDate.get(cell.value);
-            const eventCount = eventCounts[cell.value] || 0;
-            const taskCount = taskCounts[cell.value] || 0;
-            return `
-              <button class="${classes}" type="button" data-date="${cell.value}">
-                <span class="dayHeader">
-                  <span class="dayNumber">${cell.label}</span>
-                </span>
-                ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
-                ${
-                  eventCount || taskCount
-                    ? `
-                      <span class="dayMarkers">
-                        ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
-                        ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
-                      </span>
-                    `
-                    : ""
-                }
-              </button>
-            `;
-          })
-          .join("")}
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
-          <h2>${escapeHtml(state.selectedDate)}</h2>
+        <div class="calendarGrid" aria-label="${uiText("calendar.monthGridAria", "Month grid")}">
+          ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
+          ${monthCells(month)
+            .map((cell) => {
+              const hasDuty = dutyDates.has(cell.value);
+              const classes = [
+                "day",
+                cell.muted ? "isMuted" : "",
+                cell.value === ymd(new Date()) ? "isToday" : "",
+                cell.value === state.selectedDate ? "isSelected" : "",
+                hasDuty ? "isDuty" : "",
+                dateTone(cell.value),
+              ]
+                .filter(Boolean)
+                .join(" ");
+              const weather = weatherByDate.get(cell.value);
+              const eventCount = eventCounts[cell.value] || 0;
+              const taskCount = taskCounts[cell.value] || 0;
+              return `
+                <button class="${classes}" type="button" data-date="${cell.value}">
+                  <span class="dayHeader">
+                    <span class="dayNumber">${cell.label}</span>
+                  </span>
+                  ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
+                  ${
+                    eventCount || taskCount
+                      ? `
+                        <span class="dayMarkers">
+                          ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
+                          ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
+                        </span>
+                      `
+                      : ""
+                  }
+                </button>
+              `;
+            })
+            .join("")}
         </div>
-      </div>
-      ${renderCalendarAgenda(selectedEvents, selectedTasks)}
-    </section>
+      </section>
+      <section class="panel calendarAgendaPanel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
+            <h2>${escapeHtml(state.selectedDate)}</h2>
+          </div>
+        </div>
+        ${renderCalendarAgenda(selectedEvents, selectedTasks)}
+      </section>
+    </div>
   `;
 }
 
