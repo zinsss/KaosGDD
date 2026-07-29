@@ -31,10 +31,16 @@ const TASK_MEMO_PLACEHOLDER = "Plain memos or;\n-- active subtasks\n-x done subt
 const DEFAULT_EVENT_START_TIME = "09:00";
 const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
+const DESKTOP_MEDIA_QUERY = "(min-width: 1180px)";
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
 const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
+const desktopMedia = window.matchMedia(DESKTOP_MEDIA_QUERY);
+
+function isDesktopLayout() {
+  return desktopMedia.matches;
+}
 
 const rounyDays = [
   { value: "1", label: "Mon", familyLabel: uiText("weekday.mon", "Mon") },
@@ -607,7 +613,7 @@ async function loadRemoteWeatherForSelectedMonth() {
       error: error.message || "Weather unavailable",
     };
   }
-  if (getRoute() === "calendar" || getRoute() === "today") render();
+  if (getRoute() === "calendar" || getRoute() === "today" || (getRoute() === "add-event" && isDesktopLayout())) render();
 }
 
 function normalizeWeatherItems(items) {
@@ -1388,91 +1394,105 @@ function renderToday() {
   `;
 }
 
-function renderCalendar() {
+function renderCalendarMonthPanel() {
   const month = state.selectedDate.slice(0, 7);
   const events = mockAdapter.getEvents();
   const datedTasks = mockAdapter.getTasks().filter((task) => task.due);
-  const selectedEvents = events.filter((event) => event.date === state.selectedDate);
-  const selectedTasks = datedTasks.filter((task) => task.due === state.selectedDate);
   const eventCounts = countByDate(events, "date");
   const taskCounts = countByDate(datedTasks, "due");
   const dutyDates = new Set(events.filter(hasDutyEvent).map((event) => event.date));
   const weatherByDate = new Map((activeCalendarData().weather || []).map((weather) => [weather.date, weather]));
   return `
+    <section class="panel calendarMonthPanel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${uiText("calendar.label", "Calendar")}</p>
+          <h2>${escapeHtml(monthTitle(month))}</h2>
+        </div>
+        <div class="calendarHeaderActions" aria-label="${uiText("calendar.actionsAria", "Calendar actions")}">
+          <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
+            <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
+            <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
+            <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
+          </div>
+          <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
+        </div>
+      </div>
+      <div class="calendarGrid" aria-label="${uiText("calendar.monthGridAria", "Month grid")}">
+        ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
+        ${monthCells(month)
+          .map((cell) => {
+            const hasDuty = dutyDates.has(cell.value);
+            const classes = [
+              "day",
+              cell.muted ? "isMuted" : "",
+              cell.value === ymd(new Date()) ? "isToday" : "",
+              cell.value === state.selectedDate ? "isSelected" : "",
+              hasDuty ? "isDuty" : "",
+              dateTone(cell.value),
+            ]
+              .filter(Boolean)
+              .join(" ");
+            const weather = weatherByDate.get(cell.value);
+            const eventCount = eventCounts[cell.value] || 0;
+            const taskCount = taskCounts[cell.value] || 0;
+            return `
+              <button class="${classes}" type="button" data-date="${cell.value}">
+                <span class="dayHeader">
+                  <span class="dayNumber">${cell.label}</span>
+                </span>
+                ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
+                ${
+                  eventCount || taskCount
+                    ? `
+                      <span class="dayMarkers">
+                        ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
+                        ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
+                      </span>
+                    `
+                    : ""
+                }
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCalendarAgendaPanel() {
+  const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
+  const tasks = mockAdapter.getTasks().filter((task) => task.due === state.selectedDate);
+  return `
+    <section class="panel calendarAgendaPanel desktopContextPane">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
+          <h2>${escapeHtml(state.selectedDate)}</h2>
+        </div>
+      </div>
+      ${renderCalendarAgenda(events, tasks)}
+    </section>
+  `;
+}
+
+function renderCalendarWorkspace(contextHtml = renderCalendarAgendaPanel()) {
+  return `
     ${renderCollectionRail()}
-    <div class="calendarDesktopGrid">
-      <section class="panel calendarMonthPanel">
-        <div class="panelHeader">
-          <div>
-            <p class="label">${uiText("calendar.label", "Calendar")}</p>
-            <h2>${escapeHtml(monthTitle(month))}</h2>
-          </div>
-          <div class="calendarHeaderActions" aria-label="${uiText("calendar.actionsAria", "Calendar actions")}">
-            <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
-              <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
-              <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
-              <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
-            </div>
-            <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
-          </div>
-        </div>
-        <div class="calendarGrid" aria-label="${uiText("calendar.monthGridAria", "Month grid")}">
-          ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
-          ${monthCells(month)
-            .map((cell) => {
-              const hasDuty = dutyDates.has(cell.value);
-              const classes = [
-                "day",
-                cell.muted ? "isMuted" : "",
-                cell.value === ymd(new Date()) ? "isToday" : "",
-                cell.value === state.selectedDate ? "isSelected" : "",
-                hasDuty ? "isDuty" : "",
-                dateTone(cell.value),
-              ]
-                .filter(Boolean)
-                .join(" ");
-              const weather = weatherByDate.get(cell.value);
-              const eventCount = eventCounts[cell.value] || 0;
-              const taskCount = taskCounts[cell.value] || 0;
-              return `
-                <button class="${classes}" type="button" data-date="${cell.value}">
-                  <span class="dayHeader">
-                    <span class="dayNumber">${cell.label}</span>
-                  </span>
-                  ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
-                  ${
-                    eventCount || taskCount
-                      ? `
-                        <span class="dayMarkers">
-                          ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
-                          ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
-                        </span>
-                      `
-                      : ""
-                  }
-                </button>
-              `;
-            })
-            .join("")}
-        </div>
-      </section>
-      <section class="panel calendarAgendaPanel">
-        <div class="panelHeader">
-          <div>
-            <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
-            <h2>${escapeHtml(state.selectedDate)}</h2>
-          </div>
-        </div>
-        ${renderCalendarAgenda(selectedEvents, selectedTasks)}
-      </section>
+    <div class="calendarDesktopGrid workspaceSplit">
+      ${renderCalendarMonthPanel()}
+      ${contextHtml}
     </div>
   `;
 }
 
-function renderTasks() {
-  const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
+function renderCalendar() {
+  return renderCalendarWorkspace();
+}
+
+function renderTaskFilters() {
   return `
-    ${renderCollectionRail()}
     <section class="taskFilters" aria-label="${uiText("task.filtersAria", "Task filters")}">
       <label>
         <span>${uiText("task.label", "Tasks")}</span>
@@ -1490,9 +1510,52 @@ function renderTasks() {
       </label>
       <a class="openButton taskAddButton" href="#/add-task">${uiText("common.add", "Add")}</a>
     </section>
-    <section class="panel">
+  `;
+}
+
+function renderTaskListPanel(tasks) {
+  return `
+    <section class="panel taskListPanel">
       <div class="panelBody">${renderTaskRows(tasks)}</div>
     </section>
+  `;
+}
+
+function renderTaskEmptyContext() {
+  return `
+    <section class="panel desktopContextPane taskEmptyContext">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${uiText("task.details", "Task details")}</p>
+          <h2>${uiText("task.selectTask", "Select a task")}</h2>
+        </div>
+      </div>
+      <div class="panelBody">
+        <p class="taskMeta">${uiText("task.selectTaskHelp", "Choose a task from the list to view or edit it.")}</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderTaskWorkspace(contextHtml = renderTaskEmptyContext()) {
+  const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
+  return `
+    ${renderCollectionRail()}
+    <div class="taskDesktopGrid workspaceSplit">
+      <div class="taskMiddlePane">
+        ${renderTaskFilters()}
+        ${renderTaskListPanel(tasks)}
+      </div>
+      ${contextHtml}
+    </div>
+  `;
+}
+
+function renderTasks() {
+  return isDesktopLayout() ? renderTaskWorkspace() : `
+    ${renderCollectionRail()}
+    ${renderTaskFilters()}
+    ${renderTaskListPanel(mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode)))}
   `;
 }
 
@@ -1506,27 +1569,54 @@ function renderAddEvent() {
   const draft = normalizeEventPreset(state.eventPresetDraft || defaultEventPreset());
   const shareFamily = Boolean(draft.shareFamily || state.currentCollection === "owner:family");
   const allDay = Boolean(draft.allDay);
-  if (state.addEventMode === "preset") {
-    return `
-      ${renderCollectionRail()}
-      ${renderAddEventTabs()}
-      <section class="panel">
-        <div class="panelHeader">
-          <div>
-            <p class="label">${uiText("event.preset", "Preset")}</p>
-            <h2>${uiText("event.templates", "Event templates")}</h2>
-          </div>
-          <a class="openButton" href="#/settings">${uiText("common.manage", "Manage")}</a>
-        </div>
-        <div class="panelBody">
-          ${renderEventPresetChoices()}
-        </div>
-      </section>
-    `;
+  const contextBody = state.addEventMode === "preset"
+    ? renderEventPresetPanel()
+    : renderEventFormPanel(draft, shareFamily, allDay);
+  if (isDesktopLayout()) {
+    return renderCalendarWorkspace(`
+      <aside class="desktopContextPane contextPaneStack">
+        ${renderContextHeader(uiText("calendar.label", "Calendar"), uiText("route.addEvent", "Add Event"), "#/calendar")}
+        ${renderAddEventTabs()}
+        ${contextBody}
+      </aside>
+    `);
   }
+  return `${renderCollectionRail()}${renderAddEventTabs()}${contextBody}`;
+}
+
+function renderContextHeader(label, title, closeHref) {
   return `
-    ${renderCollectionRail()}
-    ${renderAddEventTabs()}
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${escapeHtml(label)}</p>
+          <h2>${escapeHtml(title)}</h2>
+        </div>
+        <a class="openButton" href="${escapeHtml(closeHref)}">${uiText("common.close", "Close")}</a>
+      </div>
+    </section>
+  `;
+}
+
+function renderEventPresetPanel() {
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">${uiText("event.preset", "Preset")}</p>
+          <h2>${uiText("event.templates", "Event templates")}</h2>
+        </div>
+        <a class="openButton" href="#/settings">${uiText("common.manage", "Manage")}</a>
+      </div>
+      <div class="panelBody">
+        ${renderEventPresetChoices()}
+      </div>
+    </section>
+  `;
+}
+
+function renderEventFormPanel(draft, shareFamily, allDay) {
+  return `
     <section class="panel">
       <form class="composer" data-create-event>
         ${renderFamilyShareToggle(shareFamily)}
@@ -1610,46 +1700,16 @@ function renderEventPresetChoices() {
 
 function renderAddTask() {
   ensureAddCollectionDefault();
-  const dueEnabled = state.taskDueEnabled;
-  return `
-    ${renderCollectionRail()}
-    <form class="taskComposer" data-create-task>
-      <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
-      <section class="panel">
-        <div class="composer">
-          ${renderFamilyShareToggle()}
-          <label>
-            <span>${uiText("task.label", "Task")}</span>
-            <input name="title" type="text" autocomplete="off" placeholder="${uiText("task.new", "New task")}" required />
-          </label>
-          <label>
-            <span>${uiText("common.memo", "Memo")}</span>
-            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}"></textarea>
-          </label>
-        </div>
-      </section>
-      ${renderAddDatePicker({ title: uiText("task.due", "Task due"), allowNoDate: true })}
-      <section class="panel">
-        <div class="composer">
-          <label>
-            <span>${uiText("task.time", "Time")}</span>
-            <input name="dueTime" type="time" step="300" />
-          </label>
-          <p class="formNote">${uiText("task.defaultTime", "Default time 10:00 am")}</p>
-          <label>
-            <span>${uiText("task.priority", "Priority")}</span>
-            <select name="priority">
-              <option value="">${uiText("common.none", "None")}</option>
-              <option value="9">${uiText("task.priorityLow", "Low")} (!)</option>
-              <option value="5">${uiText("task.priorityMedium", "Medium")} (!!)</option>
-              <option value="1">${uiText("task.priorityHigh", "High")} (!!!)</option>
-            </select>
-          </label>
-          <button class="primaryButton" type="submit">${uiText("task.create", "Create local task")}</button>
-        </div>
-      </section>
-    </form>
-  `;
+  const form = renderTaskEditorForm();
+  if (isDesktopLayout()) {
+    return renderTaskWorkspace(`
+      <aside class="desktopContextPane contextPaneStack">
+        ${renderContextHeader(uiText("task.details", "Task details"), uiText("route.addTask", "Add Task"), "#/tasks")}
+        ${form}
+      </aside>
+    `);
+  }
+  return `${renderCollectionRail()}${form}`;
 }
 
 function renderFamilyShareToggle(checked = state.currentCollection === "owner:family") {
@@ -1665,14 +1725,14 @@ function renderEditTask() {
   const taskId = hashParam("uid");
   const task = findTaskById(taskId);
   if (!task) {
-    return `
-      ${renderCollectionRail()}
+    const notFound = `
       <section class="panel">
         <div class="panelBody">
           <p class="taskMeta">${uiText("task.notFound", "Task not found")}</p>
         </div>
       </section>
     `;
+    return isDesktopLayout() ? renderTaskWorkspace(notFound) : `${renderCollectionRail()}${notFound}`;
   }
 
   if (state.editingTaskId !== task.id) {
@@ -1681,22 +1741,36 @@ function renderEditTask() {
     state.selectedDate = task.due || ymd(new Date());
   }
 
+  const form = renderTaskEditorForm(task);
+  if (isDesktopLayout()) {
+    return renderTaskWorkspace(`
+      <aside class="desktopContextPane contextPaneStack">
+        ${renderContextHeader(uiText("task.details", "Task details"), uiText("route.editTask", "Edit Task"), "#/tasks")}
+        ${form}
+      </aside>
+    `);
+  }
+  return `${renderCollectionRail()}${form}`;
+}
+
+function renderTaskEditorForm(task = null) {
   const dueEnabled = state.taskDueEnabled;
+  const editing = Boolean(task);
   return `
-    ${renderCollectionRail()}
-    <form class="taskComposer" data-edit-task>
-      <input name="uid" type="hidden" value="${escapeHtml(task.id)}" />
-      <input name="collectionId" type="hidden" value="${escapeHtml(task.collection)}" />
+    <form class="taskComposer taskContextComposer" ${editing ? "data-edit-task" : "data-create-task"}>
+      ${editing ? `<input name="uid" type="hidden" value="${escapeHtml(task.id)}" />` : ""}
+      ${editing ? `<input name="collectionId" type="hidden" value="${escapeHtml(task.collection)}" />` : ""}
       <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
       <section class="panel">
         <div class="composer">
+          ${editing ? "" : renderFamilyShareToggle()}
           <label>
             <span>${uiText("task.label", "Task")}</span>
-            <input name="title" type="text" autocomplete="off" value="${escapeHtml(task.title)}" required />
+            <input name="title" type="text" autocomplete="off" value="${editing ? escapeHtml(task.title) : ""}" placeholder="${uiText("task.new", "New task")}" required />
           </label>
           <label>
             <span>${uiText("common.memo", "Memo")}</span>
-            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${escapeHtml(task.description)}</textarea>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${editing ? escapeHtml(task.description) : ""}</textarea>
           </label>
         </div>
       </section>
@@ -1705,19 +1779,19 @@ function renderEditTask() {
         <div class="composer">
           <label>
             <span>${uiText("task.time", "Time")}</span>
-            <input name="dueTime" type="time" value="${dueEnabled ? escapeHtml(task.dueTime) : ""}" step="300" />
+            <input name="dueTime" type="time" value="${dueEnabled && editing ? escapeHtml(task.dueTime) : ""}" step="300" />
           </label>
           <p class="formNote">${uiText("task.defaultTime", "Default time 10:00 am")}</p>
           <label>
             <span>${uiText("task.priority", "Priority")}</span>
             <select name="priority">
-              <option value="" ${task.priority ? "" : "selected"}>${uiText("common.none", "None")}</option>
-              <option value="9" ${task.priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
-              <option value="5" ${task.priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
-              <option value="1" ${task.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
+              <option value="" ${!editing || !task.priority ? "selected" : ""}>${uiText("common.none", "None")}</option>
+              <option value="9" ${editing && task.priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
+              <option value="5" ${editing && task.priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
+              <option value="1" ${editing && task.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
             </select>
           </label>
-          <button class="primaryButton" type="submit">${uiText("common.save", "Save task")}</button>
+          <button class="primaryButton" type="submit">${editing ? uiText("common.save", "Save task") : uiText("task.create", "Create local task")}</button>
         </div>
       </section>
     </form>
@@ -2393,7 +2467,7 @@ function render() {
   else if (route === "memos") view.innerHTML = renderMemos();
   else if (route === "settings") view.innerHTML = renderSettings();
   else view.innerHTML = renderToday();
-  if (route === "calendar" || route === "today") {
+  if (route === "calendar" || route === "today" || (route === "add-event" && isDesktopLayout())) {
     loadRemoteWeatherForSelectedMonth();
   }
   updateTopBarShadow();
@@ -2866,6 +2940,7 @@ document.addEventListener("change", (event) => {
 });
 
 document.getElementById("view")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
+desktopMedia.addEventListener("change", render);
 
 window.addEventListener("hashchange", () => {
   const view = document.getElementById("view");

@@ -1813,7 +1813,7 @@ h3 {
   }
 }
 
-@media (min-width: 1120px) {
+@media (min-width: 1180px) {
   body {
     background:
       linear-gradient(90deg, #242933 0, #2e3440 12%, #2e3440 88%, #242933 100%);
@@ -1824,19 +1824,36 @@ h3 {
   }
 
   .app {
+    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     max-width: 1420px;
-    padding-inline: 28px;
+    padding: 0;
+    background: var(--bg);
   }
 
   .appTop {
-    min-height: 72px;
-    margin-inline: -28px;
-    padding: 10px 28px 8px;
-    align-items: center;
+    position: relative;
+    top: auto;
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    margin: 0;
+    padding: 28px 18px;
+    border-right: 1px solid rgba(76, 86, 106, 0.78);
+    border-bottom: 0;
+    overflow-y: auto;
+  }
+
+  .appTop.hasScrolled,
+  .app[data-profile="family"] .appTop.hasScrolled {
+    box-shadow: none;
   }
 
   .appIdentity {
-    min-width: 220px;
+    min-width: 0;
   }
 
   .appTop h1 {
@@ -1844,18 +1861,41 @@ h3 {
   }
 
   .topNav {
-    gap: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 7px;
+    margin-top: 32px;
   }
 
   .topNav a {
-    min-height: 42px;
-    padding: 10px 2px 8px;
-    font-size: 0.9rem;
+    justify-content: flex-start;
+    min-height: 44px;
+    padding: 0 12px;
+    border-bottom: 0;
+    border-left: 3px solid transparent;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.96rem;
+  }
+
+  .topNav a.isActive {
+    border-bottom-color: transparent;
+    border-left-color: var(--nord8);
+    background: rgba(136, 192, 208, 0.1);
+  }
+
+  .app[data-profile="family"] .topNav a.isActive {
+    border-bottom-color: transparent;
+    border-left-color: #b474a6;
+    background: #ead5e9;
   }
 
   .view {
+    grid-column: 2;
+    grid-row: 1;
     gap: 16px;
-    padding: 20px 0 28px;
+    padding: 24px;
   }
 
   .collectionRail {
@@ -1901,9 +1941,33 @@ h3 {
   }
 
   .calendarDesktopGrid {
-    grid-template-columns: minmax(720px, 1.65fr) minmax(360px, 0.75fr);
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 380px);
     align-items: start;
     gap: 16px;
+  }
+
+  .taskDesktopGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 380px);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .taskMiddlePane,
+  .contextPaneStack {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .desktopContextPane {
+    position: sticky;
+    top: 0;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
   }
 
   .calendarGrid {
@@ -1933,8 +1997,7 @@ h3 {
   }
 
   .calendarAgendaPanel {
-    position: sticky;
-    top: 20px;
+    align-self: start;
   }
 
   .calendarAgendaPanel .selectedWeather {
@@ -1947,12 +2010,12 @@ h3 {
   }
 
   .taskFilters {
-    grid-template-columns: 220px 220px auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     justify-content: start;
   }
 
-  .app[data-route="tasks"] .view > .panel {
-    max-width: 1040px;
+  .taskEmptyContext {
+    min-height: 160px;
   }
 
   .taskRow {
@@ -1985,28 +2048,29 @@ h3 {
     gap: 12px;
   }
 
+  .desktopContextPane .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .composer {
     gap: 14px;
     padding: 16px;
   }
 
-  .app[data-route="add-event"] .view > .panel,
-  .app[data-route="add-event"] .segmentedTabs {
-    width: min(100%, 1040px);
-    justify-self: center;
+  .desktopContextPane .composer {
+    padding: 14px;
   }
 
-  .taskComposer {
-    width: min(100%, 1200px);
-    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
-    grid-template-rows: auto auto;
-    gap: 16px;
-    justify-self: center;
+  .taskContextComposer {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 12px;
   }
 
-  .taskComposer > .panel:first-of-type {
-    grid-row: 1 / span 2;
-    align-self: start;
+  .taskContextComposer > .panel:first-of-type {
+    grid-row: auto;
   }
 
   .app[data-route="settings"] .view > .panel,
