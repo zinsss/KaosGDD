@@ -13,22 +13,21 @@ const routes = {
 };
 
 const familyRoutes = {
-  today: "오늘",
-  calendar: "캘린더",
-  tasks: "할 일",
-  add: "추가",
-  "add-event": "일정 추가",
-  "add-task": "할 일 추가",
-  "edit-task": "할 일 수정",
-  services: "도구",
-  rouny: "로운이",
-  memos: "메모",
-  settings: "설정",
+  today: uiText("route.today", "Today"),
+  calendar: uiText("route.calendar", "Calendar"),
+  tasks: uiText("route.tasks", "Tasks"),
+  add: uiText("route.add", "Add"),
+  "add-event": uiText("route.addEvent", "Add Event"),
+  "add-task": uiText("route.addTask", "Add Task"),
+  "edit-task": uiText("route.editTask", "Edit Task"),
+  services: uiText("route.services", "Utils"),
+  rouny: uiText("route.rouny", "Rouny"),
+  memos: uiText("route.memos", "Memos"),
+  settings: uiText("route.settings", "Settings"),
 };
 
 const DEFAULT_TASK_DUE_TIME = "10:00";
 const TASK_MEMO_PLACEHOLDER = "Plain memos or;\n-- active subtasks\n-x done subtasks";
-const FAMILY_TASK_MEMO_PLACEHOLDER = "일반 메모 또는;\n-- 진행 중인 하위 할 일\n-x 완료한 하위 할 일";
 const DEFAULT_EVENT_START_TIME = "09:00";
 const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
@@ -38,13 +37,13 @@ const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
 
 const rounyDays = [
-  { value: "1", label: "Mon", familyLabel: "월" },
-  { value: "2", label: "Tue", familyLabel: "화" },
-  { value: "3", label: "Wed", familyLabel: "수" },
-  { value: "4", label: "Thu", familyLabel: "목" },
-  { value: "5", label: "Fri", familyLabel: "금" },
-  { value: "6", label: "Sat", familyLabel: "토" },
-  { value: "0", label: "Sun", familyLabel: "일" },
+  { value: "1", label: "Mon", familyLabel: uiText("weekday.mon", "Mon") },
+  { value: "2", label: "Tue", familyLabel: uiText("weekday.tue", "Tue") },
+  { value: "3", label: "Wed", familyLabel: uiText("weekday.wed", "Wed") },
+  { value: "4", label: "Thu", familyLabel: uiText("weekday.thu", "Thu") },
+  { value: "5", label: "Fri", familyLabel: uiText("weekday.fri", "Fri") },
+  { value: "6", label: "Sat", familyLabel: uiText("weekday.sat", "Sat") },
+  { value: "0", label: "Sun", familyLabel: uiText("weekday.sun", "Sun") },
 ];
 
 const rounyColors = ["pink", "peach", "yellow", "mint", "sky", "lavender", "gray"];
@@ -72,14 +71,14 @@ const profileConfigs = {
     ],
   },
   family: {
-    label: "가족",
+    label: uiText("profile.family", "Family"),
     defaultRoute: "calendar",
     nav: [
-      { route: "calendar", label: "캘린더" },
-      { route: "tasks", label: "할 일" },
-      { route: "rouny", label: "로운이" },
-      { route: "memos", label: "메모" },
-      { route: "settings", label: "설정" },
+      { route: "calendar", label: uiText("route.calendar", "Calendar") },
+      { route: "tasks", label: uiText("route.tasks", "Tasks") },
+      { route: "rouny", label: uiText("route.rouny", "Rouny") },
+      { route: "memos", label: uiText("route.memos", "Memos") },
+      { route: "settings", label: uiText("route.settings", "Settings") },
     ],
   },
 };
@@ -354,7 +353,7 @@ function collectionViews() {
   const allIds = data.collections.map((collection) => collection.id);
   const ownerLabels = {
     zin: "GDD_ZiN",
-    family: uiText("Family", "가족"),
+    family: uiText("collection.family", "Family"),
     wife: "Bling02",
   };
   const ownerOrder = ["family", "zin", "wife"];
@@ -364,7 +363,7 @@ function collectionViews() {
     if (rankA !== rankB) return rankA - rankB;
     return a.localeCompare(b);
   });
-  const views = [{ id: "all", name: uiText("All", "전체"), collectionIds: allIds }];
+  const views = [{ id: "all", name: uiText("collection.all", "All"), collectionIds: allIds }];
   owners.forEach((owner) => {
     const collectionIds = data.collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
     if (collectionIds.length) {
@@ -449,7 +448,7 @@ function normalizeEventPreset(preset) {
   if (!preset || typeof preset !== "object") return null;
   return {
     id: String(preset.id || createId("event-preset")),
-    name: String(preset.name || preset.title || uiText("Untitled preset", "이름 없는 프리셋")).trim() || uiText("Untitled preset", "이름 없는 프리셋"),
+    name: String(preset.name || preset.title || uiText("event.untitledPreset", "Untitled preset")).trim() || uiText("event.untitledPreset", "Untitled preset"),
     title: String(preset.title || ""),
     allDay: Boolean(preset.allDay),
     startTime: String(preset.startTime || DEFAULT_EVENT_START_TIME).slice(0, 5),
@@ -728,10 +727,10 @@ function parseDateTime(value) {
 function formatDateTimeLabel(value) {
   const parsed = parseDateTime(value);
   if (!parsed.date) return "";
-  if (parsed.date === state.selectedDate && parsed.time) return uiText(`modified ${parsed.time}`, `수정 ${parsed.time}`);
+  if (parsed.date === state.selectedDate && parsed.time) return uiText("task.modifiedTime", "modified {time}", { time: parsed.time });
   return parsed.time
-    ? uiText(`modified ${parsed.date} ${parsed.time}`, `수정 ${parsed.date} ${parsed.time}`)
-    : uiText(`modified ${parsed.date}`, `수정 ${parsed.date}`);
+    ? uiText("task.modifiedDateTime", "modified {date} {time}", { date: parsed.date, time: parsed.time })
+    : uiText("task.modifiedDate", "modified {date}", { date: parsed.date });
 }
 
 function normalizeEvent(event) {
@@ -741,7 +740,7 @@ function normalizeEvent(event) {
       collection: event.collection,
       date: event.date,
       time: event.time || "",
-      title: event.title || event.summary || uiText("Untitled event", "제목 없는 일정"),
+      title: event.title || event.summary || uiText("event.untitled", "Untitled event"),
       detail: event.location || event.description || "",
     };
   }
@@ -845,14 +844,16 @@ function taskBadge(task, subtasks, done) {
 }
 
 function taskMeta(task, parsed, done) {
-  if (done && task.completed) return uiText(`Done ${parseDateTime(task.completed).time}`, `완료 ${parseDateTime(task.completed).time}`);
+  if (done && task.completed) return uiText("task.completedTime", "Done {time}", { time: parseDateTime(task.completed).time });
   const parts = [];
   if (task.due) {
-    const dueDate = task.due === state.selectedDate ? uiText("due today", "오늘 마감") : uiText(`due ${task.due}`, `${task.due} 마감`);
+    const dueDate = task.due === state.selectedDate
+      ? uiText("task.dueToday", "due today")
+      : uiText("task.dueDate", "due {date}", { date: task.due });
     parts.push(task.dueTime ? `${dueDate} ${task.dueTime}` : dueDate);
   }
   else if (task.lastModified || task.created) parts.push(formatDateTimeLabel(task.lastModified || task.created));
-  if (parsed.subtasks.length) parts.push(uiText(`${parsed.subtasks.length} subtasks`, `하위 할 일 ${parsed.subtasks.length}개`));
+  if (parsed.subtasks.length) parts.push(uiText("task.subtasksCount", "{count} subtasks", { count: parsed.subtasks.length }));
   return parts.join(" · ");
 }
 
@@ -916,7 +917,7 @@ function taskMatchesMode(task, mode) {
 
 function groupTasksByDue(tasks) {
   return tasks.reduce((groups, task) => {
-    const due = task.due || uiText("No due date", "마감일 없음");
+    const due = task.due || uiText("task.noDueDate", "No due date");
     if (!groups[due]) groups[due] = [];
     groups[due].push(task);
     return groups;
@@ -944,12 +945,27 @@ function portalProfile() {
   return window.location.hostname === "family.kaosgdd.net" ? "family" : "main";
 }
 
-function uiText(english, korean) {
-  return portalProfile() === "family" ? korean : english;
+function interpolateText(template, params = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (match, key) => (params[key] === undefined ? match : String(params[key])));
+}
+
+function uiText(key, english, params = {}) {
+  const translated = portalProfile() === "family" ? window.KAOS_TRANSLATIONS?.ko?.[key] : null;
+  return interpolateText(translated ?? english, params);
 }
 
 function calendarWeekdays() {
-  return portalProfile() === "family" ? ["일", "월", "화", "수", "목", "금", "토"] : ["S", "M", "T", "W", "T", "F", "S"];
+  return portalProfile() === "family"
+    ? [
+        uiText("weekday.sun", "S"),
+        uiText("weekday.mon", "M"),
+        uiText("weekday.tue", "T"),
+        uiText("weekday.wed", "W"),
+        uiText("weekday.thu", "T"),
+        uiText("weekday.fri", "F"),
+        uiText("weekday.sat", "S"),
+      ]
+    : ["S", "M", "T", "W", "T", "F", "S"];
 }
 
 function profileConfig() {
@@ -992,14 +1008,22 @@ function ymd(date) {
 function compactDateLabel(dateValue) {
   const date = new Date(`${dateValue}T00:00:00`);
   const weekdays = portalProfile() === "family"
-    ? ["일", "월", "화", "수", "목", "금", "토"]
+    ? [
+        uiText("weekday.sun", "Sun"),
+        uiText("weekday.mon", "Mon"),
+        uiText("weekday.tue", "Tue"),
+        uiText("weekday.wed", "Wed"),
+        uiText("weekday.thu", "Thu"),
+        uiText("weekday.fri", "Fri"),
+        uiText("weekday.sat", "Sat"),
+      ]
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return `${dateValue.replace(/-/g, ".")} ${weekdays[date.getDay()]}`;
 }
 
 function monthTitle(monthValue) {
   const [year, month] = monthValue.split("-").map(Number);
-  if (portalProfile() === "family") return `${year}년 ${month}월`;
+  if (portalProfile() === "family") return uiText("date.monthTitle", "{month} {year}", { year, month });
   const date = new Date(year, month - 1, 1);
   return `${date.toLocaleString("en", { month: "long" })} ${year}`;
 }
@@ -1056,8 +1080,8 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
   const cells = addPageCells(month);
   const dueEnabled = state.taskDueEnabled;
   const dueLabel = dueEnabled
-    ? uiText(`Due ${state.selectedDate}`, `${state.selectedDate} 마감`)
-    : uiText("No due date", "마감일 없음");
+    ? uiText("task.dueDate", "Due {date}", { date: state.selectedDate })
+    : uiText("task.noDueDate", "No due date");
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -1065,7 +1089,7 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
           <p class="label">${escapeHtml(title)}</p>
           <h2>${escapeHtml(monthTitle(month))}</h2>
         </div>
-        <button class="openButton" type="button" data-toggle-add-month>${state.addMonthExpanded ? uiText("Collapse", "접기") : uiText("Month", "월 보기")}</button>
+        <button class="openButton" type="button" data-toggle-add-month>${state.addMonthExpanded ? uiText("date.collapse", "Collapse") : uiText("date.monthView", "Month")}</button>
       </div>
       <div class="calendarGrid addCalendarGrid ${state.addMonthExpanded ? "isExpanded" : "isCollapsed"}" aria-label="${escapeHtml(title)}">
         ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
@@ -1090,8 +1114,8 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
               <span class="formNote">${escapeHtml(dueLabel)}</span>
               ${
                 dueEnabled
-                  ? `<button class="iconTextButton" type="button" data-clear-task-due aria-label="${uiText("Clear due date", "마감일 지우기")}">x</button>`
-                  : `<button class="plainButton" type="button" data-use-selected-due>${uiText("Use selected date", "선택한 날짜 사용")}</button>`
+                  ? `<button class="iconTextButton" type="button" data-clear-task-due aria-label="${uiText("task.clearDueDate", "Clear due date")}">x</button>`
+                  : `<button class="plainButton" type="button" data-use-selected-due>${uiText("task.useSelectedDate", "Use selected date")}</button>`
               }
             </div>
           `
@@ -1103,7 +1127,7 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
 
 function renderCollectionRail() {
   return `
-    <section class="collectionRail" aria-label="${uiText("Radicale collections", "캘린더 목록")}">
+    <section class="collectionRail" aria-label="${uiText("collection.aria", "Radicale collections")}">
       ${mockAdapter
         .getCollections()
         .map(
@@ -1118,7 +1142,7 @@ function renderCollectionRail() {
   `;
 }
 
-function renderTimeline(events, emptyText = uiText("No items", "일정 없음")) {
+function renderTimeline(events, emptyText = uiText("common.noItems", "No items")) {
   if (!events.length) {
     return `<div class="panelBody"><p class="taskMeta">${escapeHtml(emptyText)}</p></div>`;
   }
@@ -1145,7 +1169,7 @@ function renderTimeline(events, emptyText = uiText("No items", "일정 없음"))
 
 function renderTaskRows(tasks) {
   if (!tasks.length) {
-    return `<p class="taskMeta">${uiText("No tasks", "할 일 없음")}</p>`;
+    return `<p class="taskMeta">${uiText("task.noTasks", "No tasks")}</p>`;
   }
   return `
     <ul class="taskList">
@@ -1156,7 +1180,7 @@ function renderTaskRows(tasks) {
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
-                <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="${uiText("Toggle", "완료 전환")} ${escapeHtml(task.title)}"></button>
+                <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(task.title)}"></button>
                 <a class="taskEditLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
                   <p class="taskTitle">${escapeHtml(task.title)}</p>
                   <span class="taskMeta">${escapeHtml(task.meta)}</span>
@@ -1166,12 +1190,12 @@ function renderTaskRows(tasks) {
               ${
                 task.subtasks.length
                   ? `
-                    <ul class="legacySubtasks" aria-label="${uiText("Subtasks for", "하위 할 일")} ${escapeHtml(task.title)}">
+                    <ul class="legacySubtasks" aria-label="${uiText("task.subtasksFor", "Subtasks for")} ${escapeHtml(task.title)}">
                       ${task.subtasks
                         .map(
                           (subtask) => `
                             <li class="${subtask.done ? "isDone" : ""}">
-                              <button class="subtaskToggle ${subtask.done ? "isDone" : ""}" type="button" data-subtask-line="${subtask.lineIndex}" aria-label="${uiText("Toggle", "완료 전환")} ${escapeHtml(subtask.text)}"></button>
+                              <button class="subtaskToggle ${subtask.done ? "isDone" : ""}" type="button" data-subtask-line="${subtask.lineIndex}" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(subtask.text)}"></button>
                               <span>${escapeHtml(subtask.text)}</span>
                             </li>
                           `,
@@ -1190,7 +1214,7 @@ function renderTaskRows(tasks) {
 }
 
 function renderTaskGroups(tasks) {
-  if (!tasks.length) return `<p class="taskMeta">${uiText("No dated tasks", "날짜가 있는 할 일 없음")}</p>`;
+  if (!tasks.length) return `<p class="taskMeta">${uiText("task.noDatedTasks", "No dated tasks")}</p>`;
   const groups = groupTasksByDue(tasks);
   return Object.keys(groups)
     .sort()
@@ -1207,7 +1231,7 @@ function renderTaskGroups(tasks) {
 
 function renderCalendarAgenda(events, tasks) {
   const weather = weatherForDate(state.selectedDate);
-  if (!events.length && !tasks.length && !weather) return `<div class="panelBody"><p class="taskMeta">${uiText("No items", "일정 없음")}</p></div>`;
+  if (!events.length && !tasks.length && !weather) return `<div class="panelBody"><p class="taskMeta">${uiText("common.noItems", "No items")}</p></div>`;
   return `
     ${weather ? renderSelectedWeather(weather) : ""}
     ${events.length ? renderTimeline(events, "") : ""}
@@ -1215,7 +1239,7 @@ function renderCalendarAgenda(events, tasks) {
       tasks.length
         ? `
           <div class="panelBody ${events.length ? "withDivider" : ""}">
-            <p class="label sectionLabel">${uiText("Tasks due", "마감 할 일")}</p>
+            <p class="label sectionLabel">${uiText("task.tasksDue", "Tasks due")}</p>
             ${renderTaskRows(tasks)}
           </div>
         `
@@ -1240,7 +1264,8 @@ function hasDutyEvent(event) {
   const title = String(event.title || event.summary || "").trim();
   const detail = String(event.detail || event.description || "").trim();
   const categories = Array.isArray(event.categories) ? event.categories : [];
-  return title === "당직" || detail === "당직" || categories.some((category) => String(category).trim() === "당직");
+  const dutyName = window.KAOS_TRANSLATIONS?.ko?.["event.dutyName"] || "duty";
+  return title === dutyName || detail === dutyName || categories.some((category) => String(category).trim() === dutyName);
 }
 
 function dateTone(dateValue) {
@@ -1279,15 +1304,15 @@ function renderSelectedWeather(weather) {
   const dayparts = weather.dayparts || [];
   if (isPastDate(weather.date) || !dayparts.length) {
     return `
-      <div class="selectedWeatherCompact" aria-label="${uiText("Selected day weather", "선택한 날의 날씨")}">
-        <span>${uiText("Weather", "날씨")}</span>
+      <div class="selectedWeatherCompact" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+        <span>${uiText("weather.label", "Weather")}</span>
         <strong>${escapeHtml(weatherGlyph(weather))}</strong>
         <em>${escapeHtml(tempRange(weather))}</em>
       </div>
     `;
   }
   return `
-    <div class="selectedWeather" aria-label="${uiText("Selected day weather", "선택한 날의 날씨")}">
+    <div class="selectedWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
       <div class="selectedWeatherSummary">
         <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
@@ -1297,10 +1322,10 @@ function renderSelectedWeather(weather) {
           .map((label) => {
             const part = dayparts.find((item) => item.label === label) || {};
             const localizedLabel = {
-              Morning: uiText("Morning", "아침"),
-              Afternoon: uiText("Afternoon", "낮"),
-              Evening: uiText("Evening", "저녁"),
-              Night: uiText("Night", "밤"),
+              Morning: uiText("weather.morning", "Morning"),
+              Afternoon: uiText("weather.afternoon", "Afternoon"),
+              Evening: uiText("weather.evening", "Evening"),
+              Night: uiText("weather.night", "Night"),
             }[label];
             return `
               <div class="weatherPart">
@@ -1378,19 +1403,19 @@ function renderCalendar() {
     <section class="panel">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Calendar", "캘린더")}</p>
+          <p class="label">${uiText("calendar.label", "Calendar")}</p>
           <h2>${escapeHtml(monthTitle(month))}</h2>
         </div>
-        <div class="calendarHeaderActions" aria-label="${uiText("Calendar actions", "캘린더 작업")}">
-          <div class="monthNav" aria-label="${uiText("Month navigation", "월 이동")}">
-            <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("Previous month", "이전 달")}">&lt;&lt;</button>
-            <button class="monthTodayButton" type="button" data-month-today>${uiText("Today", "오늘")}</button>
-            <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("Next month", "다음 달")}">&gt;&gt;</button>
+        <div class="calendarHeaderActions" aria-label="${uiText("calendar.actionsAria", "Calendar actions")}">
+          <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
+            <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
+            <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
+            <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
           </div>
-          <a class="openButton" href="#/add-event">${uiText("Add", "추가")}</a>
+          <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
         </div>
       </div>
-      <div class="calendarGrid" aria-label="${uiText("Month grid", "월간 캘린더")}">
+      <div class="calendarGrid" aria-label="${uiText("calendar.monthGridAria", "Month grid")}">
         ${calendarWeekdays().map((day) => `<span class="weekday">${day}</span>`).join("")}
         ${monthCells(month)
           .map((cell) => {
@@ -1433,7 +1458,7 @@ function renderCalendar() {
     <section class="panel">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Agenda", "일정")}</p>
+          <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
           <h2>${escapeHtml(state.selectedDate)}</h2>
         </div>
       </div>
@@ -1446,22 +1471,22 @@ function renderTasks() {
   const tasks = mockAdapter.getTasks().filter((task) => taskMatchesMode(task, state.taskMode));
   return `
     ${renderCollectionRail()}
-    <section class="taskFilters" aria-label="${uiText("Task filters", "할 일 필터")}">
+    <section class="taskFilters" aria-label="${uiText("task.filtersAria", "Task filters")}">
       <label>
-        <span>${uiText("Tasks", "할 일")}</span>
+        <span>${uiText("task.label", "Tasks")}</span>
         <select data-task-mode>
-          <option value="active" ${state.taskMode === "active" ? "selected" : ""}>${uiText("Active", "진행 중")}</option>
-          <option value="done" ${state.taskMode === "done" ? "selected" : ""}>${uiText("Completed", "완료")}</option>
+          <option value="active" ${state.taskMode === "active" ? "selected" : ""}>${uiText("task.active", "Active")}</option>
+          <option value="done" ${state.taskMode === "done" ? "selected" : ""}>${uiText("task.completed", "Completed")}</option>
         </select>
       </label>
       <label>
-        <span>${uiText("Order", "정렬")}</span>
+        <span>${uiText("task.order", "Order")}</span>
         <select data-task-sort>
-          <option value="due" ${state.taskSort === "due" ? "selected" : ""}>${uiText("Due", "마감일")}</option>
-          <option value="created" ${state.taskSort === "created" ? "selected" : ""}>${uiText("Creation", "생성일")}</option>
+          <option value="due" ${state.taskSort === "due" ? "selected" : ""}>${uiText("task.due", "Due")}</option>
+          <option value="created" ${state.taskSort === "created" ? "selected" : ""}>${uiText("task.creation", "Creation")}</option>
         </select>
       </label>
-      <a class="openButton taskAddButton" href="#/add-task">${uiText("Add", "추가")}</a>
+      <a class="openButton taskAddButton" href="#/add-task">${uiText("common.add", "Add")}</a>
     </section>
     <section class="panel">
       <div class="panelBody">${renderTaskRows(tasks)}</div>
@@ -1486,10 +1511,10 @@ function renderAddEvent() {
       <section class="panel">
         <div class="panelHeader">
           <div>
-            <p class="label">${uiText("Preset", "프리셋")}</p>
-            <h2>${uiText("Event templates", "일정 프리셋")}</h2>
+            <p class="label">${uiText("event.preset", "Preset")}</p>
+            <h2>${uiText("event.templates", "Event templates")}</h2>
           </div>
-          <a class="openButton" href="#/settings">${uiText("Manage", "관리")}</a>
+          <a class="openButton" href="#/settings">${uiText("common.manage", "Manage")}</a>
         </div>
         <div class="panelBody">
           ${renderEventPresetChoices()}
@@ -1504,49 +1529,49 @@ function renderAddEvent() {
       <form class="composer" data-create-event>
         ${renderFamilyShareToggle(shareFamily)}
         <label>
-          <span>${uiText("Title", "제목")}</span>
-          <input name="title" type="text" autocomplete="off" placeholder="${uiText("New event", "새 일정")}" value="${escapeHtml(draft.title)}" required />
+          <span>${uiText("common.title", "Title")}</span>
+          <input name="title" type="text" autocomplete="off" placeholder="${uiText("event.new", "New event")}" value="${escapeHtml(draft.title)}" required />
         </label>
         <label class="toggleLine">
-          <span>${uiText("All-day", "하루 종일")}</span>
+          <span>${uiText("event.allDay", "All-day")}</span>
           <input name="allDay" type="checkbox" data-all-day-toggle ${allDay ? "checked" : ""} />
         </label>
         <div class="formGrid">
           <label>
-            <span>${uiText("Start date", "시작 날짜")}</span>
+            <span>${uiText("event.startDate", "Start date")}</span>
             <input name="startDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
           <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
-            <span>${uiText("Start time", "시작 시간")}</span>
+            <span>${uiText("event.startTime", "Start time")}</span>
             <input name="startTime" type="time" value="${escapeHtml(draft.startTime)}" step="300" ${allDay ? "disabled" : ""} />
           </label>
           <label>
-            <span>${uiText("End date", "종료 날짜")}</span>
+            <span>${uiText("event.endDate", "End date")}</span>
             <input name="endDate" type="date" value="${escapeHtml(state.selectedDate)}" required />
           </label>
           <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
-            <span>${uiText("End time", "종료 시간")}</span>
+            <span>${uiText("event.endTime", "End time")}</span>
             <input name="endTime" type="time" value="${escapeHtml(draft.endTime)}" step="300" ${allDay ? "disabled" : ""} />
           </label>
         </div>
         <label>
-          <span>${uiText("Repeat", "반복")}</span>
+          <span>${uiText("event.repeat", "Repeat")}</span>
           <select name="repeat">
-            <option value="">${uiText("None", "없음")}</option>
-            <option value="weekly">${uiText("Weekly", "매주")}</option>
-            <option value="monthly">${uiText("Monthly", "매월")}</option>
-            <option value="yearly">${uiText("Yearly", "매년")}</option>
+            <option value="">${uiText("common.none", "None")}</option>
+            <option value="weekly">${uiText("event.weekly", "Weekly")}</option>
+            <option value="monthly">${uiText("event.monthly", "Monthly")}</option>
+            <option value="yearly">${uiText("event.yearly", "Yearly")}</option>
           </select>
         </label>
         <label data-event-time-field ${allDay ? 'class="isDisabled"' : ""}>
-          <span>${uiText("Alarm time", "알림 시간")}</span>
+          <span>${uiText("event.alarmTime", "Alarm time")}</span>
           <input name="alarm" type="time" step="300" value="${escapeHtml(draft.alarm)}" ${allDay ? "disabled" : ""} />
         </label>
         <label>
-          <span>${uiText("Memo", "메모")}</span>
-          <textarea name="memo" rows="5" placeholder="${uiText("Event notes", "일정 메모")}">${escapeHtml(draft.memo)}</textarea>
+          <span>${uiText("common.memo", "Memo")}</span>
+          <textarea name="memo" rows="5" placeholder="${uiText("event.notes", "Event notes")}">${escapeHtml(draft.memo)}</textarea>
         </label>
-        <button class="primaryButton" type="submit">${uiText("Create event", "일정 추가")}</button>
+        <button class="primaryButton" type="submit">${uiText("event.create", "Create event")}</button>
       </form>
     </section>
   `;
@@ -1554,16 +1579,16 @@ function renderAddEvent() {
 
 function renderAddEventTabs() {
   return `
-    <section class="segmentedTabs" aria-label="${uiText("Add event mode", "일정 추가 방식")}">
-      <button class="${state.addEventMode === "normal" ? "isActive" : ""}" type="button" data-add-event-mode="normal">${uiText("Normal", "직접 입력")}</button>
-      <button class="${state.addEventMode === "preset" ? "isActive" : ""}" type="button" data-add-event-mode="preset">${uiText("Preset", "프리셋")}</button>
+    <section class="segmentedTabs" aria-label="${uiText("event.addModeAria", "Add event mode")}">
+      <button class="${state.addEventMode === "normal" ? "isActive" : ""}" type="button" data-add-event-mode="normal">${uiText("event.normal", "Normal")}</button>
+      <button class="${state.addEventMode === "preset" ? "isActive" : ""}" type="button" data-add-event-mode="preset">${uiText("event.preset", "Preset")}</button>
     </section>
   `;
 }
 
 function renderEventPresetChoices() {
   if (!state.eventPresets.items.length) {
-    return `<p class="taskMeta">${uiText("No event presets yet.", "저장된 일정 프리셋이 없습니다.")}</p>`;
+    return `<p class="taskMeta">${uiText("event.noPresets", "No event presets yet.")}</p>`;
   }
   return `
     <div class="presetList">
@@ -1572,7 +1597,7 @@ function renderEventPresetChoices() {
           (preset) => `
             <button class="presetChoice" type="button" data-use-event-preset="${escapeHtml(preset.id)}">
               <strong>${escapeHtml(preset.name)}</strong>
-              <span>${escapeHtml([preset.title || uiText("Untitled", "제목 없음"), preset.allDay ? uiText("all-day", "하루 종일") : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? uiText("Family", "가족") : uiText("Personal", "개인")].join(" · "))}</span>
+              <span>${escapeHtml([preset.title || uiText("common.untitled", "Untitled"), preset.allDay ? uiText("event.allDay", "all-day") : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? uiText("common.family", "Family") : uiText("common.personal", "Personal")].join(" · "))}</span>
             </button>
           `,
         )
@@ -1592,33 +1617,33 @@ function renderAddTask() {
         <div class="composer">
           ${renderFamilyShareToggle()}
           <label>
-            <span>${uiText("Task", "할 일")}</span>
-            <input name="title" type="text" autocomplete="off" placeholder="${uiText("New task", "새 할 일")}" required />
+            <span>${uiText("task.label", "Task")}</span>
+            <input name="title" type="text" autocomplete="off" placeholder="${uiText("task.new", "New task")}" required />
           </label>
           <label>
-            <span>${uiText("Memo", "메모")}</span>
-            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText(TASK_MEMO_PLACEHOLDER, FAMILY_TASK_MEMO_PLACEHOLDER))}"></textarea>
+            <span>${uiText("common.memo", "Memo")}</span>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}"></textarea>
           </label>
         </div>
       </section>
-      ${renderAddDatePicker({ title: uiText("Task due", "마감일"), allowNoDate: true })}
+      ${renderAddDatePicker({ title: uiText("task.due", "Task due"), allowNoDate: true })}
       <section class="panel">
         <div class="composer">
           <label>
-            <span>${uiText("Time", "시간")}</span>
+            <span>${uiText("task.time", "Time")}</span>
             <input name="dueTime" type="time" step="300" />
           </label>
-          <p class="formNote">${uiText("Default time 10:00 am", "기본 시간 오전 10:00")}</p>
+          <p class="formNote">${uiText("task.defaultTime", "Default time 10:00 am")}</p>
           <label>
-            <span>${uiText("Priority", "중요도")}</span>
+            <span>${uiText("task.priority", "Priority")}</span>
             <select name="priority">
-              <option value="">${uiText("None", "없음")}</option>
-              <option value="9">${uiText("Low", "낮음")} (!)</option>
-              <option value="5">${uiText("Medium", "보통")} (!!)</option>
-              <option value="1">${uiText("High", "높음")} (!!!)</option>
+              <option value="">${uiText("common.none", "None")}</option>
+              <option value="9">${uiText("task.priorityLow", "Low")} (!)</option>
+              <option value="5">${uiText("task.priorityMedium", "Medium")} (!!)</option>
+              <option value="1">${uiText("task.priorityHigh", "High")} (!!!)</option>
             </select>
           </label>
-          <button class="primaryButton" type="submit">${uiText("Create local task", "할 일 추가")}</button>
+          <button class="primaryButton" type="submit">${uiText("task.create", "Create local task")}</button>
         </div>
       </section>
     </form>
@@ -1628,7 +1653,7 @@ function renderAddTask() {
 function renderFamilyShareToggle(checked = state.currentCollection === "owner:family") {
   return `
     <label class="toggleLine shareLine">
-      <span>${uiText("Family shared", "가족과 공유")}</span>
+      <span>${uiText("task.shareFamily", "Family shared")}</span>
       <input name="shareFamily" type="checkbox" data-share-family ${checked ? "checked" : ""} />
     </label>
   `;
@@ -1642,7 +1667,7 @@ function renderEditTask() {
       ${renderCollectionRail()}
       <section class="panel">
         <div class="panelBody">
-          <p class="taskMeta">${uiText("Task not found", "할 일을 찾을 수 없습니다.")}</p>
+          <p class="taskMeta">${uiText("task.notFound", "Task not found")}</p>
         </div>
       </section>
     `;
@@ -1664,33 +1689,33 @@ function renderEditTask() {
       <section class="panel">
         <div class="composer">
           <label>
-            <span>${uiText("Task", "할 일")}</span>
+            <span>${uiText("task.label", "Task")}</span>
             <input name="title" type="text" autocomplete="off" value="${escapeHtml(task.title)}" required />
           </label>
           <label>
-            <span>${uiText("Memo", "메모")}</span>
-            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText(TASK_MEMO_PLACEHOLDER, FAMILY_TASK_MEMO_PLACEHOLDER))}">${escapeHtml(task.description)}</textarea>
+            <span>${uiText("common.memo", "Memo")}</span>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${escapeHtml(task.description)}</textarea>
           </label>
         </div>
       </section>
-      ${renderAddDatePicker({ title: uiText("Task due", "마감일"), allowNoDate: true })}
+      ${renderAddDatePicker({ title: uiText("task.due", "Task due"), allowNoDate: true })}
       <section class="panel">
         <div class="composer">
           <label>
-            <span>${uiText("Time", "시간")}</span>
+            <span>${uiText("task.time", "Time")}</span>
             <input name="dueTime" type="time" value="${dueEnabled ? escapeHtml(task.dueTime) : ""}" step="300" />
           </label>
-          <p class="formNote">${uiText("Default time 10:00 am", "기본 시간 오전 10:00")}</p>
+          <p class="formNote">${uiText("task.defaultTime", "Default time 10:00 am")}</p>
           <label>
-            <span>${uiText("Priority", "중요도")}</span>
+            <span>${uiText("task.priority", "Priority")}</span>
             <select name="priority">
-              <option value="" ${task.priority ? "" : "selected"}>${uiText("None", "없음")}</option>
-              <option value="9" ${task.priority === "9" ? "selected" : ""}>${uiText("Low", "낮음")} (!)</option>
-              <option value="5" ${task.priority === "5" ? "selected" : ""}>${uiText("Medium", "보통")} (!!)</option>
-              <option value="1" ${task.priority === "1" ? "selected" : ""}>${uiText("High", "높음")} (!!!)</option>
+              <option value="" ${task.priority ? "" : "selected"}>${uiText("common.none", "None")}</option>
+              <option value="9" ${task.priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
+              <option value="5" ${task.priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
+              <option value="1" ${task.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
             </select>
           </label>
-          <button class="primaryButton" type="submit">${uiText("Save task", "저장")}</button>
+          <button class="primaryButton" type="submit">${uiText("common.save", "Save task")}</button>
         </div>
       </section>
     </form>
@@ -1768,7 +1793,7 @@ function defaultRounySlot() {
   };
 }
 
-function defaultRounyTemplate(name = uiText("New template", "새 시간표")) {
+function defaultRounyTemplate(name = uiText("rouny.newTemplate", "New template")) {
   const now = new Date().toISOString();
   return {
     id: createId("rouny-template"),
@@ -1824,7 +1849,7 @@ function normalizeRounyTemplate(template) {
   const items = Array.isArray(template.items) ? template.items.map(normalizeRounyItem).filter(Boolean) : [];
   return {
     id: String(template.id || createId("rouny-template")),
-    name: String(template.name || uiText("Untitled template", "이름 없는 시간표")).trim() || uiText("Untitled template", "이름 없는 시간표"),
+    name: String(template.name || uiText("rouny.untitledTemplate", "Untitled template")).trim() || uiText("rouny.untitledTemplate", "Untitled template"),
     items: items.length ? items : [defaultRounyItem()],
     createdAt: String(template.createdAt || now),
     updatedAt: String(template.updatedAt || template.createdAt || now),
@@ -1835,9 +1860,9 @@ function loadRounyTemplates() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(ROUNY_TEMPLATE_STORAGE_KEY) || "[]");
     const templates = Array.isArray(parsed) ? parsed.map(normalizeRounyTemplate).filter(Boolean) : [];
-    return templates.length ? templates : [defaultRounyTemplate(uiText("Basic", "기본"))];
+    return templates.length ? templates : [defaultRounyTemplate(uiText("rouny.basic", "Basic"))];
   } catch {
-    return [defaultRounyTemplate(uiText("Basic", "기본"))];
+    return [defaultRounyTemplate(uiText("rouny.basic", "Basic"))];
   }
 }
 
@@ -1860,7 +1885,7 @@ function ensureRounyState() {
   }
   if (!state.rouny.draft) {
     const selected = state.rouny.templates.find((template) => template.id === state.rouny.selectedTemplateId) || state.rouny.templates[0];
-    state.rouny.draft = cloneValue(selected || defaultRounyTemplate(uiText("Basic", "기본")));
+    state.rouny.draft = cloneValue(selected || defaultRounyTemplate(uiText("rouny.basic", "Basic")));
     state.rouny.selectedTemplateId = state.rouny.draft.id;
   }
 }
@@ -1889,7 +1914,7 @@ function selectRounyTemplate(templateId) {
 function saveRounyDraft({ asCopy = false } = {}) {
   const draft = collectRounyDraft();
   if (!draft?.name.trim()) {
-    window.alert(uiText("Template name is required.", "시간표 이름을 입력하세요."));
+    window.alert(uiText("dialog.templateNameRequired", "Template name is required."));
     return;
   }
   const now = new Date().toISOString();
@@ -1911,13 +1936,13 @@ function saveRounyDraft({ asCopy = false } = {}) {
 
 function deleteRounyTemplate(templateId) {
   if (state.rouny.templates.length <= 1) {
-    window.alert(uiText("Keep at least one template.", "시간표를 하나 이상 남겨 두세요."));
+    window.alert(uiText("dialog.keepOneTemplate", "Keep at least one template."));
     return;
   }
-  if (!window.confirm(uiText("Delete this template?", "이 시간표를 삭제할까요?"))) return;
+  if (!window.confirm(uiText("dialog.deleteTemplate", "Delete this template?"))) return;
   const templates = state.rouny.templates.filter((template) => template.id !== templateId);
   state.rouny.selectedTemplateId = templates[0]?.id || "";
-  state.rouny.draft = cloneValue(templates[0] || defaultRounyTemplate(uiText("Basic", "기본")));
+  state.rouny.draft = cloneValue(templates[0] || defaultRounyTemplate(uiText("rouny.basic", "Basic")));
   state.rouny.page = "list";
   state.rouny.editingItemId = "";
   state.rouny.editingItemDraft = null;
@@ -2001,15 +2026,15 @@ function renderRounyGrid(template) {
     <section class="panel">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Week", "주간")}</p>
+          <p class="label">${uiText("rouny.week", "Week")}</p>
           <h2>${escapeHtml(template.name)}</h2>
         </div>
         <label class="rounyGridToggle">
           <input type="checkbox" data-rouny-saturday ${state.rouny.includeSaturday ? "checked" : ""} />
-          <span>${uiText("Sat", "토요일")}</span>
+          <span>${uiText("rouny.saturday", "Sat")}</span>
         </label>
       </div>
-      <div class="rounyWeekGrid ${state.rouny.includeSaturday ? "hasSaturday" : "isWeekdays"}" aria-label="${uiText("Rouny weekly timetable", "로운이 주간 시간표")}">
+      <div class="rounyWeekGrid ${state.rouny.includeSaturday ? "hasSaturday" : "isWeekdays"}" aria-label="${uiText("rouny.weeklyAria", "Rouny weekly timetable")}">
         ${visibleDays
           .map(
             (day) => `
@@ -2022,14 +2047,14 @@ function renderRounyGrid(template) {
                           .map(
                             ({ item, slot }) => `
                               <article class="rounyBlock" ${rounyColorStyle(item.color)} draggable="true" data-rouny-grid-item="${escapeHtml(item.id)}" data-rouny-slot-id="${escapeHtml(slot.id)}" data-rouny-day="${escapeHtml(day.value)}">
-                                <strong>${escapeHtml(item.title || uiText("Untitled", "제목 없음"))}</strong>
+                                <strong>${escapeHtml(item.title || uiText("common.untitled", "Untitled"))}</strong>
                                 <span>${escapeHtml(rounyTimeLabel(slot))}</span>
                                 ${item.memo ? `<em>${escapeHtml(item.memo)}</em>` : ""}
                               </article>
                             `,
                           )
                           .join("")
-                      : `<p>${uiText("No items", "항목 없음")}</p>`
+                      : `<p>${uiText("rouny.noItems", "No items")}</p>`
                   }
                 </div>
               </section>
@@ -2053,23 +2078,23 @@ function renderRounyTemplateList() {
     <section class="panel">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Rouny", "로운이")}</p>
-          <h2>${uiText("Templates", "저장된 시간표")}</h2>
+          <p class="label">${uiText("rouny.label", "Rouny")}</p>
+          <h2>${uiText("rouny.templates", "Templates")}</h2>
         </div>
-        <button class="openButton" type="button" data-rouny-new>${uiText("New", "새 시간표")}</button>
+        <button class="openButton" type="button" data-rouny-new>${uiText("rouny.newTemplate", "New")}</button>
       </div>
       <div class="panelBody">
-        <div class="rounyTemplateList" aria-label="${uiText("Saved Rouny templates", "저장된 로운이 시간표")}">
+        <div class="rounyTemplateList" aria-label="${uiText("rouny.savedTemplatesAria", "Saved Rouny templates")}">
           ${state.rouny.templates
             .map(
               (template) => `
                 <div class="rounyTemplateRow ${template.id === state.rouny.selectedTemplateId ? "isActive" : ""}" draggable="true" data-rouny-template-id="${escapeHtml(template.id)}">
-                  <button class="rounyDragHandle" type="button" aria-label="${uiText("Drag template", "시간표 순서 이동")}">≡</button>
+                  <button class="rounyDragHandle" type="button" aria-label="${uiText("rouny.dragTemplateAria", "Drag template")}">≡</button>
                   <button class="rounyTemplateButton" type="button" data-rouny-select="${escapeHtml(template.id)}">
                     <strong>${escapeHtml(template.name)}</strong>
-                    <span>${uiText(`${template.items.length} class${template.items.length === 1 ? "" : "es"}`, `수업 ${template.items.length}개`)}</span>
+                    <span>${uiText("rouny.classCount", `{count} class${template.items.length === 1 ? "" : "es"}`, { count: template.items.length })}</span>
                   </button>
-                  <button class="plainButton" type="button" data-rouny-delete="${escapeHtml(template.id)}">${uiText("Delete", "삭제")}</button>
+                  <button class="plainButton" type="button" data-rouny-delete="${escapeHtml(template.id)}">${uiText("common.delete", "Delete")}</button>
                 </div>
               `,
             )
@@ -2090,23 +2115,23 @@ function renderRounyTemplateDetail() {
       <section class="panel">
         <div class="panelHeader">
           <div>
-            <p class="label">${uiText("Rouny", "로운이")}</p>
+            <p class="label">${uiText("rouny.label", "Rouny")}</p>
             <h2>${escapeHtml(draft.name)}</h2>
           </div>
-          <button class="openButton" type="button" data-rouny-back>${uiText("List", "목록")}</button>
+          <button class="openButton" type="button" data-rouny-back>${uiText("rouny.list", "List")}</button>
         </div>
         <div class="composer">
           <label>
-            <span>${uiText("Template name", "시간표 이름")}</span>
+            <span>${uiText("rouny.templateName", "Template name")}</span>
             <input name="templateName" type="text" autocomplete="off" value="${escapeHtml(draft.name)}" />
           </label>
         </div>
       </section>
       ${renderRounyGrid(draft)}
       <section class="rounyActions">
-        <button class="openButton" type="button" data-rouny-add-item>${uiText("Add class", "수업 추가")}</button>
-        <button class="primaryButton" type="button" data-rouny-save>${uiText("Save", "저장")}</button>
-        <button class="openButton" type="button" data-rouny-save-as>${uiText("Save as", "다른 이름으로 저장")}</button>
+        <button class="openButton" type="button" data-rouny-add-item>${uiText("rouny.addClass", "Add class")}</button>
+        <button class="primaryButton" type="button" data-rouny-save>${uiText("common.save", "Save")}</button>
+        <button class="openButton" type="button" data-rouny-save-as>${uiText("rouny.saveAs", "Save as")}</button>
       </section>
     </form>
     ${editingItem ? renderRounyClassLayer(editingItem, !draft.items.some((item) => item.id === editingItem.id)) : ""}
@@ -2116,19 +2141,19 @@ function renderRounyTemplateDetail() {
 function renderRounyClassLayer(item, isNew = false) {
   return `
     <div class="rounyLayerBackdrop" data-rouny-close-layer></div>
-    <aside class="rounyLayer" aria-label="${isNew ? uiText("Add class", "수업 추가") : uiText("Edit class", "수업 수정")}">
+    <aside class="rounyLayer" aria-label="${isNew ? uiText("rouny.addClass", "Add class") : uiText("rouny.editClass", "Edit class")}">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Rouny", "로운이")}</p>
-          <h2>${isNew ? uiText("Add class", "수업 추가") : uiText("Edit class", "수업 수정")}</h2>
+          <p class="label">${uiText("rouny.label", "Rouny")}</p>
+          <h2>${isNew ? uiText("rouny.addClass", "Add class") : uiText("rouny.editClass", "Edit class")}</h2>
         </div>
-        <button class="iconTextButton" type="button" data-rouny-close-layer aria-label="${uiText("Close", "닫기")}">×</button>
+        <button class="iconTextButton" type="button" data-rouny-close-layer aria-label="${uiText("common.close", "Close")}">×</button>
       </div>
       <form class="rounyLayerForm" data-rouny-class-form data-rouny-item-id="${escapeHtml(item.id)}">
         ${renderRounyItem(item)}
         <div class="rounyActions">
-          ${isNew ? "" : `<button class="plainButton" type="button" data-rouny-remove-item="${escapeHtml(item.id)}">${uiText("Delete", "삭제")}</button>`}
-          <button class="primaryButton" type="submit">${uiText("Done", "완료")}</button>
+          ${isNew ? "" : `<button class="plainButton" type="button" data-rouny-remove-item="${escapeHtml(item.id)}">${uiText("common.delete", "Delete")}</button>`}
+          <button class="primaryButton" type="submit">${uiText("common.done", "Done")}</button>
         </div>
       </form>
     </aside>
@@ -2167,22 +2192,22 @@ function renderRounyItem(item) {
   return `
     <div class="rounyItem" data-rouny-item-id="${escapeHtml(item.id)}">
       <label class="rounyTitleField">
-        <span>${uiText("Title", "수업 이름")}</span>
-        <input name="title" type="text" autocomplete="off" value="${escapeHtml(item.title)}" placeholder="${uiText("Activity", "활동")}" />
+        <span>${uiText("rouny.classTitle", "Title")}</span>
+        <input name="title" type="text" autocomplete="off" value="${escapeHtml(item.title)}" placeholder="${uiText("rouny.activity", "Activity")}" />
       </label>
       <div class="rounySlots">
         ${item.slots.map((slot) => renderRounySlot(slot, item.slots.length)).join("")}
       </div>
-      <button class="openButton" type="button" data-rouny-add-slot>+ ${uiText("Add", "시간 추가")}</button>
+      <button class="openButton" type="button" data-rouny-add-slot>+ ${uiText("rouny.addTime", "Add")}</button>
       <div class="rounyMetaGrid">
         <label>
-          <span>${uiText("Color", "색상")}</span>
+          <span>${uiText("rouny.color", "Color")}</span>
           <input name="color" type="color" value="${escapeHtml(normalizeRounyColor(item.color))}" />
         </label>
       </div>
       <label class="rounyMemo">
-        <span>${uiText("Memo", "메모")}</span>
-        <input name="memo" type="text" autocomplete="off" value="${escapeHtml(item.memo)}" placeholder="${uiText("Optional", "선택 사항")}" />
+        <span>${uiText("common.memo", "Memo")}</span>
+        <input name="memo" type="text" autocomplete="off" value="${escapeHtml(item.memo)}" placeholder="${uiText("rouny.optional", "Optional")}" />
       </label>
     </div>
   `;
@@ -2192,20 +2217,20 @@ function renderRounySlot(slot, slotCount) {
   return `
     <div class="rounySlotRow" data-rouny-slot-row data-rouny-slot-id="${escapeHtml(slot.id)}">
       <label>
-        <span>${uiText("Day", "요일")}</span>
+        <span>${uiText("rouny.day", "Day")}</span>
         <select name="slotDay">
           ${rounyDays.map((day) => `<option value="${day.value}" ${slot.dayOfWeek === day.value ? "selected" : ""}>${portalProfile() === "family" ? day.familyLabel : day.label}</option>`).join("")}
         </select>
       </label>
       <label>
-        <span>${uiText("Start", "시작")}</span>
+        <span>${uiText("rouny.start", "Start")}</span>
         <input name="slotStart" type="time" step="600" value="${escapeHtml(slot.startTime)}" />
       </label>
       <label>
-        <span>${uiText("End", "종료")}</span>
+        <span>${uiText("rouny.end", "End")}</span>
         <input name="slotEnd" type="time" step="600" value="${escapeHtml(slot.endTime)}" />
       </label>
-      <button class="iconTextButton" type="button" data-rouny-remove-slot="${escapeHtml(slot.id)}" aria-label="${uiText("Remove time", "시간 삭제")}" ${slotCount <= 1 ? "disabled" : ""}>×</button>
+      <button class="iconTextButton" type="button" data-rouny-remove-slot="${escapeHtml(slot.id)}" aria-label="${uiText("rouny.removeTimeAria", "Remove time")}" ${slotCount <= 1 ? "disabled" : ""}>×</button>
     </div>
   `;
 }
@@ -2215,13 +2240,13 @@ function renderMemos() {
     <section class="panel">
       <div class="panelHeader">
         <div>
-          <p class="label">${uiText("Memos", "메모")}</p>
-          <h2>${uiText("Notes", "메모")}</h2>
+          <p class="label">${uiText("memos.label", "Memos")}</p>
+          <h2>${uiText("memos.label", "Notes")}</h2>
         </div>
-        <a class="openButton" href="${escapeHtml(MEMOS_URL)}">${uiText("Open", "열기")}</a>
+        <a class="openButton" href="${escapeHtml(MEMOS_URL)}">${uiText("common.open", "Open")}</a>
       </div>
       <div class="panelBody">
-        <p class="taskMeta">${uiText("Memos opens as its own service with its own login.", "Memos는 별도 로그인으로 열립니다.")}</p>
+        <p class="taskMeta">${uiText("memos.description", "Memos opens as its own service with its own login.")}</p>
       </div>
     </section>
   `;
@@ -2233,10 +2258,10 @@ function renderSettings() {
   const items =
     portalProfile() === "family"
       ? [
-          ["포털", "가족"],
-          ["캘린더", "Bling02 + 가족 공유"],
-          ["할 일", "Bling02 + 가족 공유"],
-          ["테마", "파스텔 가족 테마"],
+          [uiText("settings.portal", "Portal"), uiText("settings.familyPortal", "Family")],
+          [uiText("settings.calendar", "Calendar"), uiText("settings.familyCalendarValue", "Bling02 + Family shared")],
+          [uiText("settings.tasks", "Tasks"), uiText("settings.familyTasksValue", "Bling02 + Family shared")],
+          [uiText("settings.theme", "Theme"), uiText("settings.familyThemeValue", "Pastel family")],
         ]
       : [
           ["Portal", "KaosGDD"],
@@ -2249,7 +2274,7 @@ function renderSettings() {
       <div class="panelHeader">
         <div>
           <p class="label">${escapeHtml(config.label)}</p>
-          <h2>${uiText("Settings", "설정")}</h2>
+          <h2>${uiText("common.settings", "Settings")}</h2>
         </div>
       </div>
       <div class="panelBody">
@@ -2279,12 +2304,12 @@ function renderEventPresetSettings() {
     <details class="settingsDisclosure" data-event-presets ${state.eventPresets.expanded ? "open" : ""}>
       <summary>
         <span>
-          <strong>${uiText("Event presets", "일정 프리셋")}</strong>
-          <small>${presetCount ? uiText(`${presetCount} saved`, `${presetCount}개 저장됨`) : uiText("None saved", "저장된 항목 없음")}</small>
+          <strong>${uiText("event.presets", "Event presets")}</strong>
+          <small>${presetCount ? uiText("event.savedCount", "{count} saved", { count: presetCount }) : uiText("event.noneSaved", "None saved")}</small>
         </span>
       </summary>
       <div class="settingsDisclosureBody">
-        ${isEditing ? `<div class="presetInlineActions"><button class="openButton" type="button" data-event-preset-new>${uiText("New", "새 프리셋")}</button></div>` : ""}
+        ${isEditing ? `<div class="presetInlineActions"><button class="openButton" type="button" data-event-preset-new>${uiText("event.newPreset", "New")}</button></div>` : ""}
         ${
           presetCount
             ? `
@@ -2295,50 +2320,50 @@ function renderEventPresetSettings() {
                       <div class="presetRow">
                         <button class="presetChoice ${preset.id === state.eventPresets.editingId ? "isActive" : ""}" type="button" data-edit-event-preset="${escapeHtml(preset.id)}">
                           <strong>${escapeHtml(preset.name)}</strong>
-                          <span>${escapeHtml([preset.title || uiText("Untitled", "제목 없음"), preset.allDay ? uiText("all-day", "하루 종일") : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? uiText("Family", "가족") : uiText("Personal", "개인")].join(" · "))}</span>
+                          <span>${escapeHtml([preset.title || uiText("common.untitled", "Untitled"), preset.allDay ? uiText("event.allDay", "all-day") : `${preset.startTime}-${preset.endTime}`, preset.shareFamily ? uiText("common.family", "Family") : uiText("common.personal", "Personal")].join(" · "))}</span>
                         </button>
-                        <button class="plainButton" type="button" data-delete-event-preset="${escapeHtml(preset.id)}">${uiText("Delete", "삭제")}</button>
+                        <button class="plainButton" type="button" data-delete-event-preset="${escapeHtml(preset.id)}">${uiText("common.delete", "Delete")}</button>
                       </div>
                     `,
                   )
                   .join("")}
               </div>
             `
-            : `<p class="taskMeta">${uiText("No event presets yet.", "저장된 일정 프리셋이 없습니다.")}</p>`
+            : `<p class="taskMeta">${uiText("event.noPresets", "No event presets yet.")}</p>`
         }
         <form class="composer presetEditor" data-event-preset-form data-event-preset-id="${isEditing ? escapeHtml(editing.id) : ""}">
         <label>
-          <span>${uiText("Preset name", "프리셋 이름")}</span>
-          <input name="presetName" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.name) : ""}" placeholder="당직" required />
+          <span>${uiText("event.presetName", "Preset name")}</span>
+          <input name="presetName" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.name) : ""}" placeholder="${uiText("event.dutyName", "Duty")}" required />
         </label>
         <label>
-          <span>${uiText("Title", "제목")}</span>
-          <input name="title" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.title) : ""}" placeholder="${uiText("Event title", "일정 제목")}" required />
+          <span>${uiText("common.title", "Title")}</span>
+          <input name="title" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.title) : ""}" placeholder="${uiText("event.titlePlaceholder", "Event title")}" required />
         </label>
         ${renderFamilyShareToggle(Boolean(isEditing && editing.shareFamily))}
         <label class="toggleLine">
-          <span>${uiText("All-day", "하루 종일")}</span>
+          <span>${uiText("event.allDay", "All-day")}</span>
           <input name="allDay" type="checkbox" data-all-day-toggle ${!isEditing || editing.allDay ? "checked" : ""} />
         </label>
         <div class="formGrid">
           <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
-            <span>${uiText("Start time", "시작 시간")}</span>
+            <span>${uiText("event.startTime", "Start time")}</span>
             <input name="startTime" type="time" value="${escapeHtml(isEditing ? editing.startTime : DEFAULT_EVENT_START_TIME)}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
           </label>
           <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
-            <span>${uiText("End time", "종료 시간")}</span>
+            <span>${uiText("event.endTime", "End time")}</span>
             <input name="endTime" type="time" value="${escapeHtml(isEditing ? editing.endTime : DEFAULT_EVENT_END_TIME)}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
           </label>
         </div>
         <label data-event-time-field ${!isEditing || editing.allDay ? 'class="isDisabled"' : ""}>
-          <span>${uiText("Alarm time", "알림 시간")}</span>
+          <span>${uiText("event.alarmTime", "Alarm time")}</span>
           <input name="alarm" type="time" value="${escapeHtml(isEditing ? editing.alarm : "")}" step="300" ${!isEditing || editing.allDay ? "disabled" : ""} />
         </label>
         <label>
-          <span>${uiText("Memo", "메모")}</span>
-          <textarea name="memo" rows="4" placeholder="${uiText("Event notes", "일정 메모")}">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
+          <span>${uiText("common.memo", "Memo")}</span>
+          <textarea name="memo" rows="4" placeholder="${uiText("event.notes", "Event notes")}">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
         </label>
-        <button class="primaryButton" type="submit">${isEditing ? uiText("Save preset", "프리셋 저장") : uiText("Create preset", "프리셋 추가")}</button>
+        <button class="primaryButton" type="submit">${isEditing ? uiText("event.savePreset", "Save preset") : uiText("event.createPreset", "Create preset")}</button>
         </form>
       </div>
     </details>
@@ -2416,7 +2441,7 @@ document.addEventListener("click", (event) => {
   const deleteEventPreset = event.target.closest("[data-delete-event-preset]");
   if (deleteEventPreset) {
     ensureEventPresets();
-    if (!window.confirm(uiText("Delete this event preset?", "이 일정 프리셋을 삭제할까요?"))) return;
+    if (!window.confirm(uiText("dialog.deleteEventPreset", "Delete this event preset?"))) return;
     saveEventPresets(state.eventPresets.items.filter((preset) => preset.id !== deleteEventPreset.dataset.deleteEventPreset));
     if (state.eventPresets.editingId === deleteEventPreset.dataset.deleteEventPreset) state.eventPresets.editingId = "";
     state.eventPresets.expanded = true;
@@ -2426,7 +2451,7 @@ document.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-rouny-new]")) {
     collectRounyDraft();
-    state.rouny.draft = defaultRounyTemplate(uiText("New template", "새 시간표"));
+    state.rouny.draft = defaultRounyTemplate(uiText("rouny.newTemplate", "New template"));
     state.rouny.selectedTemplateId = state.rouny.draft.id;
     state.rouny.page = "detail";
     state.rouny.editingItemId = "";
@@ -2629,7 +2654,7 @@ document.addEventListener("submit", async (event) => {
     event.preventDefault();
     const preset = eventPresetFromForm(eventPresetForm);
     if (!preset.name.trim() || !preset.title.trim()) {
-      window.alert(uiText("Preset name and title are required.", "프리셋 이름과 일정 제목을 입력하세요."));
+      window.alert(uiText("dialog.presetFieldsRequired", "Preset name and title are required."));
       return;
     }
     upsertEventPreset(preset);
@@ -2665,7 +2690,9 @@ document.addEventListener("submit", async (event) => {
         await createRemoteEvent(formData);
         state.eventPresetDraft = null;
       } catch (error) {
-        window.alert(uiText(`Could not save to Radicale: ${error.message || "unknown error"}`, `Radicale에 저장하지 못했습니다: ${error.message || "알 수 없는 오류"}`));
+        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
       }
       return;
     }
@@ -2681,12 +2708,14 @@ document.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(taskForm);
     const due = taskDueFromForm(formData);
-    if (taskDueHasPassed(due) && !window.confirm(uiText("This due time has already passed. Create it anyway?", "마감 시간이 이미 지났습니다. 그래도 추가할까요?"))) return;
+    if (taskDueHasPassed(due) && !window.confirm(uiText("dialog.createPastDue", "This due time has already passed. Create it anyway?"))) return;
     if (state.remoteCalendar.live) {
       try {
         await createRemoteTask(formData);
       } catch (error) {
-        window.alert(uiText(`Could not save to Radicale: ${error.message || "unknown error"}`, `Radicale에 저장하지 못했습니다: ${error.message || "알 수 없는 오류"}`));
+        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
       }
       return;
     }
@@ -2700,12 +2729,14 @@ document.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(editTaskForm);
     const due = taskDueFromForm(formData);
-    if (taskDueHasPassed(due) && !window.confirm(uiText("This due time has already passed. Save it anyway?", "마감 시간이 이미 지났습니다. 그래도 저장할까요?"))) return;
+    if (taskDueHasPassed(due) && !window.confirm(uiText("dialog.savePastDue", "This due time has already passed. Save it anyway?"))) return;
     if (state.remoteCalendar.live) {
       try {
         await updateRemoteTask(formData);
       } catch (error) {
-        window.alert(uiText(`Could not save to Radicale: ${error.message || "unknown error"}`, `Radicale에 저장하지 못했습니다: ${error.message || "알 수 없는 오류"}`));
+        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
       }
       return;
     }

@@ -32,3 +32,9 @@ The production test deployment is served from the existing KaosGDD portal nginx 
 ```
 
 The old service launcher remains available as `/launcher.html`. The static prototype remains available as `/mobile-v1/`.
+
+## Localization
+
+Main KaosGDD uses the English fallback copy in `app.js`. All Family Korean UI copy is collected in `translations.js`.
+
+Edit translation values only; keep dictionary keys and `{placeholder}` names unchanged. Bump the `translations.js` query version in `index.html` when deploying revised copy.
