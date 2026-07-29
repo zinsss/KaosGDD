@@ -13,6 +13,7 @@ const routes = {
 };
 
 const DEFAULT_TASK_DUE_TIME = "10:00";
+const TASK_MEMO_PLACEHOLDER = "Plain memos or;\n-- active subtasks\n-x done subtasks";
 const DEFAULT_EVENT_START_TIME = "09:00";
 const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
@@ -1559,7 +1560,7 @@ function renderAddTask() {
           </label>
           <label>
             <span>Memo</span>
-            <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done"></textarea>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(TASK_MEMO_PLACEHOLDER)}"></textarea>
           </label>
         </div>
       </section>
@@ -1570,7 +1571,7 @@ function renderAddTask() {
             <span>Time</span>
             <input name="dueTime" type="time" step="300" />
           </label>
-          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <p class="formNote">Default time 10:00 am</p>
           <label>
             <span>Priority</span>
             <select name="priority">
@@ -1631,7 +1632,7 @@ function renderEditTask() {
           </label>
           <label>
             <span>Memo</span>
-            <textarea name="memo" rows="6" placeholder="memo and subtasks; use -- subtask or -x done">${escapeHtml(task.description)}</textarea>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(TASK_MEMO_PLACEHOLDER)}">${escapeHtml(task.description)}</textarea>
           </label>
         </div>
       </section>
@@ -1642,7 +1643,7 @@ function renderEditTask() {
             <span>Time</span>
             <input name="dueTime" type="time" value="${dueEnabled ? escapeHtml(task.dueTime) : ""}" step="300" />
           </label>
-          <p class="formNote">Default ${escapeHtml(DEFAULT_TASK_DUE_TIME)} when a date is used. Time without date uses today.</p>
+          <p class="formNote">Default time 10:00 am</p>
           <label>
             <span>Priority</span>
             <select name="priority">
