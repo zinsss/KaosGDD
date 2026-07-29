@@ -2,6 +2,7 @@
   "id": "/",
   "name": "KaosGDD v2",
   "short_name": "KaosGDD",
+  "lang": "en",
   "description": "KaosGDD orchestration shell",
   "start_url": "/#/today",
   "scope": "/",

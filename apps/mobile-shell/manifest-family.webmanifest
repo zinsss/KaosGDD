@@ -2,6 +2,7 @@
   "id": "/",
   "name": "Kaos Family",
   "short_name": "Family",
+  "lang": "ko",
   "description": "Private family calendar, tasks, Rouny, and memos",
   "start_url": "/#/calendar",
   "scope": "/",
