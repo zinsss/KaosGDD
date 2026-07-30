@@ -40,6 +40,8 @@ const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
 const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
+const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
+const FAMILY_FONT_OPTIONS = new Set(["nanum", "nixgon", "skybori"]);
 const desktopMedia = window.matchMedia(DESKTOP_MEDIA_QUERY);
 
 function isDesktopLayout() {
@@ -1266,6 +1268,27 @@ function portalProfile() {
   return window.location.hostname === "family.kaosgdd.net" ? "family" : "main";
 }
 
+function familyFontPreference() {
+  const stored = window.localStorage.getItem(FAMILY_FONT_STORAGE_KEY) || "";
+  return FAMILY_FONT_OPTIONS.has(stored) ? stored : "nanum";
+}
+
+function applyFamilyFontPreference(value = familyFontPreference()) {
+  const app = document.querySelector(".app");
+  if (!app) return;
+  if (portalProfile() !== "family") {
+    delete app.dataset.familyFont;
+    return;
+  }
+  app.dataset.familyFont = FAMILY_FONT_OPTIONS.has(value) ? value : "nanum";
+}
+
+function setFamilyFontPreference(value) {
+  const normalized = FAMILY_FONT_OPTIONS.has(value) ? value : "nanum";
+  window.localStorage.setItem(FAMILY_FONT_STORAGE_KEY, normalized);
+  applyFamilyFontPreference(normalized);
+}
+
 function interpolateText(template, params = {}) {
   return String(template).replace(/\{(\w+)\}/g, (match, key) => (params[key] === undefined ? match : String(params[key])));
 }
@@ -1393,6 +1416,7 @@ function routeTitle(route) {
   const app = document.querySelector(".app");
   app.dataset.route = route;
   app.dataset.profile = portalProfile();
+  applyFamilyFontPreference();
   renderTopNav(route);
 }
 
@@ -2900,6 +2924,22 @@ function renderSettings() {
               `,
             )
             .join("")}
+          ${
+            portalProfile() === "family"
+              ? `
+                <div>
+                  <dt>${uiText("settings.font", "Font")}</dt>
+                  <dd>
+                    <select data-family-font-setting aria-label="${uiText("settings.font", "Font")}">
+                      <option value="nanum" ${familyFontPreference() === "nanum" ? "selected" : ""}>${uiText("settings.fontNanum", "NanumBarunPen")}</option>
+                      <option value="nixgon" ${familyFontPreference() === "nixgon" ? "selected" : ""}>${uiText("settings.fontNixgon", "Nixgon")}</option>
+                      <option value="skybori" ${familyFontPreference() === "skybori" ? "selected" : ""}>${uiText("settings.fontSkybori", "SKYBORI")}</option>
+                    </select>
+                  </dd>
+                </div>
+              `
+              : ""
+          }
         </dl>
         ${renderEventPresetSettings()}
       </div>
@@ -3737,6 +3777,12 @@ document.addEventListener("input", (event) => {
 document.addEventListener("change", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
+  const familyFont = event.target.closest("[data-family-font-setting]");
+  if (familyFont) {
+    setFamilyFontPreference(familyFont.value);
+    return;
+  }
 
   const shareFamily = event.target.closest("[data-share-family]");
   if (shareFamily) {

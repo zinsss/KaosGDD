@@ -218,6 +218,10 @@ window.KAOS_TRANSLATIONS = {
     "settings.familyTasksValue": "블링02 + 가족 공유",
     "settings.theme": "테마",
     "settings.familyThemeValue": "파스텔 가족 테마",
+    "settings.font": "글꼴",
+    "settings.fontNanum": "나눔바른펜",
+    "settings.fontNixgon": "닉스곤",
+    "settings.fontSkybori": "SKYBORI",
 
     "dialog.templateNameRequired": "시간표 이름을 입력하세요.",
     "dialog.keepOneTemplate": "시간표를 하나 이상 남겨 두세요.",
