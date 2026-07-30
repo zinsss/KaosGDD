@@ -1376,18 +1376,6 @@ h3 {
   font-weight: 780;
 }
 
-.rounyWeekGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0;
-  overflow-x: hidden;
-  padding: 10px;
-}
-
-.rounyWeekGrid.hasSaturday {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
 .rounyGridToggle {
   display: inline-flex;
   align-items: center;
@@ -1408,106 +1396,195 @@ h3 {
   margin: 0;
 }
 
-.rounyDayColumn {
+.rounyTimelineGrid {
   display: grid;
-  align-content: start;
-  gap: 6px;
+  grid-template-columns: 30px repeat(5, minmax(0, 1fr));
+  grid-template-rows: 30px var(--rouny-timeline-height);
   min-width: 0;
-  min-height: 160px;
-  padding: 7px 5px;
-  border-right: 1px solid var(--line);
+  max-width: 100%;
+  max-height: min(72dvh, 720px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  touch-action: pan-y;
 }
 
-.rounyDayColumn:last-child {
-  border-right: 0;
+.rounyTimelineGrid.hasSaturday {
+  grid-template-columns: 30px repeat(6, minmax(0, 1fr));
 }
 
-.rounyDayColumn h3 {
+.rounyTimelineCorner,
+.rounyTimelineDayHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
   color: var(--dim);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 900;
   text-align: center;
 }
 
-.rounyDayItems {
-  display: grid;
-  gap: 6px;
-  align-content: start;
+.rounyTimelineDayHeader {
+  border-left: 1px solid var(--line);
+}
+
+.rounyTimelineTimeRail,
+.rounyTimelineDayColumn {
+  position: relative;
+  height: var(--rouny-timeline-height);
   min-width: 0;
 }
 
-.rounyDayItems p {
+.rounyTimelineTimeRail {
+  z-index: 2;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.rounyTimelineHourLabel {
+  position: absolute;
+  right: 3px;
+  z-index: 2;
+  transform: translateY(-0.5em);
   color: var(--dim);
-  font-size: 0.72rem;
-  font-weight: 760;
-  text-align: center;
+  font-size: 0.56rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rounyTimelineDayColumn {
+  border-left: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, var(--panel));
+  transition: background-color 120ms ease;
+}
+
+.rounyTimelineDayColumn.isDropTarget {
+  background: color-mix(in srgb, var(--nord8) 16%, var(--surface));
+}
+
+.rounyTimelineHour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  border-top: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.rounyTimelineHour i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 48%, transparent);
+}
+
+.rounyTimelineHour i:nth-child(1) {
+  top: 8px;
+}
+
+.rounyTimelineHour i:nth-child(2) {
+  top: 16px;
+}
+
+.rounyTimelineHour i:nth-child(3) {
+  top: 24px;
+}
+
+.rounyTimelineHour i:nth-child(4) {
+  top: 32px;
+}
+
+.rounyTimelineHour i:nth-child(5) {
+  top: 40px;
+}
+
+.rounyTimelineDropMarker {
+  position: absolute;
+  z-index: 4;
+  left: 1px;
+  right: 1px;
+  display: none;
+  border-top: 2px solid var(--nord8);
+  pointer-events: none;
+}
+
+.rounyTimelineDropMarker.isVisible {
+  display: block;
 }
 
 .rounyBlock {
-  display: grid;
-  gap: 2px;
+  appearance: none;
+  position: absolute;
+  z-index: 3;
+  left: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
+  overflow: hidden;
   border: 1px solid rgba(216, 222, 233, 0.16);
   border-radius: 6px;
-  padding: 6px 4px;
+  padding: 3px 2px;
   background: var(--surface);
   color: #2e3440;
-  cursor: pointer;
-}
-
-.rounyBlock strong,
-.rounyBlock span,
-.rounyBlock em {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  text-align: center;
+  box-shadow: 0 3px 7px var(--shadow);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .rounyBlock strong {
-  font-size: 0.72rem;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.64rem;
   font-weight: 900;
-  line-height: 1.15;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.rounyBlock span {
-  color: var(--dim);
-  font-size: 0.62rem;
+.rounyBlock.isDragging {
+  z-index: 6;
+  opacity: 0.58;
+  outline: 2px solid var(--nord8);
+  cursor: grabbing;
+}
+
+.isRounyDragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rounyTimelineDragReadout {
+  position: fixed;
+  z-index: 30;
+  max-width: min(220px, 72vw);
+  transform: translate(-50%, -100%);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 6px 16px var(--shadow);
+  font-size: 0.74rem;
   font-weight: 850;
   font-variant-numeric: tabular-nums;
-}
-
-.rounyBlock em {
-  color: var(--muted);
-  font-size: 0.64rem;
-  font-style: normal;
-  font-weight: 760;
-}
-
-.rounyBlock.isPink {
-  background: rgba(244, 199, 223, 0.28);
-}
-
-.rounyBlock.isPeach {
-  background: rgba(246, 190, 159, 0.25);
-}
-
-.rounyBlock.isYellow {
-  background: rgba(235, 203, 139, 0.24);
-}
-
-.rounyBlock.isMint {
-  background: rgba(143, 188, 187, 0.24);
-}
-
-.rounyBlock.isSky {
-  background: rgba(136, 192, 208, 0.24);
-}
-
-.rounyBlock.isLavender {
-  background: rgba(180, 142, 173, 0.24);
-}
-
-.rounyBlock.isGray {
-  background: rgba(216, 222, 233, 0.13);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .rounyItem {
@@ -2311,34 +2388,27 @@ h3 {
 }
 
 @media (max-width: 680px) {
-  .rounyWeekGrid {
-    padding: 8px 6px;
+  .rounyTimelineGrid {
+    grid-template-columns: 28px repeat(5, minmax(0, 1fr));
   }
 
-  .rounyDayColumn {
-    min-height: 140px;
-    padding: 6px 3px;
+  .rounyTimelineGrid.hasSaturday {
+    grid-template-columns: 28px repeat(6, minmax(0, 1fr));
   }
 
-  .rounyDayColumn h3 {
-    font-size: 0.66rem;
-  }
-
-  .rounyDayItems {
-    gap: 5px;
+  .rounyTimelineHourLabel {
+    right: 2px;
+    font-size: 0.5rem;
   }
 
   .rounyBlock {
-    padding: 5px 3px;
+    left: 1px;
+    right: 1px;
+    padding: 2px 1px;
   }
 
   .rounyBlock strong {
-    font-size: 0.66rem;
-  }
-
-  .rounyBlock span,
-  .rounyBlock em {
-    font-size: 0.58rem;
+    font-size: 0.6rem;
   }
 
   .rounyItemGrid {
@@ -2662,26 +2732,16 @@ h3 {
     top: 0;
   }
 
-  .rounyWeekGrid {
-    padding: 16px;
-  }
-
-  .rounyDayColumn {
-    min-height: 320px;
-    padding: 10px 8px;
+  .rounyTimelineGrid {
+    max-height: min(76dvh, 760px);
   }
 
   .rounyBlock {
-    padding: 9px 8px;
+    padding: 4px 3px;
   }
 
   .rounyBlock strong {
-    font-size: 0.82rem;
-  }
-
-  .rounyBlock span,
-  .rounyBlock em {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
   }
 
   .rounyLayer {
