@@ -42,6 +42,8 @@ const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
 const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
 const FAMILY_FONT_OPTIONS = new Set(["nanum", "nixgon", "skybori"]);
+const MAIN_FONT_STORAGE_KEY = "kaosgdd.v2.main.font.v1";
+const MAIN_FONT_OPTIONS = new Set(["orbit", "sarasa"]);
 const ROUNY_TIMELINE_DEFAULT_START_HOUR = 8;
 const ROUNY_TIMELINE_DEFAULT_END_HOUR = 22;
 const ROUNY_TIMELINE_HOUR_HEIGHT = 48;
@@ -1295,6 +1297,27 @@ function setFamilyFontPreference(value) {
   applyFamilyFontPreference(normalized);
 }
 
+function mainFontPreference() {
+  const stored = window.localStorage.getItem(MAIN_FONT_STORAGE_KEY) || "";
+  return MAIN_FONT_OPTIONS.has(stored) ? stored : "orbit";
+}
+
+function applyMainFontPreference(value = mainFontPreference()) {
+  const app = document.querySelector(".app");
+  if (!app) return;
+  if (portalProfile() !== "main") {
+    delete app.dataset.mainFont;
+    return;
+  }
+  app.dataset.mainFont = MAIN_FONT_OPTIONS.has(value) ? value : "orbit";
+}
+
+function setMainFontPreference(value) {
+  const normalized = MAIN_FONT_OPTIONS.has(value) ? value : "orbit";
+  window.localStorage.setItem(MAIN_FONT_STORAGE_KEY, normalized);
+  applyMainFontPreference(normalized);
+}
+
 function interpolateText(template, params = {}) {
   return String(template).replace(/\{(\w+)\}/g, (match, key) => (params[key] === undefined ? match : String(params[key])));
 }
@@ -1423,6 +1446,7 @@ function routeTitle(route) {
   app.dataset.route = route;
   app.dataset.profile = portalProfile();
   applyFamilyFontPreference();
+  applyMainFontPreference();
   renderTopNav(route);
 }
 
@@ -3076,7 +3100,17 @@ function renderSettings() {
                   </dd>
                 </div>
               `
-              : ""
+              : `
+                <div>
+                  <dt>Font</dt>
+                  <dd>
+                    <select data-main-font-setting aria-label="Font">
+                      <option value="orbit" ${mainFontPreference() === "orbit" ? "selected" : ""}>Orbit</option>
+                      <option value="sarasa" ${mainFontPreference() === "sarasa" ? "selected" : ""}>Sarasa Gothic</option>
+                    </select>
+                  </dd>
+                </div>
+              `
           }
         </dl>
         ${renderEventPresetSettings()}
@@ -3945,6 +3979,12 @@ document.addEventListener("input", (event) => {
 document.addEventListener("change", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
+  const mainFont = event.target.closest("[data-main-font-setting]");
+  if (mainFont) {
+    setMainFontPreference(mainFont.value);
+    return;
+  }
 
   const familyFont = event.target.closest("[data-family-font-setting]");
   if (familyFont) {
