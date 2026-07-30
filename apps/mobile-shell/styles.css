@@ -950,10 +950,7 @@ h3 {
 
 .familySelectedWeather {
   display: grid;
-  grid-template-columns:
-    minmax(58px, 0.65fr)
-    minmax(70px, 0.8fr)
-    minmax(140px, 1.5fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   align-items: center;
   padding: 12px 10px;
