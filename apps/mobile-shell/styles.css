@@ -73,6 +73,30 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "NixgonFont";
+  src: url("./fonts/NIXGONL-Vb.woff?v=114") format("woff");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NixgonFont";
+  src: url("./fonts/NIXGONM-Vb.woff?v=114") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NixgonFont";
+  src: url("./fonts/NIXGONB-Vb.woff?v=114") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
   min-width: 0;
@@ -1649,8 +1673,8 @@ h3 {
 .app[data-profile="family"] {
   color-scheme: light;
   font-family:
-    "SKYBORI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+    "NixgonFont", "SKYBORI", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
   --bg: #fbf7fc;
   --panel: #fffaff;
   --surface: #f4edf8;
