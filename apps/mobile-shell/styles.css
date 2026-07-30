@@ -1882,6 +1882,12 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+.familySelectedWeather + .caregiverDayEditor,
+.selectedWeather + .caregiverDayEditor,
+.selectedWeatherCompact + .caregiverDayEditor {
+  border-top: 0;
+}
+
 .caregiverDaySummary {
   display: flex;
   align-items: center;
