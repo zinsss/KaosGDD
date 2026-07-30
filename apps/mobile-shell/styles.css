@@ -1508,6 +1508,10 @@ h3 {
   pointer-events: none;
 }
 
+.rounyTimelineHour:first-child {
+  border-top: 0;
+}
+
 .rounyTimelineHour i {
   position: absolute;
   left: 0;
