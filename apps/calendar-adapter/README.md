@@ -14,6 +14,7 @@ PUT /api/calendar/tasks
 DELETE /api/calendar/tasks
 GET /internal/system/caregiver?month=YYYY-MM
 PUT /internal/system/caregiver/day
+DELETE /internal/system/caregiver/day
 PUT /internal/system/caregiver/settings
 ```
 

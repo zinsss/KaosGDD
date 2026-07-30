@@ -78,7 +78,7 @@ The v2 backend boundary is `KaosGDD Brain`:
 apps/brain
 ```
 
-Brain is the small orchestration backend for adapter APIs, Radicale normalization, generated calendar overlays, weather history, caregiver calculations, and service status. Version `0.3.0-shadow` runs internally on port `8092` beside the live adapter. Caddy routes the family-only caregiver API to Brain while existing calendar and weather browser traffic remains on the adapter at `8091`.
+Brain is the small orchestration backend for adapter APIs, Radicale normalization, generated calendar overlays, weather history, caregiver calculations, and service status. Version `0.3.1-shadow` runs internally on port `8092` beside the live adapter. Caddy routes the family-only caregiver API to Brain while existing calendar and weather browser traffic remains on the adapter at `8091`.
 
 ## Source Of Truth
 

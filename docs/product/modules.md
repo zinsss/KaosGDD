@@ -160,6 +160,8 @@ KaosGDD Brain is the backend home for module logic that should not live in the s
 - caregiver journals and monthly wage review
 
 The family calendar exposes the monthly caregiver review through a family-only
-`돌봄` entry point. The main KaosGDD profile does not expose this module.
+`돌봄` entry point. Daily sessions and extra fees are entered from the selected
+day in the family calendar. The main KaosGDD profile does not expose this
+module.
 
 See [KaosGDD Brain](../architecture/kaosgdd-brain.md).

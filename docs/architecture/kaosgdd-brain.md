@@ -98,6 +98,10 @@ days, total hours, base pay, daily extras, monthly transport, total payout, and
 the per-day breakdown. When a month has no explicit settings, Brain uses the
 latest settings from an earlier month. The UI should not own these rules.
 
+The family calendar selected-day view writes daily sessions and extras through
+Brain. New records start with a `09:00-10:00` draft, use five-minute time
+increments, and may contain multiple sessions and multiple labeled extras.
+
 ## Task Ordering
 
 Brain should read Apple Reminders order when present:
@@ -129,7 +133,7 @@ Generated events should be readonly from the user UI.
 
 ## Migration
 
-Brain `0.3.0-shadow` runs beside the existing `apps/calendar-adapter` and
+Brain `0.3.1-shadow` runs beside the existing `apps/calendar-adapter` and
 proxies its calendar bootstrap, weather month, and event/task write routes.
 Caddy continues to route calendar and weather browser traffic to the adapter.
 Only `family.kaosgdd.net/api/caregiver/*` is routed to Brain; the main profile

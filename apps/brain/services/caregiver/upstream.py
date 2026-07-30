@@ -46,3 +46,11 @@ def fetch_caregiver_journals(month):
 
 def put_caregiver_settings(payload):
     return adapter_request("PUT", "/internal/system/caregiver/settings", payload)
+
+
+def put_caregiver_day(payload):
+    return adapter_request("PUT", "/internal/system/caregiver/day", payload)
+
+
+def delete_caregiver_day(payload):
+    return adapter_request("DELETE", "/internal/system/caregiver/day", payload)

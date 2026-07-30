@@ -45,7 +45,7 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.3.0-shadow` is the side-by-side runtime:
+Brain `0.3.1-shadow` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
@@ -54,6 +54,8 @@ Brain `0.3.0-shadow` is the side-by-side runtime:
 - proxy parity for `GET /api/weather/month`
 - write-through parity for event and task `POST`, `PUT`, and `DELETE`
 - family-only `GET /api/caregiver/month`
+- family-only `PUT /api/caregiver/day`
+- family-only `DELETE /api/caregiver/day`
 - family-only `PUT /api/caregiver/settings`
 - strict method/path allowlisting
 - a Caddy route only for `/api/caregiver/*` on `family.kaosgdd.net`

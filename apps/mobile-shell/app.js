@@ -715,7 +715,7 @@ async function loadCaregiverMonth() {
       data: null,
     };
   }
-  if (getRoute() === "caregiver") render();
+  if (getRoute() === "caregiver" || getRoute() === "calendar") render();
 }
 
 async function saveCaregiverSettings(formData) {
@@ -743,6 +743,44 @@ async function saveCaregiverSettings(formData) {
   };
 }
 
+async function saveCaregiverDay(payload) {
+  const response = await fetch("/api/caregiver/day", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  state.caregiver = {
+    key: payload.date.slice(0, 7),
+    loadingKey: "",
+    error: "",
+    data: result,
+  };
+}
+
+async function deleteCaregiverDay(date) {
+  const response = await fetch("/api/caregiver/day", {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ date }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  state.caregiver = {
+    key: date.slice(0, 7),
+    loadingKey: "",
+    error: "",
+    data: result,
+  };
+}
+
 function formatCaregiverWon(value) {
   return `₩${Math.max(0, Math.round(Number(value) || 0)).toLocaleString("ko-KR")}`;
 }
@@ -753,6 +791,89 @@ function formatCaregiverHours(minutes) {
   const remainder = safeMinutes % 60;
   if (!remainder) return `${hours}${uiText("caregiver.hoursSuffix", "h")}`;
   return `${hours}${uiText("caregiver.hoursSuffix", "h")} ${remainder}${uiText("caregiver.minutesSuffix", "m")}`;
+}
+
+function caregiverTimeMinutes(value) {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function caregiverMinutesTime(value) {
+  const safe = Math.max(0, Math.min(23 * 60 + 55, Number(value) || 0));
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+}
+
+function caregiverSessionRowHtml(session = {}, index = 0) {
+  return `
+    <div class="caregiverSessionRow" data-caregiver-session>
+      <span class="caregiverSessionNumber" data-caregiver-session-number>${index + 1}</span>
+      <label class="caregiverTimeField">
+        <span>${uiText("caregiver.startTime", "Start")}</span>
+        <input name="sessionStart" type="time" step="300" value="${escapeHtml(session.start || "09:00")}" required />
+      </label>
+      <span class="caregiverSessionSeparator" aria-hidden="true">~</span>
+      <label class="caregiverTimeField">
+        <span>${uiText("caregiver.endTime", "End")}</span>
+        <input name="sessionEnd" type="time" step="300" value="${escapeHtml(session.end || "10:00")}" required />
+      </label>
+      <button class="caregiverRemoveButton" type="button" data-caregiver-remove-session aria-label="${uiText("caregiver.removeTime", "Remove time")}" title="${uiText("caregiver.removeTime", "Remove time")}">×</button>
+    </div>
+  `;
+}
+
+function caregiverExtraRowHtml(extra = {}) {
+  return `
+    <div class="caregiverExtraRow" data-caregiver-extra>
+      <input name="extraLabel" type="text" value="${escapeHtml(extra.label || "")}" placeholder="${uiText("caregiver.extraLabel", "Description")}" aria-label="${uiText("caregiver.extraLabel", "Description")}" />
+      <input name="extraAmount" type="text" inputmode="numeric" value="${escapeHtml(extra.amount || "")}" placeholder="${uiText("caregiver.extraAmount", "Amount")}" aria-label="${uiText("caregiver.extraAmount", "Amount")}" />
+      <button class="caregiverRemoveButton" type="button" data-caregiver-remove-extra aria-label="${uiText("caregiver.removeExtra", "Remove fee")}" title="${uiText("caregiver.removeExtra", "Remove fee")}">×</button>
+    </div>
+  `;
+}
+
+function caregiverDayPayloadFromForm(form) {
+  const sessions = Array.from(form.querySelectorAll("[data-caregiver-session]")).map((row) => {
+    const start = row.querySelector('[name="sessionStart"]')?.value || "";
+    const end = row.querySelector('[name="sessionEnd"]')?.value || "";
+    const startMinutes = caregiverTimeMinutes(start);
+    const endMinutes = caregiverTimeMinutes(end);
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      throw new Error(uiText("caregiver.invalidSession", "End time must be later than start time."));
+    }
+    return { start, end };
+  });
+  const extras = Array.from(form.querySelectorAll("[data-caregiver-extra]"))
+    .map((row) => ({
+      label: String(row.querySelector('[name="extraLabel"]')?.value || "").trim(),
+      amount: Number(String(row.querySelector('[name="extraAmount"]')?.value || "").replace(/[^\d]/g, "")) || 0,
+    }))
+    .filter((extra) => extra.label || extra.amount);
+  return {
+    date: String(new FormData(form).get("date") || state.selectedDate),
+    sessions,
+    extras,
+  };
+}
+
+function updateCaregiverDayFormTotals(form) {
+  let minutes = 0;
+  form.querySelectorAll("[data-caregiver-session]").forEach((row) => {
+    const start = caregiverTimeMinutes(row.querySelector('[name="sessionStart"]')?.value);
+    const end = caregiverTimeMinutes(row.querySelector('[name="sessionEnd"]')?.value);
+    if (start !== null && end !== null && end > start) minutes += end - start;
+  });
+  const extras = Array.from(form.querySelectorAll('[name="extraAmount"]')).reduce(
+    (total, input) => total + (Number(String(input.value || "").replace(/[^\d]/g, "")) || 0),
+    0,
+  );
+  const timeTotal = form.querySelector("[data-caregiver-time-total]");
+  const extraTotal = form.querySelector("[data-caregiver-extra-total]");
+  if (timeTotal) timeTotal.textContent = formatCaregiverHours(minutes);
+  if (extraTotal) extraTotal.textContent = formatCaregiverWon(extras);
 }
 
 async function createRemoteTask(formData) {
@@ -1431,9 +1552,95 @@ function renderTaskGroups(tasks) {
     .join("");
 }
 
+function renderCaregiverDayEditor() {
+  if (portalProfile() !== "family") return "";
+  const month = state.selectedDate.slice(0, 7);
+  const data = state.caregiver.key === month ? state.caregiver.data : null;
+  const currentError = state.caregiver.key === month ? state.caregiver.error : "";
+  if (!data) {
+    return `
+      <div class="panelBody caregiverDayStatus withDivider">
+        ${
+          currentError
+            ? `
+              <span>${escapeHtml(currentError)}</span>
+              <button class="openButton" type="button" data-caregiver-retry>${uiText("common.retry", "Retry")}</button>
+            `
+            : `<span>${uiText("caregiver.loading", "Loading caregiver records...")}</span>`
+        }
+      </div>
+    `;
+  }
+  const record = (data.daily || []).find((item) => item.date === state.selectedDate) || {
+    minutes: 0,
+    extras: 0,
+    sessions: [],
+    extraItems: [],
+  };
+  const sessions = Array.isArray(record.sessions) && record.sessions.length
+    ? record.sessions
+    : [{ start: "09:00", end: "10:00" }];
+  const extras = Array.isArray(record.extraItems) ? record.extraItems : [];
+  const draftMinutes = sessions.reduce((total, session) => {
+    const start = caregiverTimeMinutes(session.start);
+    const end = caregiverTimeMinutes(session.end);
+    return total + (start !== null && end !== null && end > start ? end - start : 0);
+  }, 0);
+  const hasRecord = Number(record.minutes) > 0 || Number(record.extras) > 0;
+  const summary = hasRecord
+    ? [
+        Number(record.minutes) > 0 ? formatCaregiverHours(record.minutes) : "",
+        Number(record.extras) > 0 ? `${uiText("caregiver.extraFees", "Extra")} ${formatCaregiverWon(record.extras)}` : "",
+      ].filter(Boolean).join(" · ")
+    : uiText("caregiver.noDayEntry", "No caregiver record");
+  return `
+    <details class="caregiverDayEditor">
+      <summary class="caregiverDaySummary">
+        <span>
+          <strong>${uiText("caregiver.dayEntry", "Caregiver")}</strong>
+          <small>${escapeHtml(summary)}</small>
+        </span>
+        <span>${hasRecord ? uiText("caregiver.editDay", "Edit") : uiText("caregiver.addDay", "Add")}</span>
+      </summary>
+      <form class="caregiverDayForm" data-caregiver-day-form>
+        <input name="date" type="hidden" value="${escapeHtml(state.selectedDate)}" />
+        <section class="caregiverDayFormSection">
+          <div class="caregiverDaySectionHeader">
+            <strong>${uiText("caregiver.careTime", "Care time")}</strong>
+            <span>${uiText("caregiver.total", "Total")} <b data-caregiver-time-total>${formatCaregiverHours(draftMinutes)}</b></span>
+          </div>
+          <div class="caregiverSessionList" data-caregiver-session-list>
+            ${sessions.map((session, index) => caregiverSessionRowHtml(session, index)).join("")}
+          </div>
+          <button class="caregiverAddLineButton" type="button" data-caregiver-add-session>+ ${uiText("caregiver.addTime", "Add time")}</button>
+        </section>
+        <section class="caregiverDayFormSection">
+          <div class="caregiverDaySectionHeader">
+            <strong>${uiText("caregiver.extraFees", "Extra fees")}</strong>
+            <span>${uiText("caregiver.total", "Total")} <b data-caregiver-extra-total>${formatCaregiverWon(record.extras)}</b></span>
+          </div>
+          <div class="caregiverExtraList" data-caregiver-extra-list>
+            ${extras.map((extra) => caregiverExtraRowHtml(extra)).join("")}
+          </div>
+          <button class="caregiverAddLineButton" type="button" data-caregiver-add-extra>+ ${uiText("caregiver.addExtra", "Add fee")}</button>
+        </section>
+        <div class="caregiverDayActions">
+          <button class="primaryButton" type="submit">${uiText("caregiver.saveDay", "Save caregiver record")}</button>
+          ${
+            hasRecord
+              ? `<button class="dangerButton" type="button" data-caregiver-clear-day>${uiText("caregiver.clearDay", "Clear record")}</button>`
+              : ""
+          }
+        </div>
+      </form>
+    </details>
+  `;
+}
+
 function renderCalendarAgenda(events, tasks) {
   const weather = weatherForDate(state.selectedDate);
-  if (!events.length && !tasks.length && !weather) return `<div class="panelBody"><p class="taskMeta">${uiText("common.noItems", "No items")}</p></div>`;
+  const caregiver = renderCaregiverDayEditor();
+  if (!events.length && !tasks.length && !weather && !caregiver) return `<div class="panelBody"><p class="taskMeta">${uiText("common.noItems", "No items")}</p></div>`;
   return `
     ${weather ? renderSelectedWeather(weather) : ""}
     ${events.length ? renderTimeline(events, "") : ""}
@@ -1447,6 +1654,7 @@ function renderCalendarAgenda(events, tasks) {
         `
         : ""
     }
+    ${caregiver}
   `;
 }
 
@@ -1597,6 +1805,13 @@ function renderCalendarMonthPanel() {
   const eventCounts = countByDate(events, "date");
   const taskCounts = countByDate(datedTasks, "due");
   const dutyDates = new Set(events.filter(hasDutyEvent).map((event) => event.date));
+  const caregiverDays = new Set(
+    portalProfile() === "family" && state.caregiver.key === month
+      ? (state.caregiver.data?.daily || [])
+          .filter((item) => Number(item.minutes) > 0 || Number(item.extras) > 0)
+          .map((item) => item.date)
+      : [],
+  );
   const weatherByDate = new Map((activeCalendarData().weather || []).map((weather) => [weather.date, weather]));
   return `
     <section class="panel calendarMonthPanel">
@@ -1620,6 +1835,7 @@ function renderCalendarMonthPanel() {
         ${monthCells(month)
           .map((cell) => {
             const hasDuty = dutyDates.has(cell.value);
+            const hasCaregiver = caregiverDays.has(cell.value);
             const classes = [
               "day",
               cell.muted ? "isMuted" : "",
@@ -1637,6 +1853,7 @@ function renderCalendarMonthPanel() {
               <button class="${classes}" type="button" data-date="${cell.value}">
                 <span class="dayHeader">
                   <span class="dayNumber">${cell.label}</span>
+                  ${hasCaregiver ? `<span class="dayCaregiverMark" aria-label="${uiText("caregiver.dayMarker", "Caregiver record")}">•</span>` : ""}
                 </span>
                 ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
                 ${
@@ -2886,7 +3103,7 @@ function render() {
   if (route === "calendar" || route === "today" || ((route === "add-event" || route === "edit-event") && isDesktopLayout())) {
     loadRemoteWeatherForSelectedMonth();
   }
-  if (route === "caregiver") loadCaregiverMonth();
+  if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   updateTopBarShadow();
 }
 
@@ -2896,6 +3113,69 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  const addCaregiverSession = event.target.closest("[data-caregiver-add-session]");
+  if (addCaregiverSession) {
+    const form = addCaregiverSession.closest("[data-caregiver-day-form]");
+    const list = form?.querySelector("[data-caregiver-session-list]");
+    if (!form || !list) return;
+    const rows = Array.from(list.querySelectorAll("[data-caregiver-session]"));
+    const previousEnd = caregiverTimeMinutes(rows.at(-1)?.querySelector('[name="sessionEnd"]')?.value);
+    const start = Math.min(previousEnd ?? 9 * 60, 22 * 60 + 55);
+    list.insertAdjacentHTML(
+      "beforeend",
+      caregiverSessionRowHtml({ start: caregiverMinutesTime(start), end: caregiverMinutesTime(start + 60) }, rows.length),
+    );
+    updateCaregiverDayFormTotals(form);
+    return;
+  }
+
+  const removeCaregiverSession = event.target.closest("[data-caregiver-remove-session]");
+  if (removeCaregiverSession) {
+    const form = removeCaregiverSession.closest("[data-caregiver-day-form]");
+    const rows = form?.querySelectorAll("[data-caregiver-session]") || [];
+    if (!form || rows.length <= 1) return;
+    removeCaregiverSession.closest("[data-caregiver-session]")?.remove();
+    form.querySelectorAll("[data-caregiver-session-number]").forEach((number, index) => {
+      number.textContent = String(index + 1);
+    });
+    updateCaregiverDayFormTotals(form);
+    return;
+  }
+
+  const addCaregiverExtra = event.target.closest("[data-caregiver-add-extra]");
+  if (addCaregiverExtra) {
+    const form = addCaregiverExtra.closest("[data-caregiver-day-form]");
+    const list = form?.querySelector("[data-caregiver-extra-list]");
+    if (!form || !list) return;
+    list.insertAdjacentHTML("beforeend", caregiverExtraRowHtml());
+    list.querySelector("[data-caregiver-extra]:last-child input")?.focus();
+    updateCaregiverDayFormTotals(form);
+    return;
+  }
+
+  const removeCaregiverExtra = event.target.closest("[data-caregiver-remove-extra]");
+  if (removeCaregiverExtra) {
+    const form = removeCaregiverExtra.closest("[data-caregiver-day-form]");
+    if (!form) return;
+    removeCaregiverExtra.closest("[data-caregiver-extra]")?.remove();
+    updateCaregiverDayFormTotals(form);
+    return;
+  }
+
+  const clearCaregiverDay = event.target.closest("[data-caregiver-clear-day]");
+  if (clearCaregiverDay) {
+    if (!window.confirm(uiText("caregiver.confirmClear", "Clear this caregiver record?"))) return;
+    try {
+      await deleteCaregiverDay(state.selectedDate);
+      render();
+    } catch (error) {
+      window.alert(uiText("dialog.caregiverDaySaveError", "Could not save caregiver record: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
   if (event.target.closest("[data-caregiver-retry]")) {
     state.caregiver = { key: "", loadingKey: "", error: "", data: null };
     render();
@@ -3184,6 +3464,20 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const caregiverDayForm = event.target.closest("[data-caregiver-day-form]");
+  if (caregiverDayForm) {
+    event.preventDefault();
+    try {
+      await saveCaregiverDay(caregiverDayPayloadFromForm(caregiverDayForm));
+      render();
+    } catch (error) {
+      window.alert(uiText("dialog.caregiverDaySaveError", "Could not save caregiver record: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
   const caregiverSettingsForm = event.target.closest("[data-caregiver-settings-form]");
   if (caregiverSettingsForm) {
     event.preventDefault();
@@ -3388,7 +3682,15 @@ document.addEventListener(
   true,
 );
 
+document.addEventListener("input", (event) => {
+  const caregiverForm = event.target.closest("[data-caregiver-day-form]");
+  if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+});
+
 document.addEventListener("change", (event) => {
+  const caregiverForm = event.target.closest("[data-caregiver-day-form]");
+  if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
   const shareFamily = event.target.closest("[data-share-family]");
   if (shareFamily) {
     if (shareFamily.closest("[data-create-event]") || shareFamily.closest("[data-create-task]")) {

@@ -259,6 +259,23 @@ class CaregiverJournalTests(unittest.TestCase):
         self.assertEqual(record["hourlyWage"], 13000)
         self.assertEqual(record["transportFee"], 120000)
 
+    @mock.patch.object(SERVER, "radicale_request")
+    @mock.patch.object(SERVER, "system_collection")
+    def test_deletes_deterministic_daily_journal(self, system_collection, radicale_request):
+        system_collection.return_value = {
+            "id": "system:caregiver",
+            "href": "/kaos/caregiver/",
+        }
+
+        result = SERVER.delete_caregiver_day({"date": "2026-07-30"})
+
+        self.assertEqual(result["uid"], "KAOS-CAREGIVER-DAY-20260730")
+        radicale_request.assert_called_once_with(
+            SERVER.ACCOUNTS["system"],
+            "DELETE",
+            "/kaos/caregiver/KAOS-CAREGIVER-DAY-20260730.ics",
+        )
+
     @mock.patch.object(SERVER, "system_collection")
     @mock.patch.object(SERVER, "report_collection")
     def test_lists_selected_month_and_all_settings(self, report_collection, system_collection):

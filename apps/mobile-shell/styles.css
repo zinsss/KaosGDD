@@ -728,6 +728,12 @@ h3 {
   flex: 0 0 auto;
 }
 
+.dayCaregiverMark {
+  color: #b0528d;
+  font-size: 0.9rem;
+  line-height: 0.7;
+}
+
 .day.isSunday .dayNumber {
   color: var(--nord11);
 }
@@ -1772,6 +1778,186 @@ h3 {
 .app[data-profile="family"] .composer input::placeholder,
 .app[data-profile="family"] .composer textarea::placeholder {
   color: #a693ad;
+}
+
+.caregiverDayStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.caregiverDayEditor {
+  border-top: 1px solid var(--line);
+}
+
+.caregiverDaySummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.caregiverDaySummary::-webkit-details-marker {
+  display: none;
+}
+
+.caregiverDaySummary > span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.caregiverDaySummary strong {
+  color: #8c4f83;
+  font-size: 0.86rem;
+}
+
+.caregiverDaySummary small {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.caregiverDaySummary > span:last-child {
+  color: #8c4f83;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.caregiverDayForm {
+  display: grid;
+  gap: 14px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.caregiverDayFormSection,
+.caregiverSessionList,
+.caregiverExtraList {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.caregiverDaySectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.caregiverDaySectionHeader strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.caregiverDaySectionHeader b {
+  color: #8c4f83;
+  font-variant-numeric: tabular-nums;
+}
+
+.caregiverSessionRow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 10px minmax(0, 1fr) 34px;
+  align-items: end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.caregiverSessionNumber {
+  align-self: center;
+  color: var(--dim);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.caregiverTimeField {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.caregiverTimeField input,
+.caregiverExtraRow input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+}
+
+.caregiverSessionSeparator {
+  align-self: center;
+  padding-top: 16px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.caregiverRemoveButton {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: #bf616a;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.caregiverExtraRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.62fr) 34px;
+  gap: 5px;
+  min-width: 0;
+}
+
+.caregiverExtraRow input:last-of-type {
+  text-align: right;
+}
+
+.caregiverAddLineButton {
+  min-height: 38px;
+  border: 1px solid #c7afd8;
+  border-radius: 7px;
+  background: transparent;
+  color: #8c4f83;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.caregiverDayActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.caregiverDayActions:has(.dangerButton) {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .caregiverPage,

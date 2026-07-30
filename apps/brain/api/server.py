@@ -7,17 +7,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from models.database import database_status, wait_for_database_and_migrate
-from services.caregiver.summary import calculate_month, validate_month
+from services.caregiver.summary import calculate_month, validate_day, validate_month
 from services.caregiver.upstream import (
     CaregiverAdapterError,
+    delete_caregiver_day,
     fetch_caregiver_journals,
+    put_caregiver_day,
     put_caregiver_settings,
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.3.0-shadow")
+VERSION = os.environ.get("BRAIN_VERSION", "0.3.1-shadow")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 20_000
 
@@ -144,7 +146,8 @@ class Handler(BaseHTTPRequestHandler):
         self._proxy_write("POST")
 
     def do_PUT(self):
-        if urllib.parse.urlsplit(self.path).path == "/api/caregiver/settings":
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/caregiver/settings":
             try:
                 require_family_profile(self.headers)
                 payload = json_request(self)
@@ -165,9 +168,45 @@ class Handler(BaseHTTPRequestHandler):
             except (urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return
+        if path == "/api/caregiver/day":
+            try:
+                require_family_profile(self.headers)
+                payload = json_request(self)
+                date_value = validate_day(payload.get("date"))
+                put_caregiver_day(
+                    {
+                        "date": date_value,
+                        "sessions": payload.get("sessions"),
+                        "extras": payload.get("extras"),
+                    }
+                )
+                json_response(self, 200, caregiver_month_payload(date_value[:7]))
+            except ValueError as exc:
+                status = 404 if str(exc) == "family_profile_required" else 400
+                json_response(self, status, {"error": str(exc)})
+            except CaregiverAdapterError as exc:
+                json_response(self, 502 if exc.status >= 500 else exc.status, exc.payload)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         self._proxy_write("PUT")
 
     def do_DELETE(self):
+        if urllib.parse.urlsplit(self.path).path == "/api/caregiver/day":
+            try:
+                require_family_profile(self.headers)
+                payload = json_request(self)
+                date_value = validate_day(payload.get("date"))
+                delete_caregiver_day({"date": date_value})
+                json_response(self, 200, caregiver_month_payload(date_value[:7]))
+            except ValueError as exc:
+                status = 404 if str(exc) == "family_profile_required" else 400
+                json_response(self, status, {"error": str(exc)})
+            except CaregiverAdapterError as exc:
+                json_response(self, 502 if exc.status >= 500 else exc.status, exc.payload)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         self._proxy_write("DELETE")
 
     def _proxy_write(self, method):

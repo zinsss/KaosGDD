@@ -16,6 +16,17 @@ def validate_month(value):
     return month
 
 
+def validate_day(value):
+    raw = str(value or "").strip()
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError as exc:
+        raise ValueError("invalid_caregiver_date") from exc
+    if parsed.year < 2000 or parsed.year > 2200 or parsed.isoformat() != raw:
+        raise ValueError("invalid_caregiver_date")
+    return raw
+
+
 def nonnegative_integer(value):
     try:
         number = int(value)
@@ -34,18 +45,30 @@ def time_minutes(value):
     return hour * 60 + minute
 
 
-def session_minutes(sessions):
+def normalized_sessions(sessions):
     if not isinstance(sessions, list):
-        return 0
-    total = 0
+        return []
+    normalized = []
     for session in sessions:
         if not isinstance(session, dict):
             continue
         start = time_minutes(session.get("start"))
         end = time_minutes(session.get("end"))
         if start is not None and end is not None and end > start:
-            total += end - start
-    return total
+            normalized.append(
+                {
+                    "start": f"{start // 60:02d}:{start % 60:02d}",
+                    "end": f"{end // 60:02d}:{end % 60:02d}",
+                }
+            )
+    return normalized
+
+
+def session_minutes(sessions):
+    return sum(
+        time_minutes(session["end"]) - time_minutes(session["start"])
+        for session in normalized_sessions(sessions)
+    )
 
 
 def normalized_extras(extras):
@@ -110,7 +133,8 @@ def calculate_month(month, days, settings):
     for day_number in range(1, calendar.monthrange(year, month_number)[1] + 1):
         date_value = f"{selected_month}-{day_number:02d}"
         record = records.get(date_value, {})
-        minutes = session_minutes(record.get("sessions"))
+        sessions = normalized_sessions(record.get("sessions"))
+        minutes = session_minutes(sessions)
         extras = normalized_extras(record.get("extras"))
         extras_total = sum(extra["amount"] for extra in extras)
         if minutes > 0:
@@ -126,6 +150,8 @@ def calculate_month(month, days, settings):
                 "hours": compact_hours(minutes),
                 "basePay": caregiver_base_pay(minutes, setting["hourlyWage"]),
                 "extras": extras_total,
+                "sessions": sessions,
+                "extraItems": extras,
                 "notes": ", ".join(
                     f"{extra['label'] or '추가'} {extra['amount']:,}" for extra in extras
                 ),

@@ -45,6 +45,8 @@ POST /api/calendar/tasks
 PUT /api/calendar/tasks
 DELETE /api/calendar/tasks
 GET /api/caregiver/month
+PUT /api/caregiver/day
+DELETE /api/caregiver/day
 PUT /api/caregiver/settings
 ```
 
@@ -54,7 +56,6 @@ Later routes may include:
 GET /api/brain/status
 GET /api/weather/month
 POST /api/weather/current
-PUT /api/caregiver/day
 ```
 
 ## Safety

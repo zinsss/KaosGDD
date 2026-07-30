@@ -6,7 +6,7 @@ import unittest
 APP_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_ROOT))
 
-from services.caregiver.summary import calculate_month, settings_for_month, validate_month
+from services.caregiver.summary import calculate_month, settings_for_month, validate_day, validate_month
 
 
 class CaregiverSummaryTests(unittest.TestCase):
@@ -16,6 +16,13 @@ class CaregiverSummaryTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaisesRegex(ValueError, "invalid_caregiver_month"):
                     validate_month(value)
+
+    def test_validates_day(self):
+        self.assertEqual(validate_day("2026-07-30"), "2026-07-30")
+        for value in ("", "2026-7-30", "2026-02-30", "1999-12-31"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "invalid_caregiver_date"):
+                    validate_day(value)
 
     def test_uses_latest_monthly_setting_at_or_before_selected_month(self):
         setting = settings_for_month(
@@ -72,6 +79,14 @@ class CaregiverSummaryTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["transportFee"], 100000)
         self.assertEqual(payload["summary"]["total"], 191000)
         self.assertEqual(payload["daily"][0]["notes"], "추가 10,000")
+        self.assertEqual(
+            payload["daily"][0]["sessions"],
+            [
+                {"start": "09:00", "end": "12:30"},
+                {"start": "14:00", "end": "16:00"},
+            ],
+        )
+        self.assertEqual(payload["daily"][0]["extraItems"], [{"label": "추가", "amount": 10000}])
         self.assertEqual(len(payload["daily"]), 31)
 
     def test_rounds_half_won_like_legacy_javascript(self):

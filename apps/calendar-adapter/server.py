@@ -891,6 +891,17 @@ def put_caregiver_settings(payload):
     return put_caregiver_journal(payload, build_caregiver_settings_vjournal)
 
 
+def delete_caregiver_day(payload):
+    date_value = validate_date(payload.get("date"))
+    if not date_value:
+        raise ValueError("caregiver_date_required")
+    collection = system_collection(RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME)
+    uid = f"KAOS-CAREGIVER-DAY-{date_value.replace('-', '')}"
+    href = urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    radicale_request(ACCOUNTS["system"], "DELETE", href)
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
 def weather_code_to_condition(weather_code):
     try:
         code = int(weather_code)
@@ -1685,6 +1696,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         path = urllib.parse.urlparse(self.path).path
         profile = profile_from_headers(self.headers)
+        if path == "/internal/system/caregiver/day":
+            try:
+                json_response(self, 200, delete_caregiver_day(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/events":
             try:
                 json_response(self, 200, delete_event(read_json_request(self), profile))
