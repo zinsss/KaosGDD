@@ -975,7 +975,8 @@ h3 {
 
 .familySelectedDate strong {
   color: var(--text);
-  font-size: 1.16rem;
+  font-size: 2rem;
+  line-height: 1;
 }
 
 .familySelectedWeather .weatherPart {

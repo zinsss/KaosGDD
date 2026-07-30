@@ -1746,9 +1746,8 @@ function renderFamilySelectedDate(dateValue) {
   }).format(new Date(`${dateValue}T12:00:00+09:00`));
   return `
     <time class="familySelectedDate" datetime="${escapeHtml(dateValue)}">
-      <span>${year}년</span>
-      <span>${month}월</span>
-      <strong>${day}일</strong>
+      <span>${year}</span>
+      <strong>${month}/${day}</strong>
       <span>${escapeHtml(weekday)}</span>
     </time>
   `;
