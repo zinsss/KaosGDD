@@ -965,7 +965,7 @@ h3 {
   justify-items: center;
   gap: 1px;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   font-style: normal;
   font-weight: 700;
   line-height: 1.18;
@@ -974,16 +974,25 @@ h3 {
 
 .familySelectedDate strong {
   color: var(--text);
-  font-size: 1rem;
+  font-size: 1.16rem;
 }
 
 .familySelectedWeather .weatherPart {
-  grid-template-columns: 48px auto;
+  grid-template-columns: auto auto;
+  justify-content: stretch;
   gap: 8px;
 }
 
 .familySelectedWeather .selectedWeatherGlyph {
-  font-size: 2.6rem;
+  font-size: 3.15rem;
+}
+
+.familySelectedWeather .selectedWeatherRange {
+  font-size: 1.08rem;
+}
+
+.familySelectedWeather .weatherPartValue {
+  justify-self: end;
 }
 
 .selectedWeatherCompact {
