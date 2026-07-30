@@ -1667,9 +1667,7 @@ h3 {
 }
 
 .app[data-profile="family"] .panel {
-  box-shadow:
-    0 6px 14px rgba(96, 75, 107, 0.16),
-    0 1px 3px rgba(96, 75, 107, 0.12);
+  box-shadow: none;
 }
 
 .app[data-profile="family"] h1 {
