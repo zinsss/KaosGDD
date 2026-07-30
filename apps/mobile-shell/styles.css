@@ -1011,8 +1011,9 @@ h3 {
 
 .weatherPart {
   display: grid;
-  grid-template-columns: minmax(76px, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: 88px auto;
+  justify-content: start;
+  gap: 10px;
   align-items: center;
   min-height: 22px;
 }
