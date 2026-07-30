@@ -812,13 +812,11 @@ function caregiverSessionRowHtml(session = {}, index = 0) {
     <div class="caregiverSessionRow" data-caregiver-session>
       <span class="caregiverSessionNumber" data-caregiver-session-number>${index + 1}</span>
       <label class="caregiverTimeField">
-        <span>${uiText("caregiver.startTime", "Start")}</span>
-        <input name="sessionStart" type="time" step="300" value="${escapeHtml(session.start || "09:00")}" required />
+        <input name="sessionStart" type="time" step="300" value="${escapeHtml(session.start || "09:00")}" aria-label="${uiText("caregiver.startTime", "Start")}" required />
       </label>
       <span class="caregiverSessionSeparator" aria-hidden="true">~</span>
       <label class="caregiverTimeField">
-        <span>${uiText("caregiver.endTime", "End")}</span>
-        <input name="sessionEnd" type="time" step="300" value="${escapeHtml(session.end || "10:00")}" required />
+        <input name="sessionEnd" type="time" step="300" value="${escapeHtml(session.end || "10:00")}" aria-label="${uiText("caregiver.endTime", "End")}" required />
       </label>
       <button class="caregiverRemoveButton" type="button" data-caregiver-remove-session aria-label="${uiText("caregiver.removeTime", "Remove time")}" title="${uiText("caregiver.removeTime", "Remove time")}">×</button>
     </div>
@@ -3132,8 +3130,7 @@ document.addEventListener("click", async (event) => {
   const removeCaregiverSession = event.target.closest("[data-caregiver-remove-session]");
   if (removeCaregiverSession) {
     const form = removeCaregiverSession.closest("[data-caregiver-day-form]");
-    const rows = form?.querySelectorAll("[data-caregiver-session]") || [];
-    if (!form || rows.length <= 1) return;
+    if (!form) return;
     removeCaregiverSession.closest("[data-caregiver-session]")?.remove();
     form.querySelectorAll("[data-caregiver-session-number]").forEach((number, index) => {
       number.textContent = String(index + 1);
