@@ -121,7 +121,7 @@ Generated events should be readonly from the user UI.
 
 ## Migration
 
-Brain `0.1.0-shadow` runs beside the existing `apps/calendar-adapter` and
-proxies its read-only calendar bootstrap and weather month routes. Caddy
-continues to route browser traffic to the existing adapter. Add write parity
-and verify it before changing that route.
+Brain `0.2.0-shadow` runs beside the existing `apps/calendar-adapter` and
+proxies its calendar bootstrap, weather month, and event/task write routes.
+Caddy continues to route browser traffic to the existing adapter. Both profiles
+must remain stable in shadow mode before changing that route.

@@ -45,15 +45,16 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.1.0-shadow` is the first side-by-side runtime:
+Brain `0.2.0-shadow` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
 - `GET /api/brain/status`
-- read-only proxy parity for `GET /api/calendar/bootstrap`
-- read-only proxy parity for `GET /api/weather/month`
+- proxy parity for `GET /api/calendar/bootstrap`
+- proxy parity for `GET /api/weather/month`
+- write-through parity for event and task `POST`, `PUT`, and `DELETE`
+- strict method/path allowlisting
 - no public Caddy route
-- no calendar/task writes
 
 PostgreSQL owns only Brain configuration. Radicale remains authoritative for events, tasks, weather journals, and future caregiver journals.
 
@@ -114,6 +115,19 @@ Additional read paths can be compared explicitly:
 python3 apps/brain/scripts/compare_adapter.py \
   --path /api/calendar/bootstrap \
   --path '/api/weather/month?city=pohang&start=2026-07-01&end=2026-07-31'
+```
+
+Compare all write error contracts without creating records:
+
+```bash
+python3 apps/brain/scripts/compare_writes.py
+```
+
+Run a reversible create, update, read, and delete cycle:
+
+```bash
+python3 apps/brain/scripts/verify_write_cycle.py --host kaosgdd.net
+python3 apps/brain/scripts/verify_write_cycle.py --host family.kaosgdd.net
 ```
 
 ## Database Backup

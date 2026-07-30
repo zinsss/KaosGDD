@@ -36,6 +36,12 @@ GET /health
 GET /api/brain/status
 GET /api/calendar/bootstrap
 GET /api/weather/month
+POST /api/calendar/events
+PUT /api/calendar/events
+DELETE /api/calendar/events
+POST /api/calendar/tasks
+PUT /api/calendar/tasks
+DELETE /api/calendar/tasks
 ```
 
 Later routes may include:
@@ -72,7 +78,7 @@ Brain must not:
 
 1. Keep Brain running beside the adapter on internal port `8092`. Complete.
 2. Compare `/api/calendar/bootstrap` and `/api/weather/month` payloads for the main and family profiles. Complete.
-3. Add write endpoint parity with tests.
+3. Add write endpoint parity with tests. Complete.
 4. Point portal proxy to Brain.
 5. Keep the old adapter available for rollback.
 6. Remove old adapter only after stable testing.
@@ -81,6 +87,9 @@ Run parity checks from the repository:
 
 ```bash
 python3 apps/brain/scripts/compare_adapter.py
+python3 apps/brain/scripts/compare_writes.py
+python3 apps/brain/scripts/verify_write_cycle.py --host kaosgdd.net
+python3 apps/brain/scripts/verify_write_cycle.py --host family.kaosgdd.net
 ```
 
 Build tagged Brain images on the Control Center. Production Compose references
