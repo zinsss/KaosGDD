@@ -17,6 +17,7 @@ window.KAOS_TRANSLATIONS = {
     "profile.family": "가족",
     "collection.all": "전체",
     "collection.family": "가족",
+    "collection.wife": "블링02",
     "collection.aria": "캘린더 목록",
 
     "weekday.sun": "일",
@@ -171,9 +172,9 @@ window.KAOS_TRANSLATIONS = {
     "settings.portal": "포털",
     "settings.familyPortal": "가족",
     "settings.calendar": "캘린더",
-    "settings.familyCalendarValue": "Bling02 + 가족 공유",
+    "settings.familyCalendarValue": "블링02 + 가족 공유",
     "settings.tasks": "할 일",
-    "settings.familyTasksValue": "Bling02 + 가족 공유",
+    "settings.familyTasksValue": "블링02 + 가족 공유",
     "settings.theme": "테마",
     "settings.familyThemeValue": "파스텔 가족 테마",
 

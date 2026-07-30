@@ -33,6 +33,13 @@ The production test deployment is served from the existing KaosGDD portal nginx 
 
 The old service launcher remains available as `/launcher.html`. The static prototype remains available as `/mobile-v1/`.
 
+Deploy without copying the private checkout permissions onto the nginx web root:
+
+```bash
+rsync -rlt --chmod=D755,F644 apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/
+rsync -rlt --chmod=D755,F644 apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/app/
+```
+
 ## Localization
 
 Main KaosGDD uses the English fallback copy in `app.js`. All Family Korean UI copy is collected in `translations.js`.

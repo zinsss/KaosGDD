@@ -397,7 +397,7 @@ function collectionViews() {
   const ownerLabels = {
     zin: "GDD_ZiN",
     family: uiText("collection.family", "Family"),
-    wife: "Bling02",
+    wife: uiText("collection.wife", "Bling02"),
   };
   const ownerOrder = ["family", "zin", "wife"];
   const owners = [...new Set(data.collections.map((collection) => collection.owner).filter(Boolean))].sort((a, b) => {
