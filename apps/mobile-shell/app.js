@@ -1762,10 +1762,9 @@ function isPastDate(dateValue) {
   return String(dateValue || "") < ymd(new Date());
 }
 
-function hasFamilyForecastLayout(weather) {
+function hasDetailedForecastLayout(weather) {
   return (
-    portalProfile() === "family"
-    && weather
+    weather
     && !isPastDate(weather.date)
     && Array.isArray(weather.dayparts)
     && weather.dayparts.length > 0
@@ -1792,14 +1791,14 @@ function renderWeatherParts(dayparts) {
     .join("");
 }
 
-function renderFamilySelectedDate(dateValue) {
+function renderSelectedWeatherDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
-  const weekday = new Intl.DateTimeFormat("ko-KR", {
+  const weekday = new Intl.DateTimeFormat(portalProfile() === "family" ? "ko-KR" : "en-US", {
     weekday: "long",
     timeZone: "Asia/Seoul",
   }).format(new Date(`${dateValue}T12:00:00+09:00`));
   return `
-    <time class="familySelectedDate" datetime="${escapeHtml(dateValue)}">
+    <time class="selectedWeatherDate" datetime="${escapeHtml(dateValue)}">
       <span>${year}</span>
       <strong>${month}/${day}</strong>
       <span>${escapeHtml(weekday)}</span>
@@ -1818,10 +1817,10 @@ function renderSelectedWeather(weather) {
       </div>
     `;
   }
-  if (hasFamilyForecastLayout(weather)) {
+  if (hasDetailedForecastLayout(weather)) {
     return `
-      <div class="familySelectedWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
-        ${renderFamilySelectedDate(weather.date)}
+      <div class="selectedDayWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+        ${renderSelectedWeatherDate(weather.date)}
         <div class="selectedWeatherSummary">
           <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
           <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
@@ -1977,7 +1976,7 @@ function renderCalendarAgendaPanel() {
   return `
     <section class="panel calendarAgendaPanel desktopContextPane">
       ${
-        hasFamilyForecastLayout(weather)
+        hasDetailedForecastLayout(weather)
           ? ""
           : `
             <div class="panelHeader">
@@ -2850,7 +2849,7 @@ function updateRounyDragFeedback(target, clientX, clientY) {
     const dayLabel = portalProfile() === "family" ? day?.familyLabel : day?.label;
     readout.textContent = `${dayLabel || ""} ${rounyTimeFromMinutes(target.startMinutes)}-${rounyTimeFromMinutes(target.startMinutes + rounyPointerDrag.duration)}`.trim();
     readout.style.left = `${clientX}px`;
-    readout.style.top = `${clientY - 14}px`;
+    readout.style.top = `${Math.max(24, clientY - 72)}px`;
     readout.hidden = false;
   }
 }

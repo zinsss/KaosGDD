@@ -964,7 +964,7 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
-.familySelectedWeather {
+.selectedDayWeather {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
@@ -973,7 +973,7 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
-.familySelectedDate {
+.selectedWeatherDate {
   display: grid;
   align-content: center;
   justify-items: center;
@@ -989,40 +989,40 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
-.familySelectedDate strong {
+.selectedWeatherDate strong {
   color: var(--text);
   font-size: 2rem;
   line-height: 1;
 }
 
-.familySelectedWeather .weatherPart {
+.selectedDayWeather .weatherPart {
   grid-template-columns: auto auto;
   justify-content: stretch;
   gap: 5px;
 }
 
-.familySelectedWeather .selectedWeatherSummary {
+.selectedDayWeather .selectedWeatherSummary {
   align-content: center;
   min-height: 96px;
   padding: 0 6px;
   border-right: 1px solid var(--line);
 }
 
-.familySelectedWeather .selectedWeatherParts {
+.selectedDayWeather .selectedWeatherParts {
   align-content: center;
   min-height: 96px;
   padding-left: 8px;
 }
 
-.familySelectedWeather .selectedWeatherGlyph {
+.selectedDayWeather .selectedWeatherGlyph {
   font-size: 3.15rem;
 }
 
-.familySelectedWeather .selectedWeatherRange {
+.selectedDayWeather .selectedWeatherRange {
   font-size: 1.08rem;
 }
 
-.familySelectedWeather .weatherPartValue {
+.selectedDayWeather .weatherPartValue {
   justify-self: end;
 }
 
@@ -2008,7 +2008,7 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
-.familySelectedWeather + .caregiverDayEditor,
+.selectedDayWeather + .caregiverDayEditor,
 .selectedWeather + .caregiverDayEditor,
 .selectedWeatherCompact + .caregiverDayEditor {
   border-top: 0;
