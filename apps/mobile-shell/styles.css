@@ -1666,6 +1666,12 @@ h3 {
   box-shadow: 0 6px 14px rgba(96, 75, 107, 0.18);
 }
 
+.app[data-profile="family"] .panel {
+  box-shadow:
+    0 6px 14px rgba(96, 75, 107, 0.16),
+    0 1px 3px rgba(96, 75, 107, 0.12);
+}
+
 .app[data-profile="family"] h1 {
   color: #9b5f8f;
 }
