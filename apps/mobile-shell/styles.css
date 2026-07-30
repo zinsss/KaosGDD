@@ -1921,6 +1921,10 @@ h3 {
   color: #9b5f8f;
 }
 
+.app[data-profile="family"] .topNav a {
+  font-size: 0.82rem;
+}
+
 .app[data-profile="family"] .kicker,
 .app[data-profile="family"] .label,
 .app[data-profile="family"] .composer label span,
@@ -1928,6 +1932,11 @@ h3 {
 .app[data-profile="family"] .settingsList dt,
 .app[data-profile="family"] .settingsDisclosure summary strong {
   color: #7f6aa6;
+}
+
+.app[data-profile="family"] .settingsList dt,
+.app[data-profile="family"] .settingsDisclosure summary strong {
+  font-size: 0.82rem;
 }
 
 .app[data-profile="family"] .collectionRail button.isActive,
