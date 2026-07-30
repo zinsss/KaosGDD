@@ -948,6 +948,44 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.familySelectedWeather {
+  display: grid;
+  grid-template-columns:
+    minmax(58px, 0.65fr)
+    minmax(70px, 0.8fr)
+    minmax(140px, 1.5fr);
+  gap: 8px;
+  align-items: center;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.familySelectedDate {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.18;
+  font-variant-numeric: tabular-nums;
+}
+
+.familySelectedDate strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.familySelectedWeather .weatherPart {
+  grid-template-columns: 48px auto;
+  gap: 8px;
+}
+
+.familySelectedWeather .selectedWeatherGlyph {
+  font-size: 2.6rem;
+}
+
 .selectedWeatherCompact {
   display: grid;
   grid-template-columns: minmax(70px, 1fr) auto auto;

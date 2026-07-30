@@ -1708,6 +1708,52 @@ function isPastDate(dateValue) {
   return String(dateValue || "") < ymd(new Date());
 }
 
+function hasFamilyForecastLayout(weather) {
+  return (
+    portalProfile() === "family"
+    && weather
+    && !isPastDate(weather.date)
+    && Array.isArray(weather.dayparts)
+    && weather.dayparts.length > 0
+  );
+}
+
+function renderWeatherParts(dayparts) {
+  return ["Morning", "Afternoon", "Evening", "Night"]
+    .map((label) => {
+      const part = dayparts.find((item) => item.label === label) || {};
+      const localizedLabel = {
+        Morning: uiText("weather.morning", "Morning"),
+        Afternoon: uiText("weather.afternoon", "Afternoon"),
+        Evening: uiText("weather.evening", "Evening"),
+        Night: uiText("weather.night", "Night"),
+      }[label];
+      return `
+        <div class="weatherPart">
+          <span class="weatherPartLabel">${escapeHtml(localizedLabel)}</span>
+          <span class="weatherPartValue">${escapeHtml([weatherGlyph(part), tempRange(part)].filter(Boolean).join(" "))}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderFamilySelectedDate(dateValue) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const weekday = new Intl.DateTimeFormat("ko-KR", {
+    weekday: "long",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(`${dateValue}T12:00:00+09:00`));
+  return `
+    <time class="familySelectedDate" datetime="${escapeHtml(dateValue)}">
+      <span>${year}년</span>
+      <span>${month}월</span>
+      <strong>${day}일</strong>
+      <span>${escapeHtml(weekday)}</span>
+    </time>
+  `;
+}
+
 function renderSelectedWeather(weather) {
   const dayparts = weather.dayparts || [];
   if (isPastDate(weather.date) || !dayparts.length) {
@@ -1719,6 +1765,20 @@ function renderSelectedWeather(weather) {
       </div>
     `;
   }
+  if (hasFamilyForecastLayout(weather)) {
+    return `
+      <div class="familySelectedWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+        ${renderFamilySelectedDate(weather.date)}
+        <div class="selectedWeatherSummary">
+          <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
+          <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
+        </div>
+        <div class="selectedWeatherParts">
+          ${renderWeatherParts(dayparts)}
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="selectedWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
       <div class="selectedWeatherSummary">
@@ -1726,23 +1786,7 @@ function renderSelectedWeather(weather) {
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
       </div>
       <div class="selectedWeatherParts">
-        ${["Morning", "Afternoon", "Evening", "Night"]
-          .map((label) => {
-            const part = dayparts.find((item) => item.label === label) || {};
-            const localizedLabel = {
-              Morning: uiText("weather.morning", "Morning"),
-              Afternoon: uiText("weather.afternoon", "Afternoon"),
-              Evening: uiText("weather.evening", "Evening"),
-              Night: uiText("weather.night", "Night"),
-            }[label];
-            return `
-              <div class="weatherPart">
-                <span class="weatherPartLabel">${escapeHtml(localizedLabel)}</span>
-                <span class="weatherPartValue">${escapeHtml([weatherGlyph(part), tempRange(part)].filter(Boolean).join(" "))}</span>
-              </div>
-            `;
-          })
-          .join("")}
+        ${renderWeatherParts(dayparts)}
       </div>
     </div>
   `;
@@ -1876,14 +1920,21 @@ function renderCalendarMonthPanel() {
 function renderCalendarAgendaPanel() {
   const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
   const tasks = mockAdapter.getTasks().filter((task) => task.due === state.selectedDate);
+  const weather = weatherForDate(state.selectedDate);
   return `
     <section class="panel calendarAgendaPanel desktopContextPane">
-      <div class="panelHeader">
-        <div>
-          <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
-          <h2>${escapeHtml(state.selectedDate)}</h2>
-        </div>
-      </div>
+      ${
+        hasFamilyForecastLayout(weather)
+          ? ""
+          : `
+            <div class="panelHeader">
+              <div>
+                <p class="label">${uiText("calendar.agenda", "Agenda")}</p>
+                <h2>${escapeHtml(state.selectedDate)}</h2>
+              </div>
+            </div>
+          `
+      }
       ${renderCalendarAgenda(events, tasks)}
     </section>
   `;
