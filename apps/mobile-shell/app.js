@@ -2559,7 +2559,7 @@ function collectRounyDraft() {
   if (!form || !state.rouny.draft) return state.rouny.draft;
   state.rouny.draft = normalizeRounyTemplate({
     ...state.rouny.draft,
-    name: form.querySelector('[name="templateName"]')?.value || "",
+    name: form.querySelector('[name="templateName"]')?.value || state.rouny.draft.name,
   });
   return state.rouny.draft;
 }
@@ -2732,10 +2732,7 @@ function renderRounyGrid(template) {
   return `
     <section class="panel">
       <div class="panelHeader">
-        <div>
-          <p class="label">${uiText("rouny.week", "Week")}</p>
-          <h2>${escapeHtml(template.name)}</h2>
-        </div>
+        <h2>${uiText("rouny.week", "Week")}</h2>
         <label class="rounyGridToggle">
           <input type="checkbox" data-rouny-saturday ${state.rouny.includeSaturday ? "checked" : ""} />
           <span>${uiText("rouny.saturday", "Sat")}</span>
@@ -2909,19 +2906,13 @@ function renderRounyTemplateDetail() {
     : null;
   return `
     <form class="rounyEditor" data-rouny-editor>
-      <section class="panel">
-        <div class="panelHeader">
-          <div>
-            <p class="label">${uiText("rouny.label", "Rouny")}</p>
+      <section class="panel rounyTemplateHeaderPanel">
+        <div class="rounyTemplateHeader">
+          <button class="plainButton rounyBackButton" type="button" data-rouny-back>&lt;&lt; ${uiText("rouny.backToList", "Back to list")}</button>
+          <div class="rounyTemplateNameRow">
             <h2>${escapeHtml(draft.name)}</h2>
+            <button class="openButton" type="button" data-rouny-rename>${uiText("rouny.rename", "Rename")}</button>
           </div>
-          <button class="openButton" type="button" data-rouny-back>${uiText("rouny.list", "List")}</button>
-        </div>
-        <div class="composer">
-          <label>
-            <span>${uiText("rouny.templateName", "Template name")}</span>
-            <input name="templateName" type="text" autocomplete="off" value="${escapeHtml(draft.name)}" />
-          </label>
         </div>
       </section>
       ${renderRounyGrid(draft)}
@@ -3539,6 +3530,26 @@ document.addEventListener("click", async (event) => {
     state.rouny.page = "list";
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-rename]")) {
+    collectRounyDraft();
+    const nextName = window.prompt(
+      uiText("dialog.renameTemplate", "New template name"),
+      state.rouny.draft.name,
+    );
+    if (nextName === null) return;
+    const normalizedName = nextName.trim();
+    if (!normalizedName) {
+      window.alert(uiText("dialog.templateNameRequired", "Template name is required."));
+      return;
+    }
+    state.rouny.draft = normalizeRounyTemplate({
+      ...state.rouny.draft,
+      name: normalizedName,
+    });
     render();
     return;
   }

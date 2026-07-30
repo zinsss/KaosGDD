@@ -1325,6 +1325,32 @@ h3 {
   min-width: 0;
 }
 
+.rounyTemplateHeaderPanel {
+  padding: 10px 12px;
+}
+
+.rounyTemplateHeader {
+  display: grid;
+  gap: 8px;
+}
+
+.rounyBackButton {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0;
+}
+
+.rounyTemplateNameRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rounyTemplateNameRow h2 {
+  overflow-wrap: anywhere;
+}
+
 .rounyTemplateRow {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;

@@ -191,6 +191,8 @@ window.KAOS_TRANSLATIONS = {
     "rouny.dragTemplateAria": "시간표 순서 이동",
     "rouny.classCount": "수업 {count}개",
     "rouny.list": "목록",
+    "rouny.backToList": "목록으로",
+    "rouny.rename": "변경",
     "rouny.templateName": "시간표 이름",
     "rouny.addClass": "수업 추가",
     "rouny.editClass": "수업 수정",
@@ -224,6 +226,7 @@ window.KAOS_TRANSLATIONS = {
     "settings.fontSkybori": "SKYBORI",
 
     "dialog.templateNameRequired": "시간표 이름을 입력하세요.",
+    "dialog.renameTemplate": "새 시간표 이름",
     "dialog.keepOneTemplate": "시간표를 하나 이상 남겨 두세요.",
     "dialog.deleteTemplate": "이 시간표를 삭제할까요?",
     "dialog.deleteEventPreset": "이 일정 프리셋을 삭제할까요?",
