@@ -36,8 +36,8 @@ The old service launcher remains available as `/launcher.html`. The static proto
 Deploy without copying the private checkout permissions onto the nginx web root:
 
 ```bash
-rsync -rlt --chmod=D755,F644 apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/
-rsync -rlt --chmod=D755,F644 apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/app/
+rsync -rltp --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/
+rsync -rltp --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r apps/mobile-shell/ /srv/kaos/data/kaosgdd/portal/app/
 ```
 
 ## Localization
