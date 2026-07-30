@@ -2,15 +2,22 @@
 import json
 import os
 import urllib.error
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from models.database import database_status, wait_for_database_and_migrate
+from services.caregiver.summary import calculate_month, validate_month
+from services.caregiver.upstream import (
+    CaregiverAdapterError,
+    fetch_caregiver_journals,
+    put_caregiver_settings,
+)
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.2.0-shadow")
+VERSION = os.environ.get("BRAIN_VERSION", "0.3.0-shadow")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 20_000
 
@@ -52,6 +59,27 @@ def request_body(handler):
     return handler.rfile.read(length)
 
 
+def json_request(handler):
+    try:
+        payload = json.loads(request_body(handler).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid_json_payload") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("invalid_json_payload")
+    return payload
+
+
+def require_family_profile(headers):
+    if portal_host(headers) != "family.kaosgdd.net":
+        raise ValueError("family_profile_required")
+
+
+def caregiver_month_payload(month):
+    selected_month = validate_month(month)
+    journals = fetch_caregiver_journals(selected_month)
+    return calculate_month(selected_month, journals.get("days"), journals.get("settings"))
+
+
 def proxy_request(handler, method):
     if not route_allowed(method, handler.path):
         raise ValueError("upstream_route_not_allowed")
@@ -73,6 +101,21 @@ def proxy_request(handler, method):
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/caregiver/month":
+            try:
+                require_family_profile(self.headers)
+                query = urllib.parse.parse_qs(parsed.query)
+                json_response(self, 200, caregiver_month_payload((query.get("month") or [""])[0]))
+            except ValueError as exc:
+                status = 404 if str(exc) == "family_profile_required" else 400
+                json_response(self, status, {"error": str(exc)})
+            except CaregiverAdapterError as exc:
+                json_response(self, 502 if exc.status >= 500 else exc.status, exc.payload)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+
         if self.path == "/health":
             payload = brain_status(self.headers)
             json_response(self, 200 if payload["ok"] else 503, payload)
@@ -101,6 +144,27 @@ class Handler(BaseHTTPRequestHandler):
         self._proxy_write("POST")
 
     def do_PUT(self):
+        if urllib.parse.urlsplit(self.path).path == "/api/caregiver/settings":
+            try:
+                require_family_profile(self.headers)
+                payload = json_request(self)
+                month = validate_month(payload.get("month"))
+                put_caregiver_settings(
+                    {
+                        "month": month,
+                        "hourlyWage": payload.get("hourlyWage"),
+                        "transportFee": payload.get("transportFee"),
+                    }
+                )
+                json_response(self, 200, caregiver_month_payload(month))
+            except ValueError as exc:
+                status = 404 if str(exc) == "family_profile_required" else 400
+                json_response(self, status, {"error": str(exc)})
+            except CaregiverAdapterError as exc:
+                json_response(self, 502 if exc.status >= 500 else exc.status, exc.payload)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         self._proxy_write("PUT")
 
     def do_DELETE(self):

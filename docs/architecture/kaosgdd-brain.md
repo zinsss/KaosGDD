@@ -81,14 +81,22 @@ Daily records should support:
 
 - sessions, such as `09:00-12:30`
 - optional extras, such as transport or one-off fees
-- calculated total hours
+- optional notes
 
 Monthly settings should support:
 
 - hourly wage
 - transport fee
 
-Monthly review is calculated by Brain from the journals. The UI should not own the calculation rules.
+Daily records use deterministic UIDs in the form
+`KAOS-CAREGIVER-DAY-YYYYMMDD`. Monthly settings use
+`KAOS-CAREGIVER-SETTINGS-YYYYMM`. Their `DESCRIPTION` values contain typed JSON
+payloads, while the summary remains human-readable.
+
+Monthly review is calculated by Brain from session minutes. It includes worked
+days, total hours, base pay, daily extras, monthly transport, total payout, and
+the per-day breakdown. When a month has no explicit settings, Brain uses the
+latest settings from an earlier month. The UI should not own these rules.
 
 ## Task Ordering
 
@@ -121,7 +129,8 @@ Generated events should be readonly from the user UI.
 
 ## Migration
 
-Brain `0.2.0-shadow` runs beside the existing `apps/calendar-adapter` and
+Brain `0.3.0-shadow` runs beside the existing `apps/calendar-adapter` and
 proxies its calendar bootstrap, weather month, and event/task write routes.
-Caddy continues to route browser traffic to the existing adapter. Both profiles
-must remain stable in shadow mode before changing that route.
+Caddy continues to route calendar and weather browser traffic to the adapter.
+Only `family.kaosgdd.net/api/caregiver/*` is routed to Brain; the main profile
+has no caregiver route.

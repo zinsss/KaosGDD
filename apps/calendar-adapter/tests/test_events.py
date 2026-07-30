@@ -217,5 +217,79 @@ class EventWritingTests(unittest.TestCase):
         )
 
 
+class CaregiverJournalTests(unittest.TestCase):
+    def test_builds_deterministic_daily_journal(self):
+        uid, body = SERVER.build_caregiver_day_vjournal(
+            {
+                "date": "2026-07-30",
+                "sessions": [
+                    {"start": "09:00", "end": "12:30"},
+                    {"start": "14:00", "end": "16:00"},
+                ],
+                "extras": [{"label": "추가", "amount": 10000}],
+            }
+        )
+        item = SERVER.parse_ics(body, f"/kaos/caregiver/{uid}.ics")[0]
+        record = SERVER.parse_caregiver_journal(item, {"id": "system:caregiver"})
+
+        self.assertEqual(uid, "KAOS-CAREGIVER-DAY-20260730")
+        self.assertEqual(record["type"], "caregiver.day")
+        self.assertEqual(record["date"], "2026-07-30")
+        self.assertEqual(record["sessions"][0], {"start": "09:00", "end": "12:30"})
+        self.assertEqual(record["extras"], [{"label": "추가", "amount": 10000}])
+
+    def test_rejects_invalid_daily_session(self):
+        with self.assertRaisesRegex(ValueError, "caregiver_end_before_start"):
+            SERVER.build_caregiver_day_vjournal(
+                {
+                    "date": "2026-07-30",
+                    "sessions": [{"start": "12:00", "end": "09:00"}],
+                }
+            )
+
+    def test_builds_monthly_settings_journal(self):
+        uid, body = SERVER.build_caregiver_settings_vjournal(
+            {"month": "2026-07", "hourlyWage": 13000, "transportFee": 120000}
+        )
+        item = SERVER.parse_ics(body, f"/kaos/caregiver/{uid}.ics")[0]
+        record = SERVER.parse_caregiver_journal(item, {"id": "system:caregiver"})
+
+        self.assertEqual(uid, "KAOS-CAREGIVER-SETTINGS-202607")
+        self.assertEqual(record["month"], "2026-07")
+        self.assertEqual(record["hourlyWage"], 13000)
+        self.assertEqual(record["transportFee"], 120000)
+
+    @mock.patch.object(SERVER, "system_collection")
+    @mock.patch.object(SERVER, "report_collection")
+    def test_lists_selected_month_and_all_settings(self, report_collection, system_collection):
+        collection = {"id": "system:caregiver", "href": "/kaos/caregiver/"}
+        system_collection.return_value = collection
+        day_uid, day_body = SERVER.build_caregiver_day_vjournal(
+            {
+                "date": "2026-07-30",
+                "sessions": [{"start": "09:00", "end": "12:30"}],
+            }
+        )
+        other_uid, other_body = SERVER.build_caregiver_day_vjournal(
+            {
+                "date": "2026-08-01",
+                "sessions": [{"start": "09:00", "end": "10:00"}],
+            }
+        )
+        settings_uid, settings_body = SERVER.build_caregiver_settings_vjournal(
+            {"month": "2026-06", "hourlyWage": 12000, "transportFee": 100000}
+        )
+        report_collection.return_value = [
+            SERVER.parse_ics(day_body, f"/kaos/caregiver/{day_uid}.ics")[0],
+            SERVER.parse_ics(other_body, f"/kaos/caregiver/{other_uid}.ics")[0],
+            SERVER.parse_ics(settings_body, f"/kaos/caregiver/{settings_uid}.ics")[0],
+        ]
+
+        payload = SERVER.list_caregiver_journals("2026-07")
+
+        self.assertEqual([item["date"] for item in payload["days"]], ["2026-07-30"])
+        self.assertEqual([item["month"] for item in payload["settings"]], ["2026-06"])
+
+
 if __name__ == "__main__":
     unittest.main()

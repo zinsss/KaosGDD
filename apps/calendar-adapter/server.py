@@ -703,6 +703,194 @@ def create_weather_history(payload):
     return {"ok": True, "uid": uid, "collection": collection["id"]}
 
 
+def validate_caregiver_month(value):
+    month = str(value or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}", month):
+        raise ValueError("invalid_caregiver_month")
+    year, month_number = (int(part) for part in month.split("-", 1))
+    if year < 2000 or year > 2200 or month_number < 1 or month_number > 12:
+        raise ValueError("invalid_caregiver_month")
+    return month
+
+
+def validate_caregiver_time(value):
+    raw = str(value or "").strip()
+    if not re.fullmatch(r"\d{2}:\d{2}", raw):
+        raise ValueError("invalid_caregiver_time")
+    parsed = datetime.strptime(raw, "%H:%M")
+    return raw, parsed.hour * 60 + parsed.minute
+
+
+def normalize_caregiver_sessions(value):
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 24:
+        raise ValueError("invalid_caregiver_sessions")
+    sessions = []
+    for session in value:
+        if not isinstance(session, dict):
+            raise ValueError("invalid_caregiver_session")
+        start, start_minutes = validate_caregiver_time(session.get("start"))
+        end, end_minutes = validate_caregiver_time(session.get("end"))
+        if end_minutes <= start_minutes:
+            raise ValueError("caregiver_end_before_start")
+        sessions.append({"start": start, "end": end})
+    return sessions
+
+
+def caregiver_amount(value, field_name):
+    if value in (None, ""):
+        return 0
+    try:
+        amount = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid_{field_name}") from exc
+    if amount < 0 or amount > 100_000_000:
+        raise ValueError(f"invalid_{field_name}")
+    return amount
+
+
+def normalize_caregiver_extras(value):
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 24:
+        raise ValueError("invalid_caregiver_extras")
+    extras = []
+    for extra in value:
+        if not isinstance(extra, dict):
+            raise ValueError("invalid_caregiver_extra")
+        label = str(extra.get("label") or "").strip()[:80]
+        amount = caregiver_amount(extra.get("amount"), "caregiver_extra_amount")
+        if label or amount:
+            extras.append({"label": label, "amount": amount})
+    return extras
+
+
+def caregiver_journal_body(uid, date_value, summary, payload, categories):
+    now = utc_stamp(datetime.now(timezone.utc))
+    description = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return calendar_body(
+        [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "CALSCALE:GREGORIAN",
+            "PRODID:-//KaosGDD//Caregiver Journal//EN",
+            "BEGIN:VJOURNAL",
+            f"UID:{uid}",
+            f"DTSTAMP:{now}",
+            f"CREATED:{now}",
+            f"LAST-MODIFIED:{now}",
+            f"DTSTART;VALUE=DATE:{date_value.replace('-', '')}",
+            f"SUMMARY:{escape_ics(summary)}",
+            f"DESCRIPTION:{escape_ics(description)}",
+            f"CATEGORIES:{categories}",
+            "END:VJOURNAL",
+            "END:VCALENDAR",
+        ]
+    )
+
+
+def build_caregiver_day_vjournal(payload):
+    date_value = validate_date(payload.get("date"))
+    if not date_value:
+        raise ValueError("caregiver_date_required")
+    sessions = normalize_caregiver_sessions(payload.get("sessions"))
+    extras = normalize_caregiver_extras(payload.get("extras"))
+    uid = f"KAOS-CAREGIVER-DAY-{date_value.replace('-', '')}"
+    data = {
+        "type": "caregiver.day",
+        "date": date_value,
+        "sessions": sessions,
+        "extras": extras,
+    }
+    return uid, caregiver_journal_body(uid, date_value, f"돌봄 {date_value}", data, "caregiver,day")
+
+
+def build_caregiver_settings_vjournal(payload):
+    month = validate_caregiver_month(payload.get("month"))
+    hourly_wage = caregiver_amount(payload.get("hourlyWage"), "caregiver_hourly_wage")
+    transport_fee = caregiver_amount(payload.get("transportFee"), "caregiver_transport_fee")
+    uid = f"KAOS-CAREGIVER-SETTINGS-{month.replace('-', '')}"
+    data = {
+        "type": "caregiver.settings",
+        "month": month,
+        "hourlyWage": hourly_wage,
+        "transportFee": transport_fee,
+    }
+    return uid, caregiver_journal_body(
+        uid,
+        f"{month}-01",
+        f"돌봄 설정 {month}",
+        data,
+        "caregiver,settings",
+    )
+
+
+def parse_caregiver_journal(item, collection):
+    journal = normalize_journal(item, collection)
+    try:
+        payload = json.loads(journal.get("description") or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict) or payload.get("type") not in {"caregiver.day", "caregiver.settings"}:
+        return None
+    return {
+        **payload,
+        "uid": journal["uid"],
+        "created": journal["created"],
+        "lastModified": journal["lastModified"],
+    }
+
+
+def list_caregiver_journals(month=""):
+    selected_month = validate_caregiver_month(month) if month else ""
+    collection = system_collection(RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME)
+    days = []
+    settings = []
+    for item in report_collection(ACCOUNTS["system"], collection["href"]):
+        if item.get("component") != "VJOURNAL":
+            continue
+        record = parse_caregiver_journal(item, collection)
+        if not record:
+            continue
+        if record["type"] == "caregiver.day":
+            if not selected_month or str(record.get("date") or "").startswith(f"{selected_month}-"):
+                days.append(record)
+        elif record["type"] == "caregiver.settings":
+            settings.append(record)
+    days.sort(key=lambda item: item.get("date", ""))
+    settings.sort(key=lambda item: item.get("month", ""))
+    return {
+        "configured": True,
+        "live": True,
+        "month": selected_month,
+        "days": days,
+        "settings": settings,
+    }
+
+
+def put_caregiver_journal(payload, builder):
+    collection = system_collection(RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME)
+    uid, body = builder(payload)
+    href = urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    radicale_request(
+        ACCOUNTS["system"],
+        "PUT",
+        href,
+        body,
+        {"Content-Type": "text/calendar; charset=utf-8"},
+    )
+    return {"ok": True, "uid": uid, "collection": collection["id"]}
+
+
+def put_caregiver_day(payload):
+    return put_caregiver_journal(payload, build_caregiver_day_vjournal)
+
+
+def put_caregiver_settings(payload):
+    return put_caregiver_journal(payload, build_caregiver_settings_vjournal)
+
+
 def weather_code_to_condition(weather_code):
     try:
         code = int(weather_code)
@@ -1439,6 +1627,14 @@ class Handler(BaseHTTPRequestHandler):
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
             return
+        if path == "/internal/system/caregiver":
+            try:
+                json_response(self, 200, list_caregiver_journals((query.get("month") or [""])[0]))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
         if path == "/api/weather/month":
             try:
                 json_response(self, 200, month_weather_payload(query))
@@ -1452,6 +1648,22 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         path = urllib.parse.urlparse(self.path).path
         profile = profile_from_headers(self.headers)
+        if path == "/internal/system/caregiver/day":
+            try:
+                json_response(self, 200, put_caregiver_day(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
+        if path == "/internal/system/caregiver/settings":
+            try:
+                json_response(self, 200, put_caregiver_settings(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/events":
             try:
                 json_response(self, 200, update_event(read_json_request(self), profile))

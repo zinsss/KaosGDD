@@ -159,4 +159,7 @@ KaosGDD Brain is the backend home for module logic that should not live in the s
 - on-request current-location weather
 - caregiver journals and monthly wage review
 
+The family calendar exposes the monthly caregiver review through a family-only
+`돌봄` entry point. The main KaosGDD profile does not expose this module.
+
 See [KaosGDD Brain](../architecture/kaosgdd-brain.md).

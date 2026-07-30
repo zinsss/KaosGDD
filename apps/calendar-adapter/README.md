@@ -12,6 +12,9 @@ DELETE /api/calendar/events
 POST /api/calendar/tasks
 PUT /api/calendar/tasks
 DELETE /api/calendar/tasks
+GET /internal/system/caregiver?month=YYYY-MM
+PUT /internal/system/caregiver/day
+PUT /internal/system/caregiver/settings
 ```
 
 The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale files or access databases directly.
@@ -27,6 +30,12 @@ The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale fil
 `PUT /api/calendar/tasks` updates an existing VTODO by UID while preserving the original task UID, created timestamp, and completion status. Updates use the Radicale ETag as an `If-Match` write guard.
 
 `DELETE /api/calendar/tasks` deletes an existing VTODO by UID.
+
+Caregiver internal routes use deterministic VJOURNAL resources in the
+`Kaos_Caregiver` system collection. Daily records store session ranges and
+optional extras. Monthly settings store hourly wage and transport fee. These
+routes are internal adapter contracts and must not be exposed directly by
+Caddy.
 
 ## Environment
 

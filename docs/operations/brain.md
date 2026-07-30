@@ -25,7 +25,9 @@ Brain:      http://100.94.208.16:8092
 PostgreSQL: private compose network only
 ```
 
-Brain is not routed through Caddy while it is in shadow mode.
+Brain remains mostly shadowed. Caddy routes only
+`family.kaosgdd.net/api/caregiver/*` to Brain; calendar and weather stay on the
+calendar adapter.
 
 ## Current Routes
 
@@ -42,6 +44,8 @@ DELETE /api/calendar/events
 POST /api/calendar/tasks
 PUT /api/calendar/tasks
 DELETE /api/calendar/tasks
+GET /api/caregiver/month
+PUT /api/caregiver/settings
 ```
 
 Later routes may include:
@@ -50,7 +54,6 @@ Later routes may include:
 GET /api/brain/status
 GET /api/weather/month
 POST /api/weather/current
-GET /api/caregiver/month
 PUT /api/caregiver/day
 ```
 
@@ -79,9 +82,10 @@ Brain must not:
 1. Keep Brain running beside the adapter on internal port `8092`. Complete.
 2. Compare `/api/calendar/bootstrap` and `/api/weather/month` payloads for the main and family profiles. Complete.
 3. Add write endpoint parity with tests. Complete.
-4. Point portal proxy to Brain.
+4. Route the family-only caregiver API to Brain. Complete.
 5. Keep the old adapter available for rollback.
-6. Remove old adapter only after stable testing.
+6. Point remaining portal API routes to Brain after stable testing.
+7. Remove old adapter only after stable testing.
 
 Run parity checks from the repository:
 

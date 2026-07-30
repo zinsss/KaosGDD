@@ -45,7 +45,7 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.2.0-shadow` is the side-by-side runtime:
+Brain `0.3.0-shadow` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
@@ -53,10 +53,23 @@ Brain `0.2.0-shadow` is the side-by-side runtime:
 - proxy parity for `GET /api/calendar/bootstrap`
 - proxy parity for `GET /api/weather/month`
 - write-through parity for event and task `POST`, `PUT`, and `DELETE`
+- family-only `GET /api/caregiver/month`
+- family-only `PUT /api/caregiver/settings`
 - strict method/path allowlisting
-- no public Caddy route
+- a Caddy route only for `/api/caregiver/*` on `family.kaosgdd.net`
 
-PostgreSQL owns only Brain configuration. Radicale remains authoritative for events, tasks, weather journals, and future caregiver journals.
+PostgreSQL owns only Brain configuration. Radicale remains authoritative for events, tasks, weather journals, and caregiver journals.
+
+The monthly caregiver review follows the legacy KaosGDD calculation:
+
+```text
+base pay = total session minutes / 60 * hourly wage
+total payout = base pay + daily extras + monthly transport fee
+```
+
+Brain performs the calculation in integer minutes. If the selected month has no
+wage settings, it uses the latest earlier monthly setting. The shell only
+renders the result.
 
 ## Proposed Layout
 

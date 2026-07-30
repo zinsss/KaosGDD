@@ -1,6 +1,7 @@
 const routes = {
   today: "Today",
   calendar: "Calendar",
+  caregiver: "Caregiver",
   tasks: "Tasks",
   add: "Add",
   "add-event": "Add Event",
@@ -16,6 +17,7 @@ const routes = {
 const familyRoutes = {
   today: uiText("route.today", "Today"),
   calendar: uiText("route.calendar", "Calendar"),
+  caregiver: uiText("route.caregiver", "Caregiver"),
   tasks: uiText("route.tasks", "Tasks"),
   add: uiText("route.add", "Add"),
   "add-event": uiText("route.addEvent", "Add Event"),
@@ -129,6 +131,12 @@ const state = {
     loadingKey: "",
     error: "",
     items: [],
+  },
+  caregiver: {
+    key: "",
+    loadingKey: "",
+    error: "",
+    data: null,
   },
   rouny: {
     checked: false,
@@ -682,6 +690,71 @@ function normalizeWeatherItems(items) {
     .filter((item) => item.date);
 }
 
+async function loadCaregiverMonth() {
+  if (portalProfile() !== "family") return;
+  const month = state.selectedDate.slice(0, 7);
+  if (state.caregiver.key === month || state.caregiver.loadingKey === month) return;
+  state.caregiver.loadingKey = month;
+  try {
+    const response = await fetch(`/api/caregiver/month?${new URLSearchParams({ month }).toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.caregiver = {
+      key: month,
+      loadingKey: "",
+      error: "",
+      data: payload,
+    };
+  } catch (error) {
+    state.caregiver = {
+      key: month,
+      loadingKey: "",
+      error: error.message || uiText("caregiver.unavailable", "Caregiver summary unavailable"),
+      data: null,
+    };
+  }
+  if (getRoute() === "caregiver") render();
+}
+
+async function saveCaregiverSettings(formData) {
+  const month = state.selectedDate.slice(0, 7);
+  const numericValue = (name) => Number(String(formData.get(name) || "").replace(/[^\d]/g, "")) || 0;
+  const response = await fetch("/api/caregiver/settings", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      month,
+      hourlyWage: numericValue("hourlyWage"),
+      transportFee: numericValue("transportFee"),
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.caregiver = {
+    key: month,
+    loadingKey: "",
+    error: "",
+    data: payload,
+  };
+}
+
+function formatCaregiverWon(value) {
+  return `₩${Math.max(0, Math.round(Number(value) || 0)).toLocaleString("ko-KR")}`;
+}
+
+function formatCaregiverHours(minutes) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainder = safeMinutes % 60;
+  if (!remainder) return `${hours}${uiText("caregiver.hoursSuffix", "h")}`;
+  return `${hours}${uiText("caregiver.hoursSuffix", "h")} ${remainder}${uiText("caregiver.minutesSuffix", "m")}`;
+}
+
 async function createRemoteTask(formData) {
   const due = taskDueFromForm(formData);
   const response = await fetch("/api/calendar/tasks", {
@@ -1066,7 +1139,7 @@ function getRoute() {
   const route = raw.split("?", 1)[0];
   if (!routes[route]) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && (route === "today" || route === "services")) return profileConfig().defaultRoute;
-  if (portalProfile() === "main" && (route === "rouny" || route === "memos")) return profileConfig().defaultRoute;
+  if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver")) return profileConfig().defaultRoute;
   return route;
 }
 
@@ -1102,7 +1175,7 @@ function profileConfig() {
 }
 
 function activeNavRoute(route) {
-  if (route === "add" || route === "add-event" || route === "edit-event") return "calendar";
+  if (route === "add" || route === "add-event" || route === "edit-event" || route === "caregiver") return "calendar";
   if (route === "add-task" || route === "edit-task") return "tasks";
   return route;
 }
@@ -1538,6 +1611,7 @@ function renderCalendarMonthPanel() {
             <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
             <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
           </div>
+          ${portalProfile() === "family" ? `<a class="openButton" href="#/caregiver">${uiText("caregiver.label", "Caregiver")}</a>` : ""}
           <a class="openButton" href="#/add-event">${uiText("common.add", "Add")}</a>
         </div>
       </div>
@@ -2642,11 +2716,156 @@ function renderEventPresetSettings() {
   `;
 }
 
+function renderCaregiver() {
+  const month = state.selectedDate.slice(0, 7);
+  const data = state.caregiver.key === month ? state.caregiver.data : null;
+  const summary = data?.summary || {
+    days: 0,
+    minutes: 0,
+    hourlyWage: 0,
+    basePay: 0,
+    extras: 0,
+    transportFee: 0,
+    total: 0,
+  };
+  const settings = data?.settings || {
+    hourlyWage: 0,
+    transportFee: 0,
+  };
+  const daily = Array.isArray(data?.daily) ? data.daily : [];
+  const dailyByDate = new Map(daily.map((item) => [item.date, item]));
+  const recordedDays = daily.filter((item) => Number(item.minutes) > 0 || Number(item.extras) > 0);
+  const currentError = state.caregiver.key === month ? state.caregiver.error : "";
+  const isLoading = state.caregiver.loadingKey === month || (!data && !currentError);
+  const statusBody = isLoading
+    ? `<p class="taskMeta">${uiText("caregiver.loading", "Loading monthly summary...")}</p>`
+    : currentError
+      ? `
+          <div class="caregiverError">
+            <span>${escapeHtml(currentError)}</span>
+            <button class="openButton" type="button" data-caregiver-retry>${uiText("common.retry", "Retry")}</button>
+          </div>
+        `
+      : "";
+  return `
+    <div class="caregiverPage">
+      <section class="panel caregiverSummaryPanel">
+        <div class="panelHeader">
+          <div>
+            <p class="label">${uiText("caregiver.label", "Caregiver")}</p>
+            <h2>${escapeHtml(monthTitle(month))}</h2>
+          </div>
+          <div class="calendarHeaderActions">
+            <div class="monthNav" aria-label="${uiText("calendar.monthNavigationAria", "Month navigation")}">
+              <button class="monthNavButton" type="button" data-month-shift="-1" aria-label="${uiText("calendar.previousMonth", "Previous month")}">&lt;&lt;</button>
+              <button class="monthTodayButton" type="button" data-month-today>${uiText("calendar.today", "Today")}</button>
+              <button class="monthNavButton" type="button" data-month-shift="1" aria-label="${uiText("calendar.nextMonth", "Next month")}">&gt;&gt;</button>
+            </div>
+            <a class="openButton" href="#/calendar">${uiText("caregiver.backToCalendar", "Calendar")}</a>
+          </div>
+        </div>
+        <div class="panelBody">
+          ${statusBody}
+          ${
+            data
+              ? `
+                <form class="caregiverSummaryForm" data-caregiver-settings-form>
+                  <div class="caregiverSummaryRow">
+                    <span>${uiText("caregiver.totalTime", "Total care time")}</span>
+                    <strong>${summary.days}${uiText("caregiver.daysSuffix", "d")} / ${formatCaregiverHours(summary.minutes)}</strong>
+                  </div>
+                  <label class="caregiverSummaryRow">
+                    <span>${uiText("caregiver.hourlyWage", "Hourly wage")}</span>
+                    <span class="caregiverMoneyInput">
+                      <input name="hourlyWage" type="text" inputmode="numeric" value="${escapeHtml(settings.hourlyWage)}" />
+                      <span>${uiText("caregiver.wonSuffix", "won")}</span>
+                    </span>
+                  </label>
+                  <div class="caregiverSummaryRow">
+                    <span>${uiText("caregiver.basePay", "Base pay")}</span>
+                    <strong>${formatCaregiverWon(summary.basePay)}</strong>
+                  </div>
+                  <div class="caregiverSummaryRow">
+                    <span>${uiText("caregiver.extras", "Extra fees")}</span>
+                    <strong>${formatCaregiverWon(summary.extras)}</strong>
+                  </div>
+                  <label class="caregiverSummaryRow">
+                    <span>${uiText("caregiver.transportFee", "Transport fee")}</span>
+                    <span class="caregiverMoneyInput">
+                      <input name="transportFee" type="text" inputmode="numeric" value="${escapeHtml(settings.transportFee)}" />
+                      <span>${uiText("caregiver.wonSuffix", "won")}</span>
+                    </span>
+                  </label>
+                  <div class="caregiverSummaryRow caregiverTotalRow">
+                    <span>${uiText("caregiver.totalPay", "Total payment")}</span>
+                    <strong>${formatCaregiverWon(summary.total)}</strong>
+                  </div>
+                  <button class="primaryButton caregiverSettingsSave" type="submit">${uiText("common.save", "Save")}</button>
+                </form>
+              `
+              : ""
+          }
+        </div>
+      </section>
+      ${
+        data
+          ? `
+            <details class="panel caregiverDetailPanel">
+              <summary class="caregiverDetailSummary">${uiText("caregiver.details", "Monthly details")}</summary>
+              <div class="panelBody caregiverDetailBody">
+                <div class="caregiverMonthGrid" aria-label="${uiText("caregiver.monthGridAria", "Monthly care hours")}">
+                  ${calendarWeekdays().map((day) => `<span class="caregiverWeekday">${day}</span>`).join("")}
+                  ${monthCells(month)
+                    .map((cell) => {
+                      if (cell.muted) return '<span class="caregiverMonthDay isMuted" aria-hidden="true"></span>';
+                      const item = dailyByDate.get(cell.value);
+                      return `
+                        <span class="caregiverMonthDay">
+                          <span>${cell.label}</span>
+                          <strong>${item?.minutes ? escapeHtml(formatCaregiverHours(item.minutes)) : ""}</strong>
+                        </span>
+                      `;
+                    })
+                    .join("")}
+                </div>
+                <div class="caregiverDailyList" aria-label="${uiText("caregiver.dailyBreakdownAria", "Daily care details")}">
+                  ${
+                    recordedDays.length
+                      ? recordedDays
+                          .map(
+                            (item) => `
+                              <div class="caregiverDailyRow">
+                                <div class="caregiverDailyHeading">
+                                  <strong>${escapeHtml(item.date.slice(5))} ${escapeHtml(item.weekday)}</strong>
+                                  <span>${escapeHtml(formatCaregiverHours(item.minutes))}</span>
+                                </div>
+                                <div class="caregiverDailyAmounts">
+                                  <span>${uiText("caregiver.basePay", "Base pay")} ${formatCaregiverWon(item.basePay)}</span>
+                                  <span>${uiText("caregiver.extras", "Extra fees")} ${formatCaregiverWon(item.extras)}</span>
+                                </div>
+                                ${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}
+                              </div>
+                            `,
+                          )
+                          .join("")
+                      : `<p class="taskMeta">${uiText("caregiver.noRecords", "No care records this month.")}</p>`
+                  }
+                </div>
+              </div>
+            </details>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
 function render() {
   const route = getRoute();
   routeTitle(route);
   const view = document.getElementById("view");
   if (route === "calendar") view.innerHTML = renderCalendar();
+  else if (route === "caregiver") view.innerHTML = renderCaregiver();
   else if (route === "tasks") view.innerHTML = renderTasks();
   else if (route === "add") view.innerHTML = renderAdd();
   else if (route === "add-event") {
@@ -2667,6 +2886,7 @@ function render() {
   if (route === "calendar" || route === "today" || ((route === "add-event" || route === "edit-event") && isDesktopLayout())) {
     loadRemoteWeatherForSelectedMonth();
   }
+  if (route === "caregiver") loadCaregiverMonth();
   updateTopBarShadow();
 }
 
@@ -2676,6 +2896,12 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-caregiver-retry]")) {
+    state.caregiver = { key: "", loadingKey: "", error: "", data: null };
+    render();
+    return;
+  }
+
   const addEventMode = event.target.closest("[data-add-event-mode]");
   if (addEventMode) {
     state.addEventMode = addEventMode.dataset.addEventMode === "preset" ? "preset" : "normal";
@@ -2889,7 +3115,7 @@ document.addEventListener("click", async (event) => {
     const previousMonth = state.selectedDate.slice(0, 7);
     shiftSelectedMonth(Number(monthShift.dataset.monthShift));
     render();
-    if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
+    if (getRoute() !== "caregiver" && state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
   }
 
@@ -2897,7 +3123,7 @@ document.addEventListener("click", async (event) => {
     const previousMonth = state.selectedDate.slice(0, 7);
     selectToday();
     render();
-    if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
+    if (getRoute() !== "caregiver" && state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
   }
 
@@ -2958,6 +3184,20 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const caregiverSettingsForm = event.target.closest("[data-caregiver-settings-form]");
+  if (caregiverSettingsForm) {
+    event.preventDefault();
+    try {
+      await saveCaregiverSettings(new FormData(caregiverSettingsForm));
+      render();
+    } catch (error) {
+      window.alert(uiText("dialog.caregiverSaveError", "Could not save caregiver settings: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
   const eventPresetForm = event.target.closest("[data-event-preset-form]");
   if (eventPresetForm) {
     event.preventDefault();

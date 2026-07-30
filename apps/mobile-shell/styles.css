@@ -1774,6 +1774,193 @@ h3 {
   color: #a693ad;
 }
 
+.caregiverPage,
+.caregiverSummaryForm,
+.caregiverDailyList {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.caregiverSummaryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  color: var(--muted);
+}
+
+.caregiverSummaryRow > span:first-child {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.caregiverSummaryRow strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.caregiverMoneyInput {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.caregiverMoneyInput input {
+  width: 116px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: right;
+}
+
+.caregiverTotalRow {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.caregiverTotalRow strong {
+  color: #8c4f83;
+  font-size: 1rem;
+}
+
+.caregiverSettingsSave {
+  width: 100%;
+}
+
+.caregiverError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  color: var(--nord11);
+  font-weight: 750;
+}
+
+.caregiverDetailSummary {
+  position: relative;
+  min-height: 48px;
+  padding: 14px 40px 14px 12px;
+  color: var(--text);
+  font-weight: 850;
+  cursor: pointer;
+  list-style: none;
+}
+
+.caregiverDetailSummary::-webkit-details-marker {
+  display: none;
+}
+
+.caregiverDetailSummary::after {
+  content: "›";
+  position: absolute;
+  right: 16px;
+  transform: rotate(90deg);
+  color: #8c4f83;
+}
+
+.caregiverDetailPanel[open] .caregiverDetailSummary {
+  border-bottom: 1px solid var(--line);
+}
+
+.caregiverDetailPanel[open] .caregiverDetailSummary::after {
+  transform: rotate(-90deg);
+}
+
+.caregiverDetailBody {
+  display: grid;
+  gap: 14px;
+}
+
+.caregiverMonthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.caregiverWeekday {
+  color: var(--dim);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.caregiverMonthDay {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.caregiverMonthDay.isMuted {
+  border-color: transparent;
+  background: transparent;
+}
+
+.caregiverMonthDay strong {
+  overflow-wrap: anywhere;
+  color: #8c4f83;
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.caregiverDailyRow {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.caregiverDailyHeading,
+.caregiverDailyAmounts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.caregiverDailyHeading {
+  color: var(--text);
+}
+
+.caregiverDailyHeading span,
+.caregiverDailyAmounts {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.caregiverDailyRow p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.74rem;
+}
+
 @media (max-width: 380px) {
   .appTop {
     gap: 6px;
@@ -2136,6 +2323,17 @@ h3 {
   .app[data-route="memos"] .view > .panel {
     width: min(100%, 900px);
     margin-inline: auto;
+  }
+
+  .caregiverPage {
+    grid-template-columns: minmax(380px, 0.72fr) minmax(0, 1.28fr);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .caregiverDetailPanel {
+    position: sticky;
+    top: 0;
   }
 
   .rounyWeekGrid {

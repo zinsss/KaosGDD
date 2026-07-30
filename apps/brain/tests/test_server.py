@@ -36,6 +36,11 @@ class BrainStatusTests(unittest.TestCase):
         self.assertEqual(payload["database"]["migration"], "001")
         adapter_status.assert_called_once_with("family.kaosgdd.net")
 
+    def test_caregiver_api_requires_family_profile(self):
+        server.require_family_profile({"Host": "family.kaosgdd.net"})
+        with self.assertRaisesRegex(ValueError, "family_profile_required"):
+            server.require_family_profile({"Host": "kaosgdd.net"})
+
 
 class RequestProxyTests(unittest.TestCase):
     def test_request_body_enforces_adapter_size_limit(self):
