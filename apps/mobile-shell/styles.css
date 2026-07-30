@@ -1413,7 +1413,6 @@ h3 {
   max-height: min(72dvh, 720px);
   overflow-x: hidden;
   overflow-y: auto;
-  border-top: 1px solid var(--line);
   background: var(--surface);
   touch-action: pan-y;
 }
@@ -1452,7 +1451,6 @@ h3 {
 
 .rounyTimelineTimeRail {
   z-index: 2;
-  border-right: 1px solid var(--line);
   background: var(--panel);
 }
 

@@ -2754,6 +2754,7 @@ function renderRounyGrid(template) {
         ${visibleDays.map((day) => `<span class="rounyTimelineDayHeader">${escapeHtml(portalProfile() === "family" ? day.familyLabel : day.label)}</span>`).join("")}
         <div class="rounyTimelineTimeRail" aria-hidden="true">
           ${hours
+            .slice(1, -1)
             .map(
               (hour) => `
                 <span class="rounyTimelineHourLabel" style="top:${(hour - range.startHour) * ROUNY_TIMELINE_HOUR_HEIGHT}px">
