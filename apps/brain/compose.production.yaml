@@ -1,0 +1,48 @@
+name: kaosgdd-brain
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: kaosgdd-brain-database
+    restart: unless-stopped
+    env_file:
+      - path: /srv/kaos/secrets/kaosgdd-brain.env
+        format: raw
+    volumes:
+      - /srv/kaos/data/kaosgdd/brain/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+
+  brain:
+    image: kaosgdd-brain:0.1.0
+    container_name: kaosgdd-brain
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file:
+      - path: /srv/kaos/secrets/kaosgdd-brain.env
+        format: raw
+    environment:
+      BRAIN_PORT: "8092"
+      BRAIN_VERSION: "0.1.0-shadow"
+      BRAIN_DB_HOST: "database"
+      BRAIN_DB_PORT: "5432"
+      CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
+    ports:
+      - "100.94.208.16:8092:8092/tcp"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/health', timeout=5)",
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 10

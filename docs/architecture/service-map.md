@@ -20,7 +20,7 @@
 | --- | --- |
 | KaosGDD portal | `http://100.94.208.16:8090` |
 | KaosGDD calendar adapter | `http://100.94.208.16:8091` |
-| KaosGDD Brain | planned |
+| KaosGDD Brain (shadow) | `http://100.94.208.16:8092` |
 | Paperless | `http://100.94.208.16:8000` |
 | Wiki.js | `http://100.94.208.16:3001` |
 | SFTPGo HTTP | `http://100.94.208.16:8081` |

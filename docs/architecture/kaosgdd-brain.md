@@ -121,4 +121,7 @@ Generated events should be readonly from the user UI.
 
 ## Migration
 
-The existing `apps/calendar-adapter` is the first live Brain slice. Move it only after endpoint parity is proven.
+Brain `0.1.0-shadow` runs beside the existing `apps/calendar-adapter` and
+proxies its read-only calendar bootstrap and weather month routes. Caddy
+continues to route browser traffic to the existing adapter. Add write parity
+and verify it before changing that route.
