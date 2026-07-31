@@ -1262,9 +1262,7 @@ h3 {
 }
 
 .weatherLocationRow::before,
-.weatherLocationRow::after,
-.weatherLocationPastGrid::before,
-.weatherLocationPastGrid::after {
+.weatherLocationRow::after {
   position: absolute;
   top: 12px;
   bottom: 12px;
@@ -1275,13 +1273,11 @@ h3 {
   pointer-events: none;
 }
 
-.weatherLocationRow::before,
-.weatherLocationPastGrid::before {
+.weatherLocationRow::before {
   left: 33.3333%;
 }
 
-.weatherLocationRow::after,
-.weatherLocationPastGrid::after {
+.weatherLocationRow::after {
   left: 66.6667%;
 }
 
@@ -1366,18 +1362,28 @@ h3 {
 }
 
 .weatherLocationPastGrid {
-  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .weatherLocationPastItem {
+  position: relative;
   display: grid;
   align-content: center;
   justify-items: center;
   gap: 7px;
   min-height: 128px;
   padding: 14px 8px;
+}
+
+.weatherLocationPastItem + .weatherLocationPastItem::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 1px;
+  background: var(--line);
+  content: "";
 }
 
 .weatherLocationPastItem .weatherLocationName {
@@ -1390,6 +1396,19 @@ h3 {
   align-self: auto;
   padding: 0;
   border-left: 0;
+}
+
+.weatherLocationAttribution {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 0.66rem;
+  text-align: right;
+}
+
+.weatherLocationAttribution a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .legacySubtasks {

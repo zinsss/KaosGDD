@@ -694,7 +694,7 @@ async function loadRemoteWeatherForSelectedMonth() {
 }
 
 async function openWeatherLocationPopup(dateValue) {
-  const locations = WEATHER_LOCATION_OPTIONS.filter((location) => location.id !== state.weatherLocation);
+  const locations = WEATHER_LOCATION_OPTIONS;
   const key = `${state.weatherLocation}:${dateValue}`;
   state.weatherLocationPopup = {
     open: true,
@@ -785,6 +785,7 @@ async function openCurrentLocationWeather(dateValue) {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         date: dateValue,
+        language: portalProfile() === "family" ? "ko" : "en",
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -797,8 +798,8 @@ async function openCurrentLocationWeather(dateValue) {
       items: [
         {
           id: "current",
-          label: "Current location",
-          translationKey: "weather.currentLocation",
+          label: weather.cityName || uiText("weather.currentLocation", "Current location"),
+          translationKey: "",
           weather,
         },
       ],
@@ -835,6 +836,7 @@ function normalizeWeatherItems(items) {
       minTemp: item?.minTemp ?? "",
       maxTemp: item?.maxTemp ?? "",
       source: String(item?.source || ""),
+      locationAttribution: String(item?.locationAttribution || ""),
       dayparts: Array.isArray(item?.dayparts)
         ? item.dayparts.map((part) => ({
             label: String(part?.label || ""),
@@ -1966,7 +1968,7 @@ function renderWeatherParts(dayparts) {
 function renderWeatherLocationRows(items) {
   return items
     .map(({ id, translationKey, label, weather }) => {
-      const cityLabel = uiText(translationKey, label);
+      const cityLabel = translationKey ? uiText(translationKey, label) : label;
       return `
         <article class="weatherLocationRow" data-weather-location="${escapeHtml(id)}">
           <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
@@ -1996,7 +1998,7 @@ function renderPastWeatherLocationGrid(items) {
     <div class="weatherLocationPastGrid">
       ${items
         .map(({ id, translationKey, label, weather }) => {
-          const cityLabel = uiText(translationKey, label);
+          const cityLabel = translationKey ? uiText(translationKey, label) : label;
           return `
             <article class="weatherLocationPastItem" data-weather-location="${escapeHtml(id)}">
               <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
@@ -2020,6 +2022,7 @@ function renderWeatherLocationPopup() {
   const popup = state.weatherLocationPopup;
   if (!popup.open) return "";
   const currentMode = popup.mode === "current";
+  const locationAttribution = currentMode ? popup.items[0]?.weather?.locationAttribution : "";
   return `
     <div class="weatherLocationOverlay">
       <div class="weatherLocationBackdrop" data-close-weather-locations></div>
@@ -2033,7 +2036,7 @@ function renderWeatherLocationPopup() {
           <div>
             <p class="label">${escapeHtml(compactDateLabel(popup.date))}</p>
             <h2 id="weatherLocationPopupTitle">
-              ${currentMode ? uiText("weather.currentLocation", "Current location") : uiText("weather.otherLocations", "Other locations")}
+              ${currentMode ? uiText("weather.currentLocation", "Current location") : uiText("weather.allLocations", "All locations")}
             </h2>
           </div>
           <button
@@ -2056,6 +2059,17 @@ function renderWeatherLocationPopup() {
               : !currentMode && isPastDate(popup.date)
                 ? renderPastWeatherLocationGrid(popup.items)
                 : renderWeatherLocationRows(popup.items)
+          }
+          ${
+            locationAttribution
+              ? `
+                <p class="weatherLocationAttribution">
+                  <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+                    ${escapeHtml(locationAttribution)}
+                  </a>
+                </p>
+              `
+              : ""
           }
         </div>
       </section>

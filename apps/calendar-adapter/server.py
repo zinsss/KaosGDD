@@ -46,6 +46,10 @@ WEATHER_LOCATIONS = {
 WEATHER_DEFAULT_CITY_KEYS = ("pohang", "daegu", "yeongcheon", "yeonghae")
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+NOMINATIM_REVERSE_URL = os.environ.get(
+    "KAOSGDD_NOMINATIM_REVERSE_URL",
+    "https://nominatim.openstreetmap.org/reverse",
+)
 WEATHER_DAYPARTS = [
     ("Morning", range(6, 12)),
     ("Afternoon", range(12, 18)),
@@ -1054,6 +1058,31 @@ def validate_weather_coordinate(value, field_name, minimum, maximum):
     return coordinate
 
 
+def reverse_geocode_location(latitude, longitude, language):
+    query = urllib.parse.urlencode(
+        {
+            "lat": latitude,
+            "lon": longitude,
+            "format": "jsonv2",
+            "addressdetails": 1,
+            "zoom": 10,
+            "accept-language": language,
+        }
+    )
+    request = urllib.request.Request(
+        f"{NOMINATIM_REVERSE_URL}?{query}",
+        headers={"User-Agent": "KaosGDD/2.0 (https://kaosgdd.net)"},
+    )
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    address = payload.get("address") if isinstance(payload, dict) and isinstance(payload.get("address"), dict) else {}
+    for key in ("city", "town", "village", "municipality", "county", "state_district", "state"):
+        value = str(address.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def current_location_weather_payload(payload):
     latitude = validate_weather_coordinate(payload.get("latitude"), "latitude", -90, 90)
     longitude = validate_weather_coordinate(payload.get("longitude"), "longitude", -180, 180)
@@ -1067,12 +1096,24 @@ def current_location_weather_payload(payload):
         raise ValueError("current_location_weather_future_only")
 
     date_value = target_date.isoformat()
+    language = "ko" if str(payload.get("language") or "").lower() == "ko" else "en"
+    location_name = "현재 위치" if language == "ko" else "Current location"
+    location_attribution = ""
+    try:
+        resolved_name = reverse_geocode_location(latitude, longitude, language)
+        if resolved_name:
+            location_name = resolved_name
+            location_attribution = "© OpenStreetMap contributors"
+    except (json.JSONDecodeError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+        pass
+
     forecast = fetch_open_meteo_forecast_coordinates(latitude, longitude, date_value, date_value)
-    items = forecast_daily_items("current", forecast, "Current location")
+    items = forecast_daily_items("current", forecast, location_name)
     dayparts_by_date = forecast_dayparts(forecast)
     item = items.get(date_value)
     if item:
         item["dayparts"] = dayparts_by_date.get(date_value, [])
+        item["locationAttribution"] = location_attribution
     return {
         "ok": bool(item),
         "date": date_value,

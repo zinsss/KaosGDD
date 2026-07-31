@@ -145,7 +145,9 @@ POST /api/weather/current
 
 This endpoint accepts only today or a future date. It uses the coordinates for
 the Open-Meteo request and does not write a weather journal or return the
-coordinates in its response.
+coordinates in its response. It also attempts a one-off Nominatim reverse
+lookup for the locality name and returns OpenStreetMap attribution when that
+lookup succeeds. Neither the coordinates nor the resolved locality are stored.
 
 The month endpoint merges:
 

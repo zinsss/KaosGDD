@@ -156,8 +156,8 @@ KaosGDD Brain is the backend home for module logic that should not live in the s
 - Apple Reminders order compatibility
 - Market Saturday and Claim Day overlays
 - weather history journals for 포항, 대구, 영천, and 영해
-- a saved default weather location plus on-demand selected-day comparison for the other locations
-- on-request, today-or-future current-location weather with no history write
+- a saved default weather location plus on-demand selected-day comparison for all four locations
+- on-request, today-or-future current-location weather and locality name with no history write
 - caregiver journals and monthly wage review
 
 The family calendar exposes the monthly caregiver review through a family-only

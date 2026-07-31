@@ -37,8 +37,9 @@ class WeatherLocationTests(unittest.TestCase):
                 {"latitude": 91, "longitude": 129.3435, "date": SERVER.datetime.now(SERVER.LOCAL_TIMEZONE).date().isoformat()}
             )
 
+    @mock.patch.object(SERVER, "reverse_geocode_location", return_value="Pohang")
     @mock.patch.object(SERVER, "fetch_open_meteo_forecast_coordinates")
-    def test_current_location_returns_forecast_without_coordinates(self, fetch_forecast):
+    def test_current_location_returns_forecast_without_coordinates(self, fetch_forecast, reverse_geocode):
         target_date = SERVER.datetime.now(SERVER.LOCAL_TIMEZONE).date().isoformat()
         fetch_forecast.return_value = {
             "daily": {
@@ -55,14 +56,16 @@ class WeatherLocationTests(unittest.TestCase):
         }
 
         payload = SERVER.current_location_weather_payload(
-            {"latitude": 36.019, "longitude": 129.3435, "date": target_date}
+            {"latitude": 36.019, "longitude": 129.3435, "date": target_date, "language": "en"}
         )
 
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["item"]["city"], "current")
-        self.assertEqual(payload["item"]["cityName"], "Current location")
+        self.assertEqual(payload["item"]["cityName"], "Pohang")
+        self.assertEqual(payload["item"]["locationAttribution"], "© OpenStreetMap contributors")
         self.assertNotIn("latitude", payload)
         self.assertNotIn("longitude", payload)
+        reverse_geocode.assert_called_once_with(36.019, 129.3435, "en")
 
 
 if __name__ == "__main__":
