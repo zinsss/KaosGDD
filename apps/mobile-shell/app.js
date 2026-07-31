@@ -2094,6 +2094,7 @@ function renderSelectedWeatherDate(dateValue) {
 
 function renderSelectedWeather(weather) {
   const dayparts = weather.dayparts || [];
+  const locationLabel = weatherLocationLabel(weather.city || state.weatherLocation);
   const actionAttributes = `
     data-open-weather-locations="${escapeHtml(weather.date)}"
     role="button"
@@ -2103,7 +2104,7 @@ function renderSelectedWeather(weather) {
   if (isPastDate(weather.date) || !dayparts.length) {
     return `
       <div class="selectedWeatherCompact weatherPopupTrigger" ${actionAttributes}>
-        <span>${uiText("weather.label", "Weather")}</span>
+        <span>${escapeHtml(locationLabel)}</span>
         <strong>${escapeHtml(weatherGlyph(weather))}</strong>
         <em>${escapeHtml(tempRange(weather))}</em>
         ${renderCurrentLocationWeatherButton(weather.date)}
@@ -2115,6 +2116,7 @@ function renderSelectedWeather(weather) {
       <div class="selectedDayWeather weatherPopupTrigger" ${actionAttributes}>
         ${renderSelectedWeatherDate(weather.date)}
         <div class="selectedWeatherSummary">
+          <span class="selectedWeatherLocation">${escapeHtml(locationLabel)}</span>
           <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
           <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
           ${renderCurrentLocationWeatherButton(weather.date)}
@@ -2128,6 +2130,7 @@ function renderSelectedWeather(weather) {
   return `
     <div class="selectedWeather weatherPopupTrigger" ${actionAttributes}>
       <div class="selectedWeatherSummary">
+        <span class="selectedWeatherLocation">${escapeHtml(locationLabel)}</span>
         <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
         ${renderCurrentLocationWeatherButton(weather.date)}
