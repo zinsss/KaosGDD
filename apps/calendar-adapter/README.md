@@ -105,8 +105,12 @@ Supported city keys:
 ```text
 pohang
 daegu
-yeongdeok
+yeongcheon
+yeonghae
 ```
+
+`yeongdeok` remains accepted for existing weather journal history, but it is
+not offered as a default portal location.
 
 Example payload:
 

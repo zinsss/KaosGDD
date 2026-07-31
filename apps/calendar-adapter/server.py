@@ -32,13 +32,18 @@ MAX_POST_BYTES = 20000
 WEATHER_CITIES = {
     "pohang": "포항",
     "daegu": "대구",
+    "yeongcheon": "영천",
+    "yeonghae": "영해",
     "yeongdeok": "영덕",
 }
 WEATHER_LOCATIONS = {
     "pohang": {"label": "포항", "latitude": 36.0190, "longitude": 129.3435},
     "daegu": {"label": "대구", "latitude": 35.8714, "longitude": 128.6014},
+    "yeongcheon": {"label": "영천", "latitude": 35.9733, "longitude": 128.9389},
+    "yeonghae": {"label": "영해", "latitude": 36.5372, "longitude": 129.3878},
     "yeongdeok": {"label": "영덕", "latitude": 36.4151, "longitude": 129.3650},
 }
+WEATHER_DEFAULT_CITY_KEYS = ("pohang", "daegu", "yeongcheon", "yeonghae")
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 WEATHER_DAYPARTS = [
@@ -1134,7 +1139,10 @@ def month_weather_payload(query):
         "error": forecast_error or history_error,
         "city": city,
         "cityName": WEATHER_CITIES[city],
-        "locations": [{"id": key, "label": value["label"]} for key, value in WEATHER_LOCATIONS.items()],
+        "locations": [
+            {"id": key, "label": WEATHER_LOCATIONS[key]["label"]}
+            for key in WEATHER_DEFAULT_CITY_KEYS
+        ],
         "start": start.isoformat(),
         "end": end.isoformat(),
         "today": today.isoformat(),

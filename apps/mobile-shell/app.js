@@ -44,6 +44,14 @@ const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
 const FAMILY_FONT_OPTIONS = new Set(["nanum", "nixgon", "skybori"]);
 const MAIN_FONT_STORAGE_KEY = "kaosgdd.v2.main.font.v1";
 const MAIN_FONT_OPTIONS = new Set(["orbit", "sarasa"]);
+const WEATHER_LOCATION_STORAGE_KEY = "kaosgdd.v2.weather.location.v1";
+const WEATHER_LOCATION_OPTIONS = [
+  { id: "pohang", label: "Pohang", translationKey: "weather.locationPohang" },
+  { id: "daegu", label: "Daegu", translationKey: "weather.locationDaegu" },
+  { id: "yeongcheon", label: "Yeongcheon", translationKey: "weather.locationYeongcheon" },
+  { id: "yeonghae", label: "Yeonghae", translationKey: "weather.locationYeonghae" },
+];
+const WEATHER_LOCATION_IDS = new Set(WEATHER_LOCATION_OPTIONS.map((location) => location.id));
 const ROUNY_TIMELINE_DEFAULT_START_HOUR = 8;
 const ROUNY_TIMELINE_DEFAULT_END_HOUR = 22;
 const ROUNY_TIMELINE_HOUR_HEIGHT = 48;
@@ -134,7 +142,7 @@ const state = {
     events: [],
     tasks: [],
   },
-  weatherLocation: "pohang",
+  weatherLocation: weatherLocationPreference(),
   remoteWeather: {
     checked: false,
     live: false,
@@ -406,7 +414,8 @@ function activeCalendarData() {
 }
 
 function activeWeatherItems() {
-  return state.remoteWeather.live ? state.remoteWeather.items : mockCalendarData.weather;
+  if (state.remoteWeather.live) return state.remoteWeather.items;
+  return state.weatherLocation === "pohang" ? mockCalendarData.weather : [];
 }
 
 function collectionViews() {
@@ -1318,6 +1327,30 @@ function setMainFontPreference(value) {
   applyMainFontPreference(normalized);
 }
 
+function weatherLocationPreference() {
+  const stored = window.localStorage.getItem(WEATHER_LOCATION_STORAGE_KEY) || "";
+  return WEATHER_LOCATION_IDS.has(stored) ? stored : "pohang";
+}
+
+function weatherLocationLabel(locationId = state.weatherLocation) {
+  const location = WEATHER_LOCATION_OPTIONS.find((item) => item.id === locationId) || WEATHER_LOCATION_OPTIONS[0];
+  return uiText(location.translationKey, location.label);
+}
+
+function setWeatherLocationPreference(value) {
+  const normalized = WEATHER_LOCATION_IDS.has(value) ? value : "pohang";
+  window.localStorage.setItem(WEATHER_LOCATION_STORAGE_KEY, normalized);
+  state.weatherLocation = normalized;
+  state.remoteWeather = {
+    checked: false,
+    live: false,
+    key: "",
+    loadingKey: "",
+    error: "",
+    items: [],
+  };
+}
+
 function interpolateText(template, params = {}) {
   return String(template).replace(/\{(\w+)\}/g, (match, key) => (params[key] === undefined ? match : String(params[key])));
 }
@@ -1850,6 +1883,10 @@ function renderToday() {
     .getTasks()
     .filter((task) => task.mode === "inbox" || task.due === state.selectedDate)
     .slice(0, 4);
+  const weather = weatherForDate(state.selectedDate);
+  const weatherSummary = [weather?.cityName || weatherLocationLabel(), tempRange(weather)]
+    .filter(Boolean)
+    .join(" ");
   return `
     ${renderCollectionRail()}
     <div class="todayDesktopGrid">
@@ -1857,7 +1894,10 @@ function renderToday() {
         <div class="panelHeader">
           <div>
             <p class="label">Overview</p>
-            <h2>${escapeHtml(compactDateLabel(state.selectedDate))} · Pohang 21-32 ☀️</h2>
+            <h2>
+              ${escapeHtml(compactDateLabel(state.selectedDate))} · ${escapeHtml(weatherSummary)}
+              ${weather ? `<span class="overviewWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
+            </h2>
           </div>
         </div>
         <div class="panelBody">
@@ -3055,7 +3095,6 @@ function renderSettings() {
           ["Portal", "KaosGDD"],
           ["Calendar", "ZiN + Family shared"],
           ["Tasks", "ZiN + Family shared"],
-          ["Weather", "Pohang, Daegu, Yeongdeok"],
         ];
   return `
     <section class="panel">
@@ -3077,6 +3116,20 @@ function renderSettings() {
               `,
             )
             .join("")}
+          <div>
+            <dt>${uiText("settings.defaultWeather", "Default weather")}</dt>
+            <dd>
+              <select data-weather-location-setting aria-label="${uiText("settings.defaultWeather", "Default weather")}">
+                ${WEATHER_LOCATION_OPTIONS.map(
+                  (location) => `
+                    <option value="${location.id}" ${state.weatherLocation === location.id ? "selected" : ""}>
+                      ${uiText(location.translationKey, location.label)}
+                    </option>
+                  `,
+                ).join("")}
+              </select>
+            </dd>
+          </div>
           ${
             portalProfile() === "family"
               ? `
@@ -3990,6 +4043,13 @@ document.addEventListener("input", (event) => {
 document.addEventListener("change", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
+  const weatherLocation = event.target.closest("[data-weather-location-setting]");
+  if (weatherLocation) {
+    setWeatherLocationPreference(weatherLocation.value);
+    render();
+    return;
+  }
 
   const mainFont = event.target.closest("[data-main-font-setting]");
   if (mainFont) {

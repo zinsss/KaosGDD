@@ -56,7 +56,11 @@ Fixed history locations:
 
 - `pohang` / `포항`
 - `daegu` / `대구`
-- `yeongdeok` / `영덕`
+- `yeongcheon` / `영천`
+- `yeonghae` / `영해`
+
+The legacy `yeongdeok` / `영덕` key remains readable for existing weather
+journals, but new portal defaults do not advertise it.
 
 Only daily history is stored:
 

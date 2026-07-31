@@ -1073,6 +1073,14 @@ h3 {
   line-height: 1;
 }
 
+.overviewWeatherGlyph {
+  color: var(--text);
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1;
+}
+
 .selectedWeatherRange {
   color: var(--text);
   font-size: 0.96rem;

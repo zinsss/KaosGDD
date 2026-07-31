@@ -64,6 +64,10 @@ window.KAOS_TRANSLATIONS = {
     "weather.afternoon": "낮",
     "weather.evening": "저녁",
     "weather.night": "밤",
+    "weather.locationPohang": "포항",
+    "weather.locationDaegu": "대구",
+    "weather.locationYeongcheon": "영천",
+    "weather.locationYeonghae": "영해",
 
     "caregiver.label": "돌봄",
     "caregiver.loading": "월간 돌봄 내역을 불러오는 중...",
@@ -220,6 +224,7 @@ window.KAOS_TRANSLATIONS = {
     "settings.familyTasksValue": "블링02 + 가족 공유",
     "settings.theme": "테마",
     "settings.familyThemeValue": "파스텔 가족 테마",
+    "settings.defaultWeather": "기본 날씨",
     "settings.font": "글꼴",
     "settings.fontNanum": "나눔바른펜",
     "settings.fontNixgon": "닉스곤",
