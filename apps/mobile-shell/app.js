@@ -3088,7 +3088,22 @@ function saveRounyDraft({ asCopy = false } = {}) {
   const draft = collectRounyDraft();
   if (!draft?.name.trim()) {
     window.alert(uiText("dialog.templateNameRequired", "Template name is required."));
-    return;
+    return false;
+  }
+  const validation = validateRounyTemplateTimes(draft);
+  if (validation.invalidCount) {
+    window.alert(uiText("rouny.fixInvalidBeforeSave", "Fix invalid time ranges before saving."));
+    return false;
+  }
+  if (
+    validation.conflictCount
+    && !window.confirm(
+      uiText("rouny.confirmOverlapSave", "{count} time conflict(s) found. Save anyway?", {
+        count: validation.conflictCount,
+      }),
+    )
+  ) {
+    return false;
   }
   const now = new Date().toISOString();
   const nextDraft = normalizeRounyTemplate({
@@ -3105,6 +3120,7 @@ function saveRounyDraft({ asCopy = false } = {}) {
   state.rouny.selectedTemplateId = nextDraft.id;
   state.rouny.draft = cloneValue(nextDraft);
   saveRounyTemplates(templates);
+  return true;
 }
 
 function deleteRounyTemplate(templateId) {
@@ -3134,9 +3150,112 @@ function reorderRounyTemplates(sourceId, targetId) {
 }
 
 function rounyMinutes(timeValue) {
+  return parseRounyMinutes(timeValue) ?? 0;
+}
+
+function parseRounyMinutes(timeValue) {
   const match = String(timeValue || "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return 0;
-  return Number(match[1]) * 60 + Number(match[2]);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function rounySlotValidationKey(itemId, slotId) {
+  return `${itemId}:${slotId}`;
+}
+
+function validateRounyTemplateTimes(template) {
+  const invalidKeys = new Set();
+  const conflictKinds = new Map();
+  const slotsByDay = new Map();
+  let conflictCount = 0;
+
+  (template?.items || []).forEach((item) => {
+    (item.slots || []).forEach((slot) => {
+      const key = rounySlotValidationKey(item.id, slot.id);
+      const start = parseRounyMinutes(slot.startTime);
+      const end = parseRounyMinutes(slot.endTime);
+      if (start === null || end === null || end <= start) {
+        invalidKeys.add(key);
+        return;
+      }
+      const daySlots = slotsByDay.get(slot.dayOfWeek) || [];
+      daySlots.push({ itemId: item.id, slotId: slot.id, key, start, end });
+      slotsByDay.set(slot.dayOfWeek, daySlots);
+    });
+  });
+
+  const addConflict = (record, kind) => {
+    const kinds = conflictKinds.get(record.key) || new Set();
+    kinds.add(kind);
+    conflictKinds.set(record.key, kinds);
+  };
+
+  slotsByDay.forEach((daySlots) => {
+    daySlots.sort((a, b) => a.start - b.start || a.end - b.end);
+    daySlots.forEach((record, index) => {
+      for (let nextIndex = index + 1; nextIndex < daySlots.length; nextIndex += 1) {
+        const next = daySlots[nextIndex];
+        if (next.start >= record.end) break;
+        if (record.start >= next.end) continue;
+        const kind = record.itemId === next.itemId ? "same" : "other";
+        addConflict(record, kind);
+        addConflict(next, kind);
+        conflictCount += 1;
+      }
+    });
+  });
+
+  return {
+    invalidKeys,
+    conflictKinds,
+    invalidCount: invalidKeys.size,
+    conflictCount,
+  };
+}
+
+function rounyTemplateWithItem(template, item) {
+  const items = template?.items || [];
+  const exists = items.some((candidate) => candidate.id === item.id);
+  return {
+    ...template,
+    items: exists
+      ? items.map((candidate) => (candidate.id === item.id ? item : candidate))
+      : [...items, item],
+  };
+}
+
+function rounySlotIssueText(validation, itemId, slotId) {
+  const key = rounySlotValidationKey(itemId, slotId);
+  if (validation.invalidKeys.has(key)) {
+    return uiText("rouny.invalidTime", "End time must be later than start time.");
+  }
+  const kinds = validation.conflictKinds.get(key);
+  if (kinds?.has("same") && kinds.has("other")) {
+    return uiText("rouny.sameAndOtherOverlap", "Overlaps this class and another class.");
+  }
+  if (kinds?.has("same")) return uiText("rouny.sameClassOverlap", "Overlaps another time in this class.");
+  if (kinds?.has("other")) return uiText("rouny.otherClassOverlap", "Overlaps another class.");
+  return "";
+}
+
+function renderRounyValidationSummary(validation) {
+  if (!validation.invalidCount && !validation.conflictCount) return "";
+  const messages = [];
+  if (validation.invalidCount) {
+    messages.push(uiText("rouny.invalidSummary", "{count} invalid time range(s)", { count: validation.invalidCount }));
+  }
+  if (validation.conflictCount) {
+    messages.push(uiText("rouny.overlapSummary", "{count} time conflict(s)", { count: validation.conflictCount }));
+  }
+  return `
+    <div class="rounyValidationSummary ${validation.invalidCount ? "hasInvalidTime" : "hasConflict"}" role="status">
+      <strong>!</strong>
+      <span>${escapeHtml(messages.join(" · "))}</span>
+    </div>
+  `;
 }
 
 function sortRounyItems(items) {
@@ -3226,6 +3345,7 @@ function rounyTimelineBlockStyle(item, slot, range) {
 }
 
 function renderRounyGrid(template) {
+  const validation = validateRounyTemplateTimes(template);
   const grouped = rounyDays.reduce((days, day) => ({ ...days, [day.value]: [] }), {});
   const visibleDays = rounyGridDays();
   const range = rounyTimelineRange(template);
@@ -3247,6 +3367,7 @@ function renderRounyGrid(template) {
           <span>${uiText("rouny.saturday", "Sat")}</span>
         </label>
       </div>
+      ${renderRounyValidationSummary(validation)}
       <div
         class="rounyTimelineGrid ${state.rouny.includeSaturday ? "hasSaturday" : "isWeekdays"}"
         data-rouny-timeline
@@ -3286,19 +3407,28 @@ function renderRounyGrid(template) {
                 <span class="rounyTimelineDropMarker" data-rouny-drop-marker aria-hidden="true"></span>
                 ${grouped[day.value]
                   .map(
-                    ({ item, slot }) => `
+                    ({ item, slot }) => {
+                      const key = rounySlotValidationKey(item.id, slot.id);
+                      const issue = rounySlotIssueText(validation, item.id, slot.id);
+                      const validationClass = validation.invalidKeys.has(key)
+                        ? "hasInvalidTime"
+                        : validation.conflictKinds.has(key)
+                          ? "hasTimeConflict"
+                          : "";
+                      return `
                       <button
-                        class="rounyBlock"
+                        class="rounyBlock ${validationClass}"
                         ${rounyTimelineBlockStyle(item, slot, range)}
                         type="button"
                         draggable="false"
                         data-rouny-grid-item="${escapeHtml(item.id)}"
                         data-rouny-slot-id="${escapeHtml(slot.id)}"
-                        title="${escapeHtml(`${item.title || uiText("common.untitled", "Untitled")} ${rounyTimeLabel(slot)}`)}"
+                        title="${escapeHtml(`${item.title || uiText("common.untitled", "Untitled")} ${rounyTimeLabel(slot)}${issue ? ` · ${issue}` : ""}`)}"
                       >
                         <strong>${escapeHtml(item.title || uiText("common.untitled", "Untitled"))}</strong>
                       </button>
-                    `,
+                    `;
+                    },
                   )
                   .join("")}
               </div>
@@ -3464,6 +3594,7 @@ function renderRounyTemplateDetail() {
 }
 
 function renderRounyClassLayer(item, isNew = false) {
+  const validation = validateRounyTemplateTimes(rounyTemplateWithItem(state.rouny.draft, item));
   return `
     <div class="rounyLayerBackdrop" data-rouny-close-layer></div>
     <aside class="rounyLayer" aria-label="${isNew ? uiText("rouny.addClass", "Add class") : uiText("rouny.editClass", "Edit class")}">
@@ -3475,7 +3606,7 @@ function renderRounyClassLayer(item, isNew = false) {
         <button class="iconTextButton" type="button" data-rouny-close-layer aria-label="${uiText("common.close", "Close")}">×</button>
       </div>
       <form class="rounyLayerForm" data-rouny-class-form data-rouny-item-id="${escapeHtml(item.id)}">
-        ${renderRounyItem(item)}
+        ${renderRounyItem(item, validation)}
         <div class="rounyActions">
           ${isNew ? "" : `<button class="plainButton" type="button" data-rouny-remove-item="${escapeHtml(item.id)}">${uiText("common.delete", "Delete")}</button>`}
           <button class="primaryButton" type="submit">${uiText("common.done", "Done")}</button>
@@ -3513,7 +3644,7 @@ function upsertRounyDraftItem(item) {
     : [...state.rouny.draft.items, item];
 }
 
-function renderRounyItem(item) {
+function renderRounyItem(item, validation = validateRounyTemplateTimes(rounyTemplateWithItem(state.rouny.draft, item))) {
   return `
     <div class="rounyItem" data-rouny-item-id="${escapeHtml(item.id)}">
       <label class="rounyTitleField">
@@ -3521,7 +3652,7 @@ function renderRounyItem(item) {
         <input name="title" type="text" autocomplete="off" value="${escapeHtml(item.title)}" placeholder="${uiText("rouny.activity", "Activity")}" />
       </label>
       <div class="rounySlots">
-        ${item.slots.map((slot) => renderRounySlot(slot, item.slots.length)).join("")}
+        ${item.slots.map((slot) => renderRounySlot(slot, item.slots.length, item.id, validation)).join("")}
       </div>
       <button class="openButton" type="button" data-rouny-add-slot>+ ${uiText("rouny.addTime", "Add")}</button>
       <div class="rounyMetaGrid">
@@ -3538,9 +3669,16 @@ function renderRounyItem(item) {
   `;
 }
 
-function renderRounySlot(slot, slotCount) {
+function renderRounySlot(slot, slotCount, itemId, validation) {
+  const key = rounySlotValidationKey(itemId, slot.id);
+  const issue = rounySlotIssueText(validation, itemId, slot.id);
+  const validationClass = validation.invalidKeys.has(key)
+    ? "hasInvalidTime"
+    : validation.conflictKinds.has(key)
+      ? "hasTimeConflict"
+      : "";
   return `
-    <div class="rounySlotRow" data-rouny-slot-row data-rouny-slot-id="${escapeHtml(slot.id)}">
+    <div class="rounySlotRow ${validationClass}" data-rouny-slot-row data-rouny-slot-id="${escapeHtml(slot.id)}">
       <label>
         <span>${uiText("rouny.day", "Day")}</span>
         <select name="slotDay">
@@ -3556,8 +3694,31 @@ function renderRounySlot(slot, slotCount) {
         <input name="slotEnd" type="time" step="600" value="${escapeHtml(slot.endTime)}" />
       </label>
       <button class="iconTextButton" type="button" data-rouny-remove-slot="${escapeHtml(slot.id)}" aria-label="${uiText("rouny.removeTimeAria", "Remove time")}" ${slotCount <= 1 ? "disabled" : ""}>×</button>
+      <span class="rounySlotValidation" data-rouny-slot-validation ${issue ? "" : "hidden"}>${escapeHtml(issue)}</span>
     </div>
   `;
+}
+
+function updateRounyClassFormValidation(form) {
+  const item = itemFromRounyClassForm(form);
+  const validation = validateRounyTemplateTimes(rounyTemplateWithItem(state.rouny.draft, item));
+  form.querySelectorAll("[data-rouny-slot-row]").forEach((row) => {
+    const key = rounySlotValidationKey(item.id, row.dataset.rounySlotId);
+    const invalid = validation.invalidKeys.has(key);
+    const conflict = validation.conflictKinds.has(key);
+    row.classList.toggle("hasInvalidTime", invalid);
+    row.classList.toggle("hasTimeConflict", !invalid && conflict);
+    row.querySelectorAll('input[type="time"]').forEach((input) => {
+      if (invalid) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+    });
+    const message = row.querySelector("[data-rouny-slot-validation]");
+    if (message) {
+      message.textContent = rounySlotIssueText(validation, item.id, row.dataset.rounySlotId);
+      message.hidden = !message.textContent;
+    }
+  });
+  return { item, validation };
 }
 
 function renderMemos() {
@@ -4229,14 +4390,12 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-rouny-save]")) {
-    saveRounyDraft();
-    render();
+    if (saveRounyDraft()) render();
     return;
   }
 
   if (event.target.closest("[data-rouny-save-as]")) {
-    saveRounyDraft({ asCopy: true });
-    render();
+    if (saveRounyDraft({ asCopy: true })) render();
     return;
   }
 
@@ -4377,7 +4536,16 @@ document.addEventListener("submit", async (event) => {
   const rounyClassForm = event.target.closest("[data-rouny-class-form]");
   if (rounyClassForm) {
     event.preventDefault();
-    upsertRounyDraftItem(itemFromRounyClassForm(rounyClassForm));
+    const { item, validation } = updateRounyClassFormValidation(rounyClassForm);
+    const hasInvalidItemTime = item.slots.some((slot) =>
+      validation.invalidKeys.has(rounySlotValidationKey(item.id, slot.id)),
+    );
+    if (hasInvalidItemTime) {
+      window.alert(uiText("rouny.fixInvalidClassTime", "End time must be later than start time."));
+      rounyClassForm.querySelector(".rounySlotRow.hasInvalidTime [name=\"slotEnd\"]")?.focus();
+      return;
+    }
+    upsertRounyDraftItem(item);
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
     render();
@@ -4386,8 +4554,7 @@ document.addEventListener("submit", async (event) => {
 
   if (event.target.closest("[data-rouny-editor]")) {
     event.preventDefault();
-    saveRounyDraft();
-    render();
+    if (saveRounyDraft()) render();
     return;
   }
 
@@ -4581,6 +4748,9 @@ document.addEventListener(
 document.addEventListener("input", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
+  const rounyClassForm = event.target.closest("[data-rouny-class-form]");
+  if (rounyClassForm) updateRounyClassFormValidation(rounyClassForm);
 });
 
 document.addEventListener("keydown", (event) => {
@@ -4601,6 +4771,9 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("change", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+
+  const rounyClassForm = event.target.closest("[data-rouny-class-form]");
+  if (rounyClassForm) updateRounyClassFormValidation(rounyClassForm);
 
   const weatherLocation = event.target.closest("[data-weather-location-setting]");
   if (weatherLocation) {

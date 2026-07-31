@@ -20,7 +20,7 @@ from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_do
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.4.0")
+VERSION = os.environ.get("BRAIN_VERSION", "0.4.1")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 500_000
 

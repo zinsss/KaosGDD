@@ -42,6 +42,11 @@ def validate_time(value):
     return normalized
 
 
+def time_minutes(value):
+    hour, minute = value.split(":", 1)
+    return int(hour) * 60 + int(minute)
+
+
 def validate_slot(slot):
     if not isinstance(slot, dict):
         raise ValueError("invalid_rouny_slot")
@@ -50,6 +55,8 @@ def validate_slot(slot):
         raise ValueError("invalid_rouny_day")
     start = validate_time(slot.get("startTime"))
     end = validate_time(slot.get("endTime"))
+    if time_minutes(end) <= time_minutes(start):
+        raise ValueError("invalid_rouny_time_range")
     return {
         "id": required_text(slot.get("id"), "slot_id", MAX_ID_LENGTH),
         "dayOfWeek": day,

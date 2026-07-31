@@ -60,6 +60,35 @@ class RounyValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_rouny_time"):
             store.validate_templates(templates)
 
+    def test_rejects_non_positive_time_range(self):
+        templates = valid_templates()
+        templates[0]["items"][0]["slots"][0]["endTime"] = "09:00"
+        with self.assertRaisesRegex(ValueError, "invalid_rouny_time_range"):
+            store.validate_templates(templates)
+
+    def test_allows_overlapping_slots(self):
+        templates = valid_templates()
+        templates[0]["items"].append(
+            {
+                "id": "item-2",
+                "title": "겹치는 수업",
+                "memo": "",
+                "color": "#d7e8f6",
+                "slots": [
+                    {
+                        "id": "slot-2",
+                        "dayOfWeek": "1",
+                        "startTime": "09:20",
+                        "endTime": "10:00",
+                    }
+                ],
+            }
+        )
+
+        result = store.validate_templates(templates)
+
+        self.assertEqual(len(result[0]["items"]), 2)
+
 
 class FakeResult:
     def __init__(self, row):
