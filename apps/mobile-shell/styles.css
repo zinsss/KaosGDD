@@ -1247,11 +1247,10 @@ h3 {
 
 .weatherLocationRow {
   display: grid;
-  grid-template-columns: minmax(70px, 0.75fr) minmax(72px, 0.65fr) minmax(0, 1.6fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
   align-items: center;
   min-height: 108px;
-  padding: 14px 16px;
 }
 
 .weatherLocationRow + .weatherLocationRow {
@@ -1259,14 +1258,24 @@ h3 {
 }
 
 .weatherLocationName {
+  display: grid;
+  align-self: stretch;
+  align-items: center;
+  justify-items: center;
+  padding: 12px 8px;
   color: var(--text);
   font-size: 0.94rem;
+  text-align: center;
 }
 
 .weatherLocationSummary {
   display: grid;
+  align-self: stretch;
+  align-content: center;
   justify-items: center;
   gap: 5px;
+  padding: 12px 8px;
+  border-left: 1px solid var(--line);
 }
 
 .weatherLocationGlyph {
@@ -1286,11 +1295,16 @@ h3 {
 
 .weatherLocationParts {
   display: grid;
+  align-self: stretch;
+  align-content: center;
   gap: 2px;
+  padding: 10px 8px;
+  border-left: 1px solid var(--line);
 }
 
 .weatherLocationParts .weatherPart {
-  grid-template-columns: minmax(54px, 1fr) auto;
+  grid-template-columns: auto auto;
+  justify-content: stretch;
   gap: 6px;
   min-height: 19px;
 }
@@ -1306,13 +1320,50 @@ h3 {
 
 .weatherLocationPastLabel,
 .weatherLocationUnavailable {
+  display: grid;
+  align-self: stretch;
+  align-items: center;
+  justify-items: center;
+  padding: 12px 8px;
+  border-left: 1px solid var(--line);
   color: var(--dim);
   font-size: 0.76rem;
   font-weight: 750;
+  text-align: center;
 }
 
 .weatherLocationUnavailable {
   grid-column: 2 / -1;
+}
+
+.weatherLocationPastGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.weatherLocationPastItem {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  min-height: 128px;
+  padding: 14px 8px;
+}
+
+.weatherLocationPastItem + .weatherLocationPastItem {
+  border-left: 1px solid var(--line);
+}
+
+.weatherLocationPastItem .weatherLocationName {
+  align-self: auto;
+  padding: 0;
+}
+
+.weatherLocationPastItem .weatherLocationUnavailable {
+  grid-column: auto;
+  align-self: auto;
+  padding: 0;
+  border-left: 0;
 }
 
 .legacySubtasks {

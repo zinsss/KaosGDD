@@ -1963,6 +1963,59 @@ function renderWeatherParts(dayparts) {
     .join("");
 }
 
+function renderWeatherLocationRows(items) {
+  return items
+    .map(({ id, translationKey, label, weather }) => {
+      const cityLabel = uiText(translationKey, label);
+      return `
+        <article class="weatherLocationRow" data-weather-location="${escapeHtml(id)}">
+          <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
+          ${
+            weather
+              ? `
+                <div class="weatherLocationSummary">
+                  <span class="weatherLocationGlyph">${escapeHtml(weatherGlyph(weather))}</span>
+                  <span class="weatherLocationRange">${escapeHtml(tempRange(weather))}</span>
+                </div>
+                ${
+                  hasDetailedForecastLayout(weather)
+                    ? `<div class="weatherLocationParts">${renderWeatherParts(weather.dayparts || [])}</div>`
+                    : `<span class="weatherLocationPastLabel">${uiText("weather.dailySummary", "Daily summary")}</span>`
+                }
+              `
+              : `<span class="weatherLocationUnavailable">${uiText("weather.unavailable", "Weather unavailable")}</span>`
+          }
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderPastWeatherLocationGrid(items) {
+  return `
+    <div class="weatherLocationPastGrid">
+      ${items
+        .map(({ id, translationKey, label, weather }) => {
+          const cityLabel = uiText(translationKey, label);
+          return `
+            <article class="weatherLocationPastItem" data-weather-location="${escapeHtml(id)}">
+              <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
+              ${
+                weather
+                  ? `
+                    <span class="weatherLocationGlyph">${escapeHtml(weatherGlyph(weather))}</span>
+                    <span class="weatherLocationRange">${escapeHtml(tempRange(weather))}</span>
+                  `
+                  : `<span class="weatherLocationUnavailable">${uiText("weather.unavailable", "Weather unavailable")}</span>`
+              }
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 function renderWeatherLocationPopup() {
   const popup = state.weatherLocationPopup;
   if (!popup.open) return "";
@@ -2000,31 +2053,9 @@ function renderWeatherLocationPopup() {
                 }</p>`
               : popup.error
                 ? `<p class="weatherLocationStatus isError">${escapeHtml(popup.error)}</p>`
-              : popup.items
-                  .map(({ id, translationKey, label, weather }) => {
-                    const cityLabel = uiText(translationKey, label);
-                    return `
-                      <article class="weatherLocationRow" data-weather-location="${escapeHtml(id)}">
-                        <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
-                        ${
-                          weather
-                            ? `
-                              <div class="weatherLocationSummary">
-                                <span class="weatherLocationGlyph">${escapeHtml(weatherGlyph(weather))}</span>
-                                <span class="weatherLocationRange">${escapeHtml(tempRange(weather))}</span>
-                              </div>
-                              ${
-                                hasDetailedForecastLayout(weather)
-                                  ? `<div class="weatherLocationParts">${renderWeatherParts(weather.dayparts || [])}</div>`
-                                  : `<span class="weatherLocationPastLabel">${uiText("weather.dailySummary", "Daily summary")}</span>`
-                              }
-                            `
-                            : `<span class="weatherLocationUnavailable">${uiText("weather.unavailable", "Weather unavailable")}</span>`
-                        }
-                      </article>
-                    `;
-                  })
-                  .join("")
+              : !currentMode && isPastDate(popup.date)
+                ? renderPastWeatherLocationGrid(popup.items)
+                : renderWeatherLocationRows(popup.items)
           }
         </div>
       </section>
