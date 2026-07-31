@@ -1266,8 +1266,8 @@ h3 {
 .weatherLocationPastGrid::before,
 .weatherLocationPastGrid::after {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: 12px;
   z-index: 1;
   width: 1px;
   background: var(--line);
