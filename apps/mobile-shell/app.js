@@ -151,6 +151,13 @@ const state = {
     error: "",
     items: [],
   },
+  weatherLocationPopup: {
+    open: false,
+    key: "",
+    date: "",
+    loading: false,
+    items: [],
+  },
   caregiver: {
     key: "",
     loadingKey: "",
@@ -682,6 +689,57 @@ async function loadRemoteWeatherForSelectedMonth() {
     };
   }
   if (getRoute() === "calendar" || getRoute() === "today" || (getRoute() === "add-event" && isDesktopLayout())) render();
+}
+
+async function openWeatherLocationPopup(dateValue) {
+  const locations = WEATHER_LOCATION_OPTIONS.filter((location) => location.id !== state.weatherLocation);
+  const key = `${state.weatherLocation}:${dateValue}`;
+  state.weatherLocationPopup = {
+    open: true,
+    key,
+    date: dateValue,
+    loading: true,
+    items: [],
+  };
+  render();
+  document.querySelector("[data-close-weather-locations]")?.focus();
+
+  const items = await Promise.all(
+    locations.map(async (location) => {
+      try {
+        const params = new URLSearchParams({
+          city: location.id,
+          start: dateValue,
+          end: dateValue,
+        });
+        const response = await fetch(`/api/weather/month?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const weather = normalizeWeatherItems(payload.items || []).find((item) => item.date === dateValue) || null;
+        return { ...location, weather, error: payload.error || "" };
+      } catch (error) {
+        return { ...location, weather: null, error: error.message || "Weather unavailable" };
+      }
+    }),
+  );
+
+  if (state.weatherLocationPopup.key !== key) return;
+  state.weatherLocationPopup = {
+    ...state.weatherLocationPopup,
+    loading: false,
+    items,
+  };
+  if (state.weatherLocationPopup.open && getRoute() === "calendar") render();
+}
+
+function closeWeatherLocationPopup() {
+  state.weatherLocationPopup = {
+    ...state.weatherLocationPopup,
+    open: false,
+  };
+  render();
 }
 
 function normalizeWeatherItems(items) {
@@ -1824,6 +1882,66 @@ function renderWeatherParts(dayparts) {
     .join("");
 }
 
+function renderWeatherLocationPopup() {
+  const popup = state.weatherLocationPopup;
+  if (!popup.open) return "";
+  return `
+    <div class="weatherLocationOverlay">
+      <div class="weatherLocationBackdrop" data-close-weather-locations></div>
+      <section
+        class="weatherLocationPopup"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="weatherLocationPopupTitle"
+      >
+        <header class="weatherLocationPopupHeader">
+          <div>
+            <p class="label">${escapeHtml(compactDateLabel(popup.date))}</p>
+            <h2 id="weatherLocationPopupTitle">${uiText("weather.otherLocations", "Other locations")}</h2>
+          </div>
+          <button
+            class="weatherLocationClose"
+            type="button"
+            data-close-weather-locations
+            aria-label="${uiText("common.close", "Close")}"
+          >×</button>
+        </header>
+        <div class="weatherLocationList">
+          ${
+            popup.loading
+              ? `<p class="weatherLocationStatus">${uiText("weather.loadingOtherLocations", "Loading other locations...")}</p>`
+              : popup.items
+                  .map(({ id, translationKey, label, weather }) => {
+                    const cityLabel = uiText(translationKey, label);
+                    return `
+                      <article class="weatherLocationRow" data-weather-location="${escapeHtml(id)}">
+                        <strong class="weatherLocationName">${escapeHtml(cityLabel)}</strong>
+                        ${
+                          weather
+                            ? `
+                              <div class="weatherLocationSummary">
+                                <span class="weatherLocationGlyph">${escapeHtml(weatherGlyph(weather))}</span>
+                                <span class="weatherLocationRange">${escapeHtml(tempRange(weather))}</span>
+                              </div>
+                              ${
+                                hasDetailedForecastLayout(weather)
+                                  ? `<div class="weatherLocationParts">${renderWeatherParts(weather.dayparts || [])}</div>`
+                                  : `<span class="weatherLocationPastLabel">${uiText("weather.dailySummary", "Daily summary")}</span>`
+                              }
+                            `
+                            : `<span class="weatherLocationUnavailable">${uiText("weather.unavailable", "Weather unavailable")}</span>`
+                        }
+                      </article>
+                    `;
+                  })
+                  .join("")
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderSelectedWeatherDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
   const weekday = new Intl.DateTimeFormat(portalProfile() === "family" ? "ko-KR" : "en-US", {
@@ -1841,9 +1959,15 @@ function renderSelectedWeatherDate(dateValue) {
 
 function renderSelectedWeather(weather) {
   const dayparts = weather.dayparts || [];
+  const actionAttributes = `
+    data-open-weather-locations="${escapeHtml(weather.date)}"
+    role="button"
+    tabindex="0"
+    aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}. ${uiText("weather.openOtherLocations", "Open weather for other locations")}"
+  `;
   if (isPastDate(weather.date) || !dayparts.length) {
     return `
-      <div class="selectedWeatherCompact" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+      <div class="selectedWeatherCompact weatherPopupTrigger" ${actionAttributes}>
         <span>${uiText("weather.label", "Weather")}</span>
         <strong>${escapeHtml(weatherGlyph(weather))}</strong>
         <em>${escapeHtml(tempRange(weather))}</em>
@@ -1852,7 +1976,7 @@ function renderSelectedWeather(weather) {
   }
   if (hasDetailedForecastLayout(weather)) {
     return `
-      <div class="selectedDayWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+      <div class="selectedDayWeather weatherPopupTrigger" ${actionAttributes}>
         ${renderSelectedWeatherDate(weather.date)}
         <div class="selectedWeatherSummary">
           <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
@@ -1865,7 +1989,7 @@ function renderSelectedWeather(weather) {
     `;
   }
   return `
-    <div class="selectedWeather" aria-label="${uiText("weather.selectedDayAria", "Selected day weather")}">
+    <div class="selectedWeather weatherPopupTrigger" ${actionAttributes}>
       <div class="selectedWeatherSummary">
         <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
@@ -2039,6 +2163,7 @@ function renderCalendarWorkspace(contextHtml = renderCalendarAgendaPanel()) {
       ${renderCalendarMonthPanel()}
       ${contextHtml}
     </div>
+    ${renderWeatherLocationPopup()}
   `;
 }
 
@@ -3417,6 +3542,17 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-close-weather-locations]")) {
+    closeWeatherLocationPopup();
+    return;
+  }
+
+  const openWeatherLocations = event.target.closest("[data-open-weather-locations]");
+  if (openWeatherLocations) {
+    await openWeatherLocationPopup(openWeatherLocations.dataset.openWeatherLocations || state.selectedDate);
+    return;
+  }
+
   const addCaregiverSession = event.target.closest("[data-caregiver-add-session]");
   if (addCaregiverSession) {
     const form = addCaregiverSession.closest("[data-caregiver-day-form]");
@@ -4038,6 +4174,17 @@ document.addEventListener(
 document.addEventListener("input", (event) => {
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.weatherLocationPopup.open) {
+    closeWeatherLocationPopup();
+    return;
+  }
+  const weatherTrigger = event.target.closest("[data-open-weather-locations]");
+  if (!weatherTrigger || (event.key !== "Enter" && event.key !== " ")) return;
+  event.preventDefault();
+  weatherTrigger.click();
 });
 
 document.addEventListener("change", (event) => {

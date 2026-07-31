@@ -68,6 +68,11 @@ window.KAOS_TRANSLATIONS = {
     "weather.locationDaegu": "대구",
     "weather.locationYeongcheon": "영천",
     "weather.locationYeonghae": "영해",
+    "weather.otherLocations": "다른 지역 날씨",
+    "weather.openOtherLocations": "다른 지역 날씨 열기",
+    "weather.loadingOtherLocations": "다른 지역 날씨를 불러오는 중...",
+    "weather.dailySummary": "일일 요약",
+    "weather.unavailable": "날씨 정보 없음",
 
     "caregiver.label": "돌봄",
     "caregiver.loading": "월간 돌봄 내역을 불러오는 중...",
