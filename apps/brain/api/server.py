@@ -16,12 +16,13 @@ from services.caregiver.upstream import (
     put_caregiver_settings,
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
+from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.3.1-shadow")
+VERSION = os.environ.get("BRAIN_VERSION", "0.4.0")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-MAX_REQUEST_BYTES = 20_000
+MAX_REQUEST_BYTES = 500_000
 
 
 def json_response(handler, status, payload):
@@ -104,6 +105,17 @@ def proxy_request(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/rouny/templates":
+            try:
+                require_family_profile(self.headers)
+                json_response(self, 200, get_rouny_document())
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "family_profile_required" else 400, {"error": str(exc)})
+            except Exception as exc:
+                print(f"Rouny read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "rouny_storage_unavailable"})
+            return
+
         if parsed.path == "/api/caregiver/month":
             try:
                 require_family_profile(self.headers)
@@ -147,6 +159,31 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/rouny/templates":
+            try:
+                require_family_profile(self.headers)
+                payload = json_request(self)
+                json_response(
+                    self,
+                    200,
+                    put_rouny_document(payload.get("templates"), payload.get("baseRevision")),
+                )
+            except RounyConflict as exc:
+                json_response(
+                    self,
+                    409,
+                    {
+                        "ok": False,
+                        "error": "rouny_revision_conflict",
+                        "document": exc.document,
+                    },
+                )
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "family_profile_required" else 400, {"error": str(exc)})
+            except Exception as exc:
+                print(f"Rouny write failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "rouny_storage_unavailable"})
+            return
         if path == "/api/caregiver/settings":
             try:
                 require_family_profile(self.headers)

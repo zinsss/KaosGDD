@@ -1,4 +1,5 @@
 import io
+import json
 import pathlib
 import sys
 import unittest
@@ -93,6 +94,53 @@ class RequestProxyTests(unittest.TestCase):
             server.proxy_request(handler, "POST")
 
         request_body.assert_not_called()
+
+
+class RounyRequestTests(unittest.TestCase):
+    @mock.patch.object(server, "get_rouny_document")
+    def test_get_rouny_document_is_family_only(self, get_rouny_document):
+        get_rouny_document.return_value = {
+            "ok": True,
+            "scope": "family",
+            "revision": 2,
+            "templates": [],
+            "updatedAt": "",
+        }
+        handler = mock.Mock()
+        handler.path = "/api/rouny/templates"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        get_rouny_document.assert_called_once_with()
+
+        denied = mock.Mock()
+        denied.path = "/api/rouny/templates"
+        denied.headers = {"Host": "kaosgdd.net"}
+        denied.wfile = io.BytesIO()
+        server.Handler.do_GET(denied)
+        denied.send_response.assert_called_once_with(404)
+
+    @mock.patch.object(server, "put_rouny_document")
+    @mock.patch.object(server, "json_request")
+    def test_put_rouny_document_returns_conflict_copy(self, json_request, put_rouny_document):
+        json_request.return_value = {"baseRevision": 2, "templates": []}
+        put_rouny_document.side_effect = server.RounyConflict(
+            {"ok": True, "scope": "family", "revision": 3, "templates": [], "updatedAt": ""}
+        )
+        handler = mock.Mock()
+        handler.path = "/api/rouny/templates"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_PUT(handler)
+
+        handler.send_response.assert_called_once_with(409)
+        payload = json.loads(handler.wfile.getvalue())
+        self.assertEqual(payload["error"], "rouny_revision_conflict")
+        self.assertEqual(payload["document"]["revision"], 3)
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ const DESKTOP_MEDIA_QUERY = "(min-width: 1180px)";
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
 const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
+const ROUNY_SYNC_REVISION_KEY = "kaosgdd.v2.rouny.syncRevision.v1";
+const ROUNY_SYNC_DIRTY_KEY = "kaosgdd.v2.rouny.syncDirty.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
 const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
 const FAMILY_FONT_OPTIONS = new Set(["nanum", "nixgon", "skybori"]);
@@ -60,6 +62,9 @@ const ROUNY_DRAG_MOVE_THRESHOLD = 8;
 const desktopMedia = window.matchMedia(DESKTOP_MEDIA_QUERY);
 let rounyPointerDrag = null;
 let suppressRounyGridClick = false;
+let rounyRemoteLoadPromise = null;
+let rounyRemoteSavePromise = null;
+let rounyRemoteSavePending = false;
 
 function isDesktopLayout() {
   return desktopMedia.matches;
@@ -176,6 +181,16 @@ const state = {
     editingItemDraft: null,
     dragTemplateId: "",
     includeSaturday: false,
+    hasPersistedLocal: false,
+    localRevision: null,
+    localDirty: false,
+    remoteChecked: false,
+    remoteLoading: false,
+    remoteLive: false,
+    revision: 0,
+    syncState: "local",
+    syncError: "",
+    remoteDocument: null,
   },
   eventPresets: {
     checked: false,
@@ -2840,32 +2855,206 @@ function normalizeRounyTemplate(template) {
   };
 }
 
-function loadRounyTemplates() {
+function readLocalRounyDocument() {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(ROUNY_TEMPLATE_STORAGE_KEY) || "[]");
+    const raw = window.localStorage.getItem(ROUNY_TEMPLATE_STORAGE_KEY);
+    const parsed = JSON.parse(raw || "[]");
     const templates = Array.isArray(parsed) ? parsed.map(normalizeRounyTemplate).filter(Boolean) : [];
-    return templates.length ? templates : [defaultRounyTemplate(uiText("rouny.basic", "Basic"))];
+    const revisionValue = window.localStorage.getItem(ROUNY_SYNC_REVISION_KEY);
+    const revision = revisionValue !== null && /^\d+$/.test(revisionValue) ? Number(revisionValue) : null;
+    return {
+      exists: raw !== null && templates.length > 0,
+      templates,
+      revision,
+      dirty: window.localStorage.getItem(ROUNY_SYNC_DIRTY_KEY) === "true",
+    };
   } catch {
-    return [defaultRounyTemplate(uiText("rouny.basic", "Basic"))];
+    return { exists: false, templates: [], revision: null, dirty: false };
   }
+}
+
+function persistRounyTemplates(templates, { revision, dirty } = {}) {
+  window.localStorage.setItem(ROUNY_TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+  state.rouny.hasPersistedLocal = templates.length > 0;
+  if (revision !== undefined) {
+    state.rouny.localRevision = revision;
+    window.localStorage.setItem(ROUNY_SYNC_REVISION_KEY, String(revision));
+  }
+  if (dirty !== undefined) {
+    state.rouny.localDirty = dirty;
+    window.localStorage.setItem(ROUNY_SYNC_DIRTY_KEY, String(dirty));
+  }
+}
+
+function rounyTemplatesSignature(templates) {
+  return JSON.stringify((templates || []).map(normalizeRounyTemplate).filter(Boolean));
+}
+
+function applyRemoteRounyDocument(document) {
+  const templates = Array.isArray(document?.templates)
+    ? document.templates.map(normalizeRounyTemplate).filter(Boolean)
+    : [];
+  const revision = Math.max(0, Number(document?.revision) || 0);
+  state.rouny.revision = revision;
+  state.rouny.localRevision = revision;
+  state.rouny.localDirty = false;
+  state.rouny.remoteDocument = null;
+  if (templates.length) {
+    state.rouny.templates = templates;
+    if (!templates.some((template) => template.id === state.rouny.selectedTemplateId)) {
+      state.rouny.selectedTemplateId = templates[0].id;
+    }
+    const selected = templates.find((template) => template.id === state.rouny.selectedTemplateId) || templates[0];
+    state.rouny.draft = cloneValue(selected);
+    window.localStorage.setItem(ROUNY_SELECTED_STORAGE_KEY, selected.id);
+    persistRounyTemplates(templates, { revision, dirty: false });
+  } else {
+    window.localStorage.setItem(ROUNY_SYNC_REVISION_KEY, String(revision));
+    window.localStorage.setItem(ROUNY_SYNC_DIRTY_KEY, "false");
+  }
+}
+
+function updateRounySyncStatus() {
+  const status = document.querySelector("[data-rouny-sync-status]");
+  if (status) status.outerHTML = renderRounySyncStatus();
+}
+
+async function loadRemoteRounyTemplates({ force = false } = {}) {
+  if (portalProfile() !== "family") return null;
+  if (rounyRemoteLoadPromise && !force) return rounyRemoteLoadPromise;
+  state.rouny.remoteLoading = true;
+  state.rouny.syncState = "loading";
+  state.rouny.syncError = "";
+  updateRounySyncStatus();
+
+  rounyRemoteLoadPromise = (async () => {
+    try {
+      const response = await fetch("/api/rouny/templates", { headers: { Accept: "application/json" } });
+      const document = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(document.error || `HTTP ${response.status}`);
+
+      const serverTemplates = Array.isArray(document.templates)
+        ? document.templates.map(normalizeRounyTemplate).filter(Boolean)
+        : [];
+      const serverRevision = Math.max(0, Number(document.revision) || 0);
+      const localSignature = rounyTemplatesSignature(state.rouny.templates);
+      const serverSignature = rounyTemplatesSignature(serverTemplates);
+      state.rouny.remoteChecked = true;
+      state.rouny.remoteLoading = false;
+      state.rouny.remoteLive = true;
+      state.rouny.revision = serverRevision;
+      state.rouny.syncError = "";
+
+      if (!serverTemplates.length) {
+        if (state.rouny.hasPersistedLocal) {
+          state.rouny.syncState = "saving";
+          queueRounyRemoteSave();
+        } else {
+          state.rouny.localRevision = serverRevision;
+          state.rouny.localDirty = false;
+          state.rouny.syncState = "connected";
+          window.localStorage.setItem(ROUNY_SYNC_REVISION_KEY, String(serverRevision));
+          window.localStorage.setItem(ROUNY_SYNC_DIRTY_KEY, "false");
+        }
+      } else if (!state.rouny.hasPersistedLocal || localSignature === serverSignature) {
+        applyRemoteRounyDocument(document);
+        state.rouny.syncState = "synced";
+      } else if (state.rouny.localDirty && state.rouny.localRevision === serverRevision) {
+        state.rouny.syncState = "saving";
+        queueRounyRemoteSave();
+      } else if (!state.rouny.localDirty && state.rouny.localRevision !== null) {
+        applyRemoteRounyDocument(document);
+        state.rouny.syncState = "synced";
+      } else {
+        state.rouny.remoteDocument = { ...document, templates: serverTemplates };
+        state.rouny.syncState = "conflict";
+      }
+    } catch (error) {
+      state.rouny.remoteChecked = true;
+      state.rouny.remoteLoading = false;
+      state.rouny.remoteLive = false;
+      state.rouny.syncState = "offline";
+      state.rouny.syncError = error.message || "Rouny storage unavailable";
+    }
+    if (getRoute() === "rouny") render();
+    return state.rouny.remoteLive;
+  })().finally(() => {
+    rounyRemoteLoadPromise = null;
+  });
+  return rounyRemoteLoadPromise;
+}
+
+function queueRounyRemoteSave() {
+  if (portalProfile() !== "family" || state.rouny.syncState === "conflict") return;
+  rounyRemoteSavePending = true;
+  if (rounyRemoteSavePromise) return;
+
+  rounyRemoteSavePromise = (async () => {
+    if (!state.rouny.remoteChecked) await loadRemoteRounyTemplates();
+    while (rounyRemoteSavePending && state.rouny.remoteLive && state.rouny.syncState !== "conflict") {
+      rounyRemoteSavePending = false;
+      const templates = cloneValue(state.rouny.templates);
+      const signature = rounyTemplatesSignature(templates);
+      state.rouny.syncState = "saving";
+      state.rouny.syncError = "";
+      updateRounySyncStatus();
+      try {
+        const response = await fetch("/api/rouny/templates", {
+          method: "PUT",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ baseRevision: state.rouny.revision, templates }),
+        });
+        const document = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+          state.rouny.remoteDocument = document.document || null;
+          state.rouny.syncState = "conflict";
+          state.rouny.syncError = document.error || "rouny_revision_conflict";
+          break;
+        }
+        if (!response.ok) throw new Error(document.error || `HTTP ${response.status}`);
+        state.rouny.revision = Math.max(0, Number(document.revision) || 0);
+        const changedAgain = signature !== rounyTemplatesSignature(state.rouny.templates);
+        persistRounyTemplates(state.rouny.templates, { revision: state.rouny.revision, dirty: changedAgain });
+        state.rouny.syncState = changedAgain ? "saving" : "synced";
+        if (changedAgain) rounyRemoteSavePending = true;
+      } catch (error) {
+        state.rouny.remoteLive = false;
+        state.rouny.syncState = "offline";
+        state.rouny.syncError = error.message || "Rouny storage unavailable";
+        break;
+      }
+      updateRounySyncStatus();
+    }
+  })().finally(() => {
+    rounyRemoteSavePromise = null;
+    updateRounySyncStatus();
+  });
 }
 
 function saveRounyTemplates(templates) {
   const normalized = templates.map(normalizeRounyTemplate).filter(Boolean);
   state.rouny.templates = normalized;
-  window.localStorage.setItem(ROUNY_TEMPLATE_STORAGE_KEY, JSON.stringify(normalized));
+  persistRounyTemplates(normalized, { dirty: true });
   if (state.rouny.selectedTemplateId) window.localStorage.setItem(ROUNY_SELECTED_STORAGE_KEY, state.rouny.selectedTemplateId);
+  queueRounyRemoteSave();
 }
 
 function ensureRounyState() {
   if (!state.rouny.checked) {
-    state.rouny.templates = loadRounyTemplates();
+    const local = readLocalRounyDocument();
+    state.rouny.templates = local.templates.length
+      ? local.templates
+      : [defaultRounyTemplate(uiText("rouny.basic", "Basic"))];
+    state.rouny.hasPersistedLocal = local.exists;
+    state.rouny.localRevision = local.revision;
+    state.rouny.localDirty = local.dirty;
     state.rouny.selectedTemplateId = window.localStorage.getItem(ROUNY_SELECTED_STORAGE_KEY) || state.rouny.templates[0]?.id || "";
     state.rouny.includeSaturday = window.localStorage.getItem(ROUNY_INCLUDE_SATURDAY_KEY) === "true";
     if (!state.rouny.templates.some((template) => template.id === state.rouny.selectedTemplateId)) {
       state.rouny.selectedTemplateId = state.rouny.templates[0]?.id || "";
     }
     state.rouny.checked = true;
+    window.setTimeout(() => loadRemoteRounyTemplates(), 0);
   }
   if (!state.rouny.draft) {
     const selected = state.rouny.templates.find((template) => template.id === state.rouny.selectedTemplateId) || state.rouny.templates[0];
@@ -3180,6 +3369,32 @@ function clearRounyPointerDrag() {
   rounyPointerDrag = null;
 }
 
+function renderRounySyncStatus() {
+  const status = state.rouny.syncState;
+  let label = uiText("rouny.syncLocal", "Saved on this device");
+  let actions = "";
+  if (status === "loading") label = uiText("rouny.syncLoading", "Loading saved timetables...");
+  else if (status === "saving") label = uiText("rouny.syncSaving", "Saving...");
+  else if (status === "connected") label = uiText("rouny.syncConnected", "Brain connected");
+  else if (status === "synced") label = uiText("rouny.syncSaved", "Saved to Brain");
+  else if (status === "offline") {
+    label = uiText("rouny.syncOffline", "Offline; saved on this device");
+    actions = `<button class="plainButton" type="button" data-rouny-sync-retry>${uiText("common.retry", "Retry")}</button>`;
+  } else if (status === "conflict") {
+    label = uiText("rouny.syncConflict", "Choose which timetable copy to keep");
+    actions = `
+      <button class="plainButton" type="button" data-rouny-use-server>${uiText("rouny.useServerCopy", "Use server")}</button>
+      <button class="plainButton" type="button" data-rouny-use-local>${uiText("rouny.useDeviceCopy", "Use this device")}</button>
+    `;
+  }
+  return `
+    <div class="rounySyncStatus is-${escapeHtml(status)}" data-rouny-sync-status role="status">
+      <span>${escapeHtml(label)}</span>
+      <div>${actions}</div>
+    </div>
+  `;
+}
+
 function renderRouny() {
   ensureRounyState();
   if (state.rouny.page !== "detail") return renderRounyTemplateList();
@@ -3198,6 +3413,7 @@ function renderRounyTemplateList() {
         <button class="openButton" type="button" data-rouny-new>${uiText("rouny.newTemplate", "New")}</button>
       </div>
       <div class="panelBody">
+        ${renderRounySyncStatus()}
         <div class="rounyTemplateList" aria-label="${uiText("rouny.savedTemplatesAria", "Saved Rouny templates")}">
           ${state.rouny.templates
             .map(
@@ -3233,6 +3449,7 @@ function renderRounyTemplateDetail() {
             <h2>${escapeHtml(draft.name)}</h2>
             <button class="openButton" type="button" data-rouny-rename>${uiText("rouny.rename", "Rename")}</button>
           </div>
+          ${renderRounySyncStatus()}
         </div>
       </section>
       ${renderRounyGrid(draft)}
@@ -3871,6 +4088,35 @@ document.addEventListener("click", async (event) => {
     state.rouny.page = "detail";
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-sync-retry]")) {
+    state.rouny.remoteChecked = false;
+    state.rouny.remoteLive = false;
+    state.rouny.syncState = "loading";
+    render();
+    loadRemoteRounyTemplates({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-use-server]")) {
+    if (!state.rouny.remoteDocument) return;
+    applyRemoteRounyDocument(state.rouny.remoteDocument);
+    state.rouny.syncState = "synced";
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-use-local]")) {
+    const revision = Math.max(0, Number(state.rouny.remoteDocument?.revision) || state.rouny.revision || 0);
+    state.rouny.revision = revision;
+    state.rouny.remoteDocument = null;
+    state.rouny.remoteLive = true;
+    state.rouny.syncState = "saving";
+    persistRounyTemplates(state.rouny.templates, { revision, dirty: true });
+    queueRounyRemoteSave();
     render();
     return;
   }

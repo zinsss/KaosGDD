@@ -1634,6 +1634,36 @@ h3 {
   gap: 8px;
 }
 
+.rounySyncStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  color: var(--dim);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.rounySyncStatus > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rounySyncStatus .plainButton {
+  min-height: 28px;
+  padding: 0 7px;
+}
+
+.rounySyncStatus.is-conflict {
+  color: var(--nord13);
+}
+
+.rounySyncStatus.is-offline {
+  color: var(--nord12);
+}
+
 .rounyBackButton {
   justify-self: start;
   min-height: 28px;

@@ -15,6 +15,12 @@ This is the first app-shaped version after the mobile v1 prototype. The frontend
 
 Data enters the UI through adapter-shaped functions in `app.js`. Calendar and task reads/writes use `/api/calendar/*`; mock data remains a local fallback when the adapter is unavailable.
 
+Family Rouny templates use `/api/rouny/templates`, owned by KaosGDD Brain.
+The browser keeps an offline local cache and sends revision-checked full-document
+writes. A pre-Brain local timetable migrates automatically only while the server
+document is empty; a fresh browser's generated Basic template is not uploaded
+until the user saves it.
+
 Future adapters:
 
 - Calendar and task data -> Radicale adapter

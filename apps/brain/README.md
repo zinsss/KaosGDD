@@ -45,7 +45,7 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.3.1-shadow` is the side-by-side runtime:
+Brain `0.4.0` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
@@ -57,10 +57,17 @@ Brain `0.3.1-shadow` is the side-by-side runtime:
 - family-only `PUT /api/caregiver/day`
 - family-only `DELETE /api/caregiver/day`
 - family-only `PUT /api/caregiver/settings`
+- family-only `GET /api/rouny/templates`
+- family-only revision-checked `PUT /api/rouny/templates`
 - strict method/path allowlisting
-- a Caddy route only for `/api/caregiver/*` on `family.kaosgdd.net`
+- Caddy routes for `/api/caregiver/*` and `/api/rouny/*` only on `family.kaosgdd.net`
 
-PostgreSQL owns only Brain configuration. Radicale remains authoritative for events, tasks, weather journals, and caregiver journals.
+PostgreSQL owns Brain configuration and Rouny timetable templates. Radicale remains authoritative for events, tasks, weather journals, and caregiver journals.
+
+Rouny templates are stored as one atomic document for the Family portal. Each
+write includes the last server revision; stale writes receive `409` and both
+copies remain available for explicit conflict resolution in the portal. The
+browser keeps a local cache so an unavailable Brain does not erase a timetable.
 
 The monthly caregiver review follows the legacy KaosGDD calculation:
 
