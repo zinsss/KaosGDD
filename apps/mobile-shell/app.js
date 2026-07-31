@@ -153,9 +153,11 @@ const state = {
   },
   weatherLocationPopup: {
     open: false,
+    mode: "locations",
     key: "",
     date: "",
     loading: false,
+    error: "",
     items: [],
   },
   caregiver: {
@@ -696,9 +698,11 @@ async function openWeatherLocationPopup(dateValue) {
   const key = `${state.weatherLocation}:${dateValue}`;
   state.weatherLocationPopup = {
     open: true,
+    mode: "locations",
     key,
     date: dateValue,
     loading: true,
+    error: "",
     items: [],
   };
   render();
@@ -731,6 +735,83 @@ async function openWeatherLocationPopup(dateValue) {
     loading: false,
     items,
   };
+  if (state.weatherLocationPopup.open && getRoute() === "calendar") render();
+}
+
+function currentPosition() {
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error(uiText("weather.locationUnsupported", "Current location is not supported.")));
+  }
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      timeout: 12000,
+      maximumAge: 300000,
+    });
+  });
+}
+
+function currentLocationErrorMessage(error) {
+  if (error?.code === 1) return uiText("weather.locationPermissionDenied", "Location permission was denied.");
+  if (error?.code === 2) return uiText("weather.locationUnavailable", "Current location is unavailable.");
+  if (error?.code === 3) return uiText("weather.locationTimeout", "Current location timed out.");
+  return error?.message || uiText("weather.unavailable", "Weather unavailable");
+}
+
+async function openCurrentLocationWeather(dateValue) {
+  if (isPastDate(dateValue)) return;
+  const key = `current:${dateValue}:${Date.now()}`;
+  state.weatherLocationPopup = {
+    open: true,
+    mode: "current",
+    key,
+    date: dateValue,
+    loading: true,
+    error: "",
+    items: [],
+  };
+  render();
+  document.querySelector("[data-close-weather-locations]")?.focus();
+
+  try {
+    const position = await currentPosition();
+    const response = await fetch("/api/weather/current", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        date: dateValue,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok || !payload.item) throw new Error(payload.error || `HTTP ${response.status}`);
+    const weather = normalizeWeatherItems([payload.item])[0] || null;
+    if (state.weatherLocationPopup.key !== key) return;
+    state.weatherLocationPopup = {
+      ...state.weatherLocationPopup,
+      loading: false,
+      items: [
+        {
+          id: "current",
+          label: "Current location",
+          translationKey: "weather.currentLocation",
+          weather,
+        },
+      ],
+    };
+  } catch (error) {
+    if (state.weatherLocationPopup.key !== key) return;
+    state.weatherLocationPopup = {
+      ...state.weatherLocationPopup,
+      loading: false,
+      error: currentLocationErrorMessage(error),
+      items: [],
+    };
+  }
   if (state.weatherLocationPopup.open && getRoute() === "calendar") render();
 }
 
@@ -1885,6 +1966,7 @@ function renderWeatherParts(dayparts) {
 function renderWeatherLocationPopup() {
   const popup = state.weatherLocationPopup;
   if (!popup.open) return "";
+  const currentMode = popup.mode === "current";
   return `
     <div class="weatherLocationOverlay">
       <div class="weatherLocationBackdrop" data-close-weather-locations></div>
@@ -1897,7 +1979,9 @@ function renderWeatherLocationPopup() {
         <header class="weatherLocationPopupHeader">
           <div>
             <p class="label">${escapeHtml(compactDateLabel(popup.date))}</p>
-            <h2 id="weatherLocationPopupTitle">${uiText("weather.otherLocations", "Other locations")}</h2>
+            <h2 id="weatherLocationPopupTitle">
+              ${currentMode ? uiText("weather.currentLocation", "Current location") : uiText("weather.otherLocations", "Other locations")}
+            </h2>
           </div>
           <button
             class="weatherLocationClose"
@@ -1909,7 +1993,13 @@ function renderWeatherLocationPopup() {
         <div class="weatherLocationList">
           ${
             popup.loading
-              ? `<p class="weatherLocationStatus">${uiText("weather.loadingOtherLocations", "Loading other locations...")}</p>`
+              ? `<p class="weatherLocationStatus">${
+                  currentMode
+                    ? uiText("weather.locating", "Getting current location...")
+                    : uiText("weather.loadingOtherLocations", "Loading other locations...")
+                }</p>`
+              : popup.error
+                ? `<p class="weatherLocationStatus isError">${escapeHtml(popup.error)}</p>`
               : popup.items
                   .map(({ id, translationKey, label, weather }) => {
                     const cityLabel = uiText(translationKey, label);
@@ -1942,6 +2032,20 @@ function renderWeatherLocationPopup() {
   `;
 }
 
+function renderCurrentLocationWeatherButton(dateValue) {
+  if (isPastDate(dateValue)) return "";
+  const label = uiText("weather.getCurrentLocation", "Get weather for current location");
+  return `
+    <button
+      class="currentLocationWeatherButton"
+      type="button"
+      data-current-location-weather="${escapeHtml(dateValue)}"
+      aria-label="${escapeHtml(label)}"
+      title="${escapeHtml(label)}"
+    >&#xe248;</button>
+  `;
+}
+
 function renderSelectedWeatherDate(dateValue) {
   const [year, month, day] = dateValue.split("-").map(Number);
   const weekday = new Intl.DateTimeFormat(portalProfile() === "family" ? "ko-KR" : "en-US", {
@@ -1971,6 +2075,7 @@ function renderSelectedWeather(weather) {
         <span>${uiText("weather.label", "Weather")}</span>
         <strong>${escapeHtml(weatherGlyph(weather))}</strong>
         <em>${escapeHtml(tempRange(weather))}</em>
+        ${renderCurrentLocationWeatherButton(weather.date)}
       </div>
     `;
   }
@@ -1981,6 +2086,7 @@ function renderSelectedWeather(weather) {
         <div class="selectedWeatherSummary">
           <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
           <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
+          ${renderCurrentLocationWeatherButton(weather.date)}
         </div>
         <div class="selectedWeatherParts">
           ${renderWeatherParts(dayparts)}
@@ -1993,6 +2099,7 @@ function renderSelectedWeather(weather) {
       <div class="selectedWeatherSummary">
         <span class="selectedWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>
         <span class="selectedWeatherRange">${escapeHtml(tempRange(weather))}</span>
+        ${renderCurrentLocationWeatherButton(weather.date)}
       </div>
       <div class="selectedWeatherParts">
         ${renderWeatherParts(dayparts)}
@@ -3542,6 +3649,12 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  const currentLocationWeather = event.target.closest("[data-current-location-weather]");
+  if (currentLocationWeather) {
+    await openCurrentLocationWeather(currentLocationWeather.dataset.currentLocationWeather || state.selectedDate);
+    return;
+  }
+
   if (event.target.closest("[data-close-weather-locations]")) {
     closeWeatherLocationPopup();
     return;
@@ -4182,7 +4295,11 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const weatherTrigger = event.target.closest("[data-open-weather-locations]");
-  if (!weatherTrigger || (event.key !== "Enter" && event.key !== " ")) return;
+  if (
+    !weatherTrigger
+    || event.target.closest("[data-current-location-weather]")
+    || (event.key !== "Enter" && event.key !== " ")
+  ) return;
   event.preventDefault();
   weatherTrigger.click();
 });

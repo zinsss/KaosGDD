@@ -1027,12 +1027,13 @@ h3 {
 }
 
 .selectedWeatherCompact {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(70px, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   min-height: 44px;
-  padding: 10px;
+  padding: 10px 48px 10px 10px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1059,6 +1060,7 @@ h3 {
 }
 
 .selectedWeatherSummary {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 2px;
@@ -1136,6 +1138,43 @@ h3 {
   outline-offset: -3px;
 }
 
+.currentLocationWeatherButton {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--nord8);
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-size: 1.05rem;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.selectedWeatherCompact .currentLocationWeatherButton {
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+}
+
+.currentLocationWeatherButton:hover {
+  background: var(--raised);
+}
+
+.currentLocationWeatherButton:focus-visible {
+  outline: 2px solid var(--nord8);
+  outline-offset: 2px;
+}
+
 .weatherLocationOverlay {
   position: fixed;
   inset: 0;
@@ -1200,6 +1239,10 @@ h3 {
   padding: 24px 16px;
   color: var(--dim);
   font-size: 0.82rem;
+}
+
+.weatherLocationStatus.isError {
+  color: var(--nord11);
 }
 
 .weatherLocationRow {

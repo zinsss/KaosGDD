@@ -132,6 +132,21 @@ The browser calendar reads month weather through a public read-only endpoint:
 GET /api/weather/month?city=pohang&start=2026-06-28&end=2026-08-08
 ```
 
+Current-location forecast is requested explicitly by the browser:
+
+```text
+POST /api/weather/current
+{
+  "latitude": 36.019,
+  "longitude": 129.3435,
+  "date": "2026-07-31"
+}
+```
+
+This endpoint accepts only today or a future date. It uses the coordinates for
+the Open-Meteo request and does not write a weather journal or return the
+coordinates in its response.
+
 The month endpoint merges:
 
 - saved `Kaos_Weather` history for past dates

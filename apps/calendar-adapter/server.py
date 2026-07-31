@@ -974,12 +974,11 @@ def weather_history_map(city, start_date, end_date):
     return entries
 
 
-def fetch_open_meteo_forecast(city, start_date, end_date):
-    location = WEATHER_LOCATIONS[city]
+def fetch_open_meteo_forecast_coordinates(latitude, longitude, start_date, end_date):
     query = urllib.parse.urlencode(
         {
-            "latitude": location["latitude"],
-            "longitude": location["longitude"],
+            "latitude": latitude,
+            "longitude": longitude,
             "daily": "weather_code,temperature_2m_min,temperature_2m_max",
             "hourly": "weather_code,temperature_2m",
             "timezone": LOCAL_TZID,
@@ -990,6 +989,16 @@ def fetch_open_meteo_forecast(city, start_date, end_date):
     with urllib.request.urlopen(f"{OPEN_METEO_URL}?{query}", timeout=TIMEOUT) as response:
         payload = json.loads(response.read().decode("utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def fetch_open_meteo_forecast(city, start_date, end_date):
+    location = WEATHER_LOCATIONS[city]
+    return fetch_open_meteo_forecast_coordinates(
+        location["latitude"],
+        location["longitude"],
+        start_date,
+        end_date,
+    )
 
 
 def fetch_open_meteo_archive(city, start_date, end_date):
@@ -1009,7 +1018,7 @@ def fetch_open_meteo_archive(city, start_date, end_date):
     return payload if isinstance(payload, dict) else {}
 
 
-def forecast_daily_items(city, payload):
+def forecast_daily_items(city, payload, city_name=""):
     daily = payload.get("daily") if isinstance(payload.get("daily"), dict) else {}
     times = daily.get("time") or []
     codes = daily.get("weather_code") or []
@@ -1021,7 +1030,7 @@ def forecast_daily_items(city, payload):
             condition = weather_code_to_condition(codes[index])
             items[str(date_value)] = {
                 "city": city,
-                "cityName": WEATHER_CITIES[city],
+                "cityName": city_name or WEATHER_CITIES[city],
                 "date": str(date_value),
                 "glyph": weather_glyph_for_condition(condition),
                 "condition": condition,
@@ -1033,6 +1042,42 @@ def forecast_daily_items(city, payload):
         except (IndexError, TypeError, ValueError):
             continue
     return items
+
+
+def validate_weather_coordinate(value, field_name, minimum, maximum):
+    try:
+        coordinate = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid_{field_name}") from exc
+    if not minimum <= coordinate <= maximum:
+        raise ValueError(f"invalid_{field_name}")
+    return coordinate
+
+
+def current_location_weather_payload(payload):
+    latitude = validate_weather_coordinate(payload.get("latitude"), "latitude", -90, 90)
+    longitude = validate_weather_coordinate(payload.get("longitude"), "longitude", -180, 180)
+    today = datetime.now(LOCAL_TIMEZONE).date()
+    raw_date = str(payload.get("date") or today.isoformat()).strip()
+    try:
+        target_date = date.fromisoformat(raw_date)
+    except ValueError as exc:
+        raise ValueError("invalid_weather_date") from exc
+    if target_date < today:
+        raise ValueError("current_location_weather_future_only")
+
+    date_value = target_date.isoformat()
+    forecast = fetch_open_meteo_forecast_coordinates(latitude, longitude, date_value, date_value)
+    items = forecast_daily_items("current", forecast, "Current location")
+    dayparts_by_date = forecast_dayparts(forecast)
+    item = items.get(date_value)
+    if item:
+        item["dayparts"] = dayparts_by_date.get(date_value, [])
+    return {
+        "ok": bool(item),
+        "date": date_value,
+        "item": item,
+    }
 
 
 def save_missing_weather_history(city, items):
@@ -1733,6 +1778,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
         profile = profile_from_headers(self.headers)
+        if path == "/api/weather/current":
+            try:
+                json_response(self, 200, current_location_weather_payload(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/events":
             try:
                 json_response(self, 201, create_event(read_json_request(self), profile))

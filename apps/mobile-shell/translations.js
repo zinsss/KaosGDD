@@ -73,6 +73,13 @@ window.KAOS_TRANSLATIONS = {
     "weather.loadingOtherLocations": "다른 지역 날씨를 불러오는 중...",
     "weather.dailySummary": "일일 요약",
     "weather.unavailable": "날씨 정보 없음",
+    "weather.currentLocation": "현재 위치",
+    "weather.getCurrentLocation": "현재 위치 날씨 보기",
+    "weather.locating": "현재 위치를 확인하는 중...",
+    "weather.locationUnsupported": "현재 위치를 사용할 수 없습니다.",
+    "weather.locationPermissionDenied": "위치 권한이 거부되었습니다.",
+    "weather.locationUnavailable": "현재 위치를 확인할 수 없습니다.",
+    "weather.locationTimeout": "현재 위치 확인 시간이 초과되었습니다.",
 
     "caregiver.label": "돌봄",
     "caregiver.loading": "월간 돌봄 내역을 불러오는 중...",
