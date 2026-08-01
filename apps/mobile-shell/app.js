@@ -3079,20 +3079,35 @@ function rounyDraftSignature(draft = state.rouny.draft) {
   return JSON.stringify(draft || null);
 }
 
+function savedRounyDraft() {
+  const draftId = state.rouny.draft?.id || state.rouny.selectedTemplateId;
+  return state.rouny.templates.find((template) => template.id === draftId) || null;
+}
+
+function rounyDraftDiffersFromSaved() {
+  if (!state.rouny.draft) return false;
+  const saved = savedRounyDraft();
+  return saved ? rounyDraftSignature(saved) !== rounyDraftSignature(state.rouny.draft) : true;
+}
+
+function canUndoRounyDraft() {
+  return Boolean(state.rouny.undoStack?.length) || rounyDraftDiffersFromSaved();
+}
+
 function pushRounyUndo() {
   const draft = collectRounyDraft();
   if (!draft) return;
   const snapshot = cloneValue(draft);
   const stack = state.rouny.undoStack || [];
-  if (rounyDraftSignature(stack.at(-1)) === rounyDraftSignature(snapshot)) return;
+  if (rounyDraftSignature(stack[stack.length - 1]) === rounyDraftSignature(snapshot)) return;
   state.rouny.undoStack = [...stack.slice(-24), snapshot];
 }
 
 function undoRounyDraft() {
   const stack = state.rouny.undoStack || [];
-  const previous = stack.at(-1);
-  if (!previous) return false;
-  state.rouny.undoStack = stack.slice(0, -1);
+  const previous = stack[stack.length - 1] || savedRounyDraft();
+  if (!previous || (!stack.length && !rounyDraftDiffersFromSaved())) return false;
+  state.rouny.undoStack = stack.length ? stack.slice(0, -1) : [];
   state.rouny.draft = cloneValue(previous);
   state.rouny.selectedTemplateId = state.rouny.draft.id;
   state.rouny.editingItemId = "";
@@ -3101,7 +3116,7 @@ function undoRounyDraft() {
 }
 
 function resetRounyDraftToSaved() {
-  const saved = state.rouny.templates.find((template) => template.id === state.rouny.draft?.id || template.id === state.rouny.selectedTemplateId);
+  const saved = savedRounyDraft();
   if (!saved) return false;
   if (!window.confirm(uiText("dialog.resetTemplate", "Reset this timetable to the last saved version?"))) return false;
   state.rouny.draft = cloneValue(saved);
@@ -3109,6 +3124,15 @@ function resetRounyDraftToSaved() {
   state.rouny.undoStack = [];
   state.rouny.editingItemId = "";
   state.rouny.editingItemDraft = null;
+  return true;
+}
+
+function openRounyClassEditor(itemId) {
+  const draft = collectRounyDraft();
+  if (!draft?.items?.some((item) => item.id === itemId)) return false;
+  state.rouny.editingItemId = itemId;
+  state.rouny.editingItemDraft = null;
+  render();
   return true;
 }
 
@@ -3497,17 +3521,18 @@ function renderRounyGrid(template) {
                           ? "hasTimeConflict"
                           : "";
                       return `
-                      <button
+                      <div
                         class="rounyBlock ${validationClass}"
                         ${rounyTimelineBlockStyle(item, slot, range)}
-                        type="button"
+                        role="button"
+                        tabindex="0"
                         draggable="false"
                         data-rouny-grid-item="${escapeHtml(item.id)}"
                         data-rouny-slot-id="${escapeHtml(slot.id)}"
                         title="${escapeHtml(`${item.title || uiText("common.untitled", "Untitled")} ${rounyTimeLabel(slot)}${issue ? ` · ${issue}` : ""}`)}"
                       >
                         <strong>${escapeHtml(item.title || uiText("common.untitled", "Untitled"))}</strong>
-                      </button>
+                      </div>
                     `;
                     },
                   )
@@ -3664,7 +3689,7 @@ function renderRounyTemplateDetail() {
       ${renderRounyGrid(draft)}
       <section class="rounyActions">
         <button class="openButton" type="button" data-rouny-add-item>${uiText("rouny.addClass", "Add class")}</button>
-        <button class="openButton" type="button" data-rouny-undo ${state.rouny.undoStack?.length ? "" : "disabled"}>${uiText("rouny.undo", "Undo")}</button>
+        <button class="openButton" type="button" data-rouny-undo ${canUndoRounyDraft() ? "" : "disabled"}>${uiText("rouny.undo", "Undo")}</button>
         <button class="openButton" type="button" data-rouny-reset>${uiText("rouny.reset", "Reset")}</button>
         <button class="primaryButton" type="button" data-rouny-save>${uiText("common.save", "Save")}</button>
         <button class="openButton" type="button" data-rouny-save-as>${uiText("rouny.saveAs", "Save as")}</button>
@@ -4439,10 +4464,9 @@ document.addEventListener("click", async (event) => {
 
   const rounyGridItem = event.target.closest("[data-rouny-grid-item]");
   if (rounyGridItem) {
+    event.preventDefault();
     if (suppressRounyGridClick) return;
-    state.rouny.editingItemId = rounyGridItem.dataset.rounyGridItem;
-    state.rouny.editingItemDraft = null;
-    render();
+    openRounyClassEditor(rounyGridItem.dataset.rounyGridItem);
     return;
   }
 
@@ -4761,6 +4785,13 @@ document.addEventListener("submit", async (event) => {
   }
 });
 
+document.addEventListener("keydown", (event) => {
+  const block = event.target.closest("[data-rouny-grid-item]");
+  if (!block || !["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  openRounyClassEditor(block.dataset.rounyGridItem);
+});
+
 document.addEventListener("pointerdown", (event) => {
   const block = event.target.closest("[data-rouny-grid-item]");
   if (!block || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -4821,20 +4852,19 @@ document.addEventListener("pointerup", (event) => {
   const itemId = drag.itemId;
   clearRounyPointerDrag();
   if (!moved) {
-    state.rouny.editingItemId = itemId;
-    state.rouny.editingItemDraft = null;
+    event.preventDefault();
     suppressRounyGridClick = true;
-    render();
+    openRounyClassEditor(itemId);
     window.setTimeout(() => {
       suppressRounyGridClick = false;
-    }, 0);
+    }, 80);
     return;
   }
   suppressRounyGridClick = true;
   render();
   window.setTimeout(() => {
     suppressRounyGridClick = false;
-  }, 0);
+  }, 80);
 });
 
 document.addEventListener("pointercancel", (event) => {
