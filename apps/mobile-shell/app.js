@@ -3307,7 +3307,10 @@ function snapRounyTimeValue(timeValue, fallback = "09:00") {
 }
 
 function snapRounyTimeInput(input) {
-  if (!(input instanceof HTMLInputElement) || input.type !== "time" || !["slotStart", "slotEnd"].includes(input.name)) return;
+  if (
+    !(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)
+    || !["slotStart", "slotEnd"].includes(input.name)
+  ) return;
   if (!input.value) return;
   const snapped = snapRounyTimeValue(input.value, input.name === "slotEnd" ? "09:50" : "09:00");
   if (input.value !== snapped) input.value = snapped;
@@ -3315,6 +3318,14 @@ function snapRounyTimeInput(input) {
 
 function snapRounyClassFormTimes(form) {
   form.querySelectorAll('[name="slotStart"], [name="slotEnd"]').forEach(snapRounyTimeInput);
+}
+
+function renderRounyTimeOptions(selectedValue) {
+  const selected = snapRounyTimeValue(selectedValue);
+  return Array.from({ length: (24 * 60) / ROUNY_TIMELINE_SLOT_MINUTES }, (_, index) => {
+    const value = rounyTimeFromMinutes(index * ROUNY_TIMELINE_SLOT_MINUTES);
+    return `<option value="${value}" ${value === selected ? "selected" : ""}>${value}</option>`;
+  }).join("");
 }
 
 function rounyTimeLabel(item) {
@@ -3713,11 +3724,11 @@ function renderRounySlot(slot, slotCount, itemId, validation) {
       </label>
       <label>
         <span>${uiText("rouny.start", "Start")}</span>
-        <input name="slotStart" type="time" step="600" value="${escapeHtml(slot.startTime)}" />
+        <select name="slotStart">${renderRounyTimeOptions(slot.startTime)}</select>
       </label>
       <label>
         <span>${uiText("rouny.end", "End")}</span>
-        <input name="slotEnd" type="time" step="600" value="${escapeHtml(slot.endTime)}" />
+        <select name="slotEnd">${renderRounyTimeOptions(slot.endTime)}</select>
       </label>
       <button class="iconTextButton" type="button" data-rouny-remove-slot="${escapeHtml(slot.id)}" aria-label="${uiText("rouny.removeTimeAria", "Remove time")}" ${slotCount <= 1 ? "disabled" : ""}>×</button>
       <span class="rounySlotValidation" data-rouny-slot-validation ${issue ? "" : "hidden"}>${escapeHtml(issue)}</span>
