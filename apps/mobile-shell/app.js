@@ -59,6 +59,7 @@ const ROUNY_TIMELINE_DEFAULT_END_HOUR = 22;
 const ROUNY_TIMELINE_HOUR_HEIGHT = 48;
 const ROUNY_TIMELINE_SLOT_MINUTES = 10;
 const ROUNY_DRAG_MOVE_THRESHOLD = 8;
+const ROUNY_DRAG_HOLD_MS = 260;
 const desktopMedia = window.matchMedia(DESKTOP_MEDIA_QUERY);
 let rounyPointerDrag = null;
 let suppressRounyGridClick = false;
@@ -176,6 +177,7 @@ const state = {
     templates: [],
     selectedTemplateId: "",
     draft: null,
+    undoStack: [],
     page: "list",
     editingItemId: "",
     editingItemDraft: null,
@@ -3073,11 +3075,49 @@ function collectRounyDraft() {
   return state.rouny.draft;
 }
 
+function rounyDraftSignature(draft = state.rouny.draft) {
+  return JSON.stringify(draft || null);
+}
+
+function pushRounyUndo() {
+  const draft = collectRounyDraft();
+  if (!draft) return;
+  const snapshot = cloneValue(draft);
+  const stack = state.rouny.undoStack || [];
+  if (rounyDraftSignature(stack.at(-1)) === rounyDraftSignature(snapshot)) return;
+  state.rouny.undoStack = [...stack.slice(-24), snapshot];
+}
+
+function undoRounyDraft() {
+  const stack = state.rouny.undoStack || [];
+  const previous = stack.at(-1);
+  if (!previous) return false;
+  state.rouny.undoStack = stack.slice(0, -1);
+  state.rouny.draft = cloneValue(previous);
+  state.rouny.selectedTemplateId = state.rouny.draft.id;
+  state.rouny.editingItemId = "";
+  state.rouny.editingItemDraft = null;
+  return true;
+}
+
+function resetRounyDraftToSaved() {
+  const saved = state.rouny.templates.find((template) => template.id === state.rouny.draft?.id || template.id === state.rouny.selectedTemplateId);
+  if (!saved) return false;
+  if (!window.confirm(uiText("dialog.resetTemplate", "Reset this timetable to the last saved version?"))) return false;
+  state.rouny.draft = cloneValue(saved);
+  state.rouny.selectedTemplateId = saved.id;
+  state.rouny.undoStack = [];
+  state.rouny.editingItemId = "";
+  state.rouny.editingItemDraft = null;
+  return true;
+}
+
 function selectRounyTemplate(templateId) {
   const template = state.rouny.templates.find((item) => item.id === templateId);
   if (!template) return;
   state.rouny.selectedTemplateId = template.id;
   state.rouny.draft = cloneValue(template);
+  state.rouny.undoStack = [];
   state.rouny.page = "detail";
   state.rouny.editingItemId = "";
   state.rouny.editingItemDraft = null;
@@ -3130,6 +3170,7 @@ function saveRounyDraft({ asCopy = false } = {}) {
     : [...state.rouny.templates, nextDraft];
   state.rouny.selectedTemplateId = nextDraft.id;
   state.rouny.draft = cloneValue(nextDraft);
+  state.rouny.undoStack = [];
   saveRounyTemplates(templates);
   return true;
 }
@@ -3532,6 +3573,7 @@ function updateRounyDragFeedback(target, clientX, clientY) {
 
 function clearRounyPointerDrag() {
   const drag = rounyPointerDrag;
+  if (drag?.holdTimer) window.clearTimeout(drag.holdTimer);
   if (drag?.element?.hasPointerCapture?.(drag.pointerId)) drag.element.releasePointerCapture(drag.pointerId);
   drag?.element?.classList.remove("isDragging");
   document.body.classList.remove("isRounyDragging");
@@ -3622,6 +3664,8 @@ function renderRounyTemplateDetail() {
       ${renderRounyGrid(draft)}
       <section class="rounyActions">
         <button class="openButton" type="button" data-rouny-add-item>${uiText("rouny.addClass", "Add class")}</button>
+        <button class="openButton" type="button" data-rouny-undo ${state.rouny.undoStack?.length ? "" : "disabled"}>${uiText("rouny.undo", "Undo")}</button>
+        <button class="openButton" type="button" data-rouny-reset>${uiText("rouny.reset", "Reset")}</button>
         <button class="primaryButton" type="button" data-rouny-save>${uiText("common.save", "Save")}</button>
         <button class="openButton" type="button" data-rouny-save-as>${uiText("rouny.saveAs", "Save as")}</button>
       </section>
@@ -4303,6 +4347,7 @@ document.addEventListener("click", async (event) => {
     collectRounyDraft();
     state.rouny.draft = defaultRounyTemplate(uiText("rouny.newTemplate", "New template"));
     state.rouny.selectedTemplateId = state.rouny.draft.id;
+    state.rouny.undoStack = [];
     state.rouny.page = "detail";
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
@@ -4360,6 +4405,7 @@ document.addEventListener("click", async (event) => {
       window.alert(uiText("dialog.templateNameRequired", "Template name is required."));
       return;
     }
+    pushRounyUndo();
     state.rouny.draft = normalizeRounyTemplate({
       ...state.rouny.draft,
       name: normalizedName,
@@ -4410,6 +4456,7 @@ document.addEventListener("click", async (event) => {
   const rounyRemoveItem = event.target.closest("[data-rouny-remove-item]");
   if (rounyRemoveItem) {
     collectRounyDraft();
+    pushRounyUndo();
     if (state.rouny.draft.items.length <= 1) {
       state.rouny.draft.items = [defaultRounyItem()];
     } else {
@@ -4425,6 +4472,7 @@ document.addEventListener("click", async (event) => {
     const form = event.target.closest("[data-rouny-class-form]");
     if (!form) return;
     const item = itemFromRounyClassForm(form);
+    if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) pushRounyUndo();
     item.slots.push(defaultRounySlot());
     if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) upsertRounyDraftItem(item);
     else state.rouny.editingItemDraft = item;
@@ -4438,6 +4486,7 @@ document.addEventListener("click", async (event) => {
     const form = event.target.closest("[data-rouny-class-form]");
     if (!form) return;
     const item = itemFromRounyClassForm(form);
+    if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) pushRounyUndo();
     item.slots = item.slots.length <= 1 ? item.slots : item.slots.filter((slot) => slot.id !== rounyRemoveSlot.dataset.rounyRemoveSlot);
     if (state.rouny.draft.items.some((draftItem) => draftItem.id === item.id)) upsertRounyDraftItem(item);
     else state.rouny.editingItemDraft = item;
@@ -4453,6 +4502,16 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-rouny-save-as]")) {
     if (saveRounyDraft({ asCopy: true })) render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-undo]")) {
+    if (undoRounyDraft()) render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-reset]")) {
+    if (resetRounyDraftToSaved()) render();
     return;
   }
 
@@ -4603,6 +4662,7 @@ document.addEventListener("submit", async (event) => {
       rounyClassForm.querySelector(".rounySlotRow.hasInvalidTime [name=\"slotEnd\"]")?.focus();
       return;
     }
+    pushRounyUndo();
     upsertRounyDraftItem(item);
     state.rouny.editingItemId = "";
     state.rouny.editingItemDraft = null;
@@ -4712,11 +4772,16 @@ document.addEventListener("pointerdown", (event) => {
     rounyMinutes(slot.endTime) - rounyMinutes(slot.startTime),
   );
   block.setPointerCapture?.(event.pointerId);
+  const holdTimer = window.setTimeout(() => {
+    if (rounyPointerDrag?.pointerId === event.pointerId) rounyPointerDrag.canDrag = true;
+  }, ROUNY_DRAG_HOLD_MS);
   rounyPointerDrag = {
     itemId: item.id,
     slotId: slot.id,
     duration,
     pointerId: event.pointerId,
+    holdTimer,
+    canDrag: false,
     startX: event.clientX,
     startY: event.clientY,
     moved: false,
@@ -4728,6 +4793,7 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("pointermove", (event) => {
   const drag = rounyPointerDrag;
   if (!drag || drag.pointerId !== event.pointerId) return;
+  if (!drag.canDrag) return;
   const moved =
     drag.moved ||
     Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= ROUNY_DRAG_MOVE_THRESHOLD;
@@ -4747,6 +4813,7 @@ document.addEventListener("pointerup", (event) => {
     event.preventDefault();
     collectRounyDraft();
     if (drag.target) {
+      pushRounyUndo();
       moveRounyDraftSlot(drag.itemId, drag.slotId, drag.target.dayOfWeek, drag.target.startMinutes);
     }
   }

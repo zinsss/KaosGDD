@@ -147,6 +147,11 @@ button {
   font: inherit;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
 a {
   color: inherit;
   text-decoration: none;
