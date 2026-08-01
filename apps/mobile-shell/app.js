@@ -1247,7 +1247,8 @@ async function deleteRemoteCalendarItem(kind, uid, collectionId) {
   await loadRemoteCalendar();
 }
 
-async function updateRemoteTask(formData) {
+async function updateRemoteTask(formData, options = {}) {
+  const navigate = options.navigate !== false;
   const due = taskDueFromForm(formData);
   const response = await fetch("/api/calendar/tasks", {
     method: "PUT",
@@ -1269,7 +1270,7 @@ async function updateRemoteTask(formData) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || `HTTP ${response.status}`);
   }
-  window.location.hash = "#/tasks";
+  if (navigate) window.location.hash = "#/tasks";
   await loadRemoteCalendar();
 }
 
@@ -1353,10 +1354,9 @@ function parseLegacyDescription(description) {
   const subtasks = [];
 
   lines.forEach((line, index) => {
-    if (line.startsWith("-- ")) {
-      subtasks.push({ lineIndex: index, done: false, text: line.slice(3) });
-    } else if (line.startsWith("-x ")) {
-      subtasks.push({ lineIndex: index, done: true, text: line.slice(3) });
+    const marker = legacySubtaskMarker(line);
+    if (marker) {
+      subtasks.push({ lineIndex: index, done: marker.done, text: marker.text });
     } else {
       notes.push(line);
     }
@@ -1366,6 +1366,21 @@ function parseLegacyDescription(description) {
     notes: notes.join("\n").trim(),
     subtasks,
   };
+}
+
+function legacySubtaskMarker(line) {
+  const raw = String(line || "");
+  const active = raw.match(/^\s*(?:--|[-\u2013\u2014]{2})\s*(.*)$/u);
+  if (active) return { done: false, text: active[1].trim() };
+  const done = raw.match(/^\s*(?:-x|[-\u2013\u2014]\s*x)\s+(.*)$/iu);
+  if (done) return { done: true, text: done[1].trim() };
+  return null;
+}
+
+function setLegacySubtaskLine(line, done) {
+  const marker = legacySubtaskMarker(line);
+  if (!marker) return line;
+  return `${done ? "-x" : "--"} ${marker.text}`;
 }
 
 function taskDescription(task) {
@@ -4749,16 +4764,42 @@ document.addEventListener("click", async (event) => {
   const subtaskToggle = event.target.closest("[data-subtask-line]");
   if (subtaskToggle) {
     const row = subtaskToggle.closest("[data-task-id]");
-    const rawTask = mockCalendarData.tasks.find((task) => task.uid === row?.dataset.taskId);
+    const rawTask = activeCalendarData().tasks.find((task) => task.uid === row?.dataset.taskId);
     if (!rawTask) return;
 
     const lineIndex = Number(subtaskToggle.dataset.subtaskLine);
     const lines = taskDescription(rawTask).split(/\r?\n/);
     const line = lines[lineIndex] || "";
-    if (line.startsWith("-- ")) lines[lineIndex] = `-x ${line.slice(3)}`;
-    else if (line.startsWith("-x ")) lines[lineIndex] = `-- ${line.slice(3)}`;
-    state.taskDescriptions[rawTask.uid] = lines.join("\n");
+    const marker = legacySubtaskMarker(line);
+    if (!marker) return;
+
+    const previousDescription = taskDescription(rawTask);
+    lines[lineIndex] = setLegacySubtaskLine(line, !marker.done);
+    const nextDescription = lines.join("\n");
+    rawTask.description = nextDescription;
+    state.taskDescriptions[rawTask.uid] = nextDescription;
     render();
+    if (state.remoteCalendar.live) {
+      try {
+        const formData = new FormData();
+        formData.set("uid", rawTask.uid);
+        formData.set("collectionId", rawTask.collection || "");
+        formData.set("title", rawTask.summary || "");
+        formData.set("memo", nextDescription);
+        formData.set("due", rawTask.due || "");
+        formData.set("dueTime", rawTask.dueTime || "");
+        formData.set("priority", rawTask.priority || "");
+        await updateRemoteTask(formData, { navigate: false });
+      } catch (error) {
+        rawTask.description = previousDescription;
+        state.taskDescriptions[rawTask.uid] = previousDescription;
+        window.alert(uiText("dialog.taskSaveError", "Could not save task: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
+        await loadRemoteCalendar();
+        render();
+      }
+    }
   }
 });
 
