@@ -120,10 +120,9 @@
 
 html,
 body {
-  height: 100%;
   min-height: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body {
@@ -173,11 +172,10 @@ svg {
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   max-width: 560px;
-  height: 100dvh;
   min-height: 100dvh;
   margin: 0 auto;
   padding: 0 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .appTop {
@@ -273,9 +271,7 @@ h3 {
   max-width: 100%;
   min-height: 0;
   padding: 14px 0 40px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
   outline: none;
 }
 
@@ -2957,6 +2953,12 @@ h3 {
 }
 
 @media (min-width: 1180px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background:
       linear-gradient(90deg, #242933 0, #2e3440 12%, #2e3440 88%, #242933 100%);
@@ -2970,8 +2972,10 @@ h3 {
     grid-template-columns: 210px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     max-width: 1420px;
+    height: 100dvh;
     padding: 0;
     background: var(--bg);
+    overflow: hidden;
   }
 
   .appTop {
@@ -3039,6 +3043,9 @@ h3 {
     grid-row: 1;
     gap: 16px;
     padding: 24px 24px 40px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .collectionRail {
