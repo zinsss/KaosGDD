@@ -648,13 +648,17 @@ h3 {
 
 .timeline li {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
   min-height: 46px;
   padding: 9px 0;
 }
 
 .timeline time {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
   color: var(--dim);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
@@ -677,6 +681,9 @@ h3 {
 }
 
 .timelineAllDayPill {
+  min-width: 68px;
+  padding-right: 10px;
+  padding-left: 10px;
   color: var(--nord13);
   background: rgba(235, 203, 139, 0.12);
   border-color: rgba(235, 203, 139, 0.32);
@@ -692,6 +699,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 28px;
   min-width: 0;
 }
 
