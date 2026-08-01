@@ -2132,14 +2132,17 @@ h3 {
 
 .rounyLayerBackdrop {
   position: fixed;
-  inset: 0;
+  top: var(--kaos-overlay-top, 0px);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 30;
   background: rgba(15, 17, 23, 0.44);
 }
 
 .rounyLayer {
   position: fixed;
-  top: 0;
+  top: var(--kaos-overlay-top, 0px);
   right: 0;
   bottom: 0;
   z-index: 31;
@@ -2148,7 +2151,7 @@ h3 {
   gap: 10px;
   width: min(420px, 94vw);
   max-width: 100%;
-  padding: calc(56px + var(--safe-top)) 12px calc(18px + var(--safe-bottom));
+  padding: 14px 12px calc(18px + var(--safe-bottom));
   border-left: 1px solid var(--line);
   background: var(--panel);
   box-shadow: -18px 0 36px rgba(0, 0, 0, 0.26);
@@ -2158,8 +2161,8 @@ h3 {
 
 .rounyLayer > .panelHeader {
   align-items: center;
-  min-height: 58px;
-  padding-top: 8px;
+  min-height: 52px;
+  padding-top: 2px;
 }
 
 .rounyLayerForm {

@@ -3567,9 +3567,6 @@ function renderRounyTemplateList() {
 
 function renderRounyTemplateDetail() {
   const draft = state.rouny.draft;
-  const editingItem = state.rouny.editingItemId
-    ? draft.items.find((item) => item.id === state.rouny.editingItemId) || state.rouny.editingItemDraft
-    : null;
   return `
     <form class="rounyEditor" data-rouny-editor>
       <section class="panel rounyTemplateHeaderPanel">
@@ -3589,8 +3586,19 @@ function renderRounyTemplateDetail() {
         <button class="openButton" type="button" data-rouny-save-as>${uiText("rouny.saveAs", "Save as")}</button>
       </section>
     </form>
-    ${editingItem ? renderRounyClassLayer(editingItem, !draft.items.some((item) => item.id === editingItem.id)) : ""}
   `;
+}
+
+function currentRounyEditingItem() {
+  const draft = state.rouny.draft;
+  if (!draft || !state.rouny.editingItemId) return null;
+  return draft.items.find((item) => item.id === state.rouny.editingItemId) || state.rouny.editingItemDraft;
+}
+
+function renderRounyOverlay() {
+  const editingItem = currentRounyEditingItem();
+  if (!editingItem) return "";
+  return renderRounyClassLayer(editingItem, !state.rouny.draft.items.some((item) => item.id === editingItem.id));
 }
 
 function renderRounyClassLayer(item, isNew = false) {
@@ -4043,6 +4051,7 @@ function render() {
   const route = getRoute();
   routeTitle(route);
   const view = document.getElementById("view");
+  const overlayRoot = document.getElementById("overlayRoot");
   if (route === "calendar") view.innerHTML = renderCalendar();
   else if (route === "caregiver") view.innerHTML = renderCaregiver();
   else if (route === "tasks") view.innerHTML = renderTasks();
@@ -4062,11 +4071,19 @@ function render() {
   else if (route === "memos") view.innerHTML = renderMemos();
   else if (route === "settings") view.innerHTML = renderSettings();
   else view.innerHTML = renderToday();
+  if (overlayRoot) overlayRoot.innerHTML = route === "rouny" ? renderRounyOverlay() : "";
+  updateOverlayMetrics();
   if (route === "calendar" || route === "today" || ((route === "add-event" || route === "edit-event") && isDesktopLayout())) {
     loadRemoteWeatherForSelectedMonth();
   }
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   updateTopBarShadow();
+}
+
+function updateOverlayMetrics() {
+  const topBar = document.querySelector(".appTop");
+  const bottom = topBar?.getBoundingClientRect().bottom || 0;
+  document.documentElement.style.setProperty("--kaos-overlay-top", `${Math.ceil(bottom)}px`);
 }
 
 function updateTopBarShadow() {
@@ -4840,6 +4857,7 @@ document.addEventListener("change", (event) => {
 
 document.getElementById("view")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
 desktopMedia.addEventListener("change", render);
+window.addEventListener("resize", updateOverlayMetrics, { passive: true });
 
 window.addEventListener("hashchange", () => {
   const view = document.getElementById("view");
