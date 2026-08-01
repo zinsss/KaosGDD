@@ -132,6 +132,8 @@ const state = {
   taskSort: "due",
   addKind: "event",
   addEventMode: "normal",
+  addEventDraft: null,
+  addTaskDraft: null,
   eventPresetDraft: null,
   addMonthExpanded: false,
   taskDueEnabled: false,
@@ -589,6 +591,67 @@ function eventPresetFromForm(form) {
     shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
   });
   return preset;
+}
+
+function addEventDraftFromForm(form) {
+  if (!form) return state.addEventDraft || state.eventPresetDraft || defaultEventPreset();
+  const base = state.addEventDraft || state.eventPresetDraft || defaultEventPreset();
+  return {
+    ...(state.addEventDraft || state.eventPresetDraft || defaultEventPreset()),
+    id: base.id || createId("event-draft"),
+    name: base.name || "",
+    title: form.querySelector('[name="title"]')?.value || "",
+    allDay: form.querySelector('[name="allDay"]')?.checked || false,
+    startDate: form.querySelector('[name="startDate"]')?.value || state.selectedDate,
+    startTime: form.querySelector('[name="startTime"]')?.value || DEFAULT_EVENT_START_TIME,
+    endDate: form.querySelector('[name="endDate"]')?.value || form.querySelector('[name="startDate"]')?.value || state.selectedDate,
+    endTime: form.querySelector('[name="endTime"]')?.value || DEFAULT_EVENT_END_TIME,
+    repeat: form.querySelector('[name="repeat"]')?.value || "",
+    alarm: form.querySelector('[name="alarm"]')?.value || "",
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
+  };
+}
+
+function collectAddEventDraft() {
+  const form = document.querySelector("[data-create-event]");
+  if (!form) return state.addEventDraft;
+  state.addEventDraft = addEventDraftFromForm(form);
+  return state.addEventDraft;
+}
+
+function addTaskDraftFromForm(form) {
+  const previous = state.addTaskDraft || {};
+  if (!form) return previous;
+  return {
+    ...previous,
+    title: form.querySelector('[name="title"]')?.value || "",
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    due: form.querySelector('[name="due"]')?.value || "",
+    dueTime: form.querySelector('[name="dueTime"]')?.value || "",
+    priority: form.querySelector('[name="priority"]')?.value || "",
+    shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
+    selectedDate: state.selectedDate,
+    dueEnabled: state.taskDueEnabled,
+  };
+}
+
+function collectAddTaskDraft() {
+  const form = document.querySelector("[data-create-task]");
+  if (!form) return state.addTaskDraft;
+  const previous = state.addTaskDraft || {};
+  state.addTaskDraft = {
+    ...previous,
+    title: form.querySelector('[name="title"]')?.value || "",
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    due: form.querySelector('[name="due"]')?.value || "",
+    dueTime: form.querySelector('[name="dueTime"]')?.value || "",
+    priority: form.querySelector('[name="priority"]')?.value || "",
+    shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
+    selectedDate: state.selectedDate,
+    dueEnabled: state.taskDueEnabled,
+  };
+  return state.addTaskDraft;
 }
 
 function upsertEventPreset(preset) {
@@ -2418,7 +2481,11 @@ function renderAdd() {
 function renderAddEvent() {
   ensureAddCollectionDefault();
   ensureEventPresets();
-  const draft = normalizeEventPreset(state.eventPresetDraft || defaultEventPreset());
+  const draft = {
+    ...defaultEventPreset(),
+    ...(state.eventPresetDraft || {}),
+    ...(state.addEventDraft || {}),
+  };
   const shareFamily = Boolean(draft.shareFamily || state.currentCollection === "owner:family");
   const allDay = Boolean(draft.allDay);
   const contextBody = state.addEventMode === "preset"
@@ -2622,7 +2689,7 @@ function renderEventPresetChoices() {
 
 function renderAddTask() {
   ensureAddCollectionDefault();
-  const form = renderTaskEditorForm();
+  const form = renderTaskEditorForm(null, state.addTaskDraft || {});
   if (isDesktopLayout()) {
     return renderTaskWorkspace(`
       <aside class="desktopContextPane contextPaneStack">
@@ -2675,9 +2742,14 @@ function renderEditTask() {
   return `${renderCollectionRail()}${form}`;
 }
 
-function renderTaskEditorForm(task = null) {
+function renderTaskEditorForm(task = null, draft = {}) {
   const dueEnabled = state.taskDueEnabled;
   const editing = Boolean(task);
+  const title = editing ? task.title : draft.title || "";
+  const memo = editing ? task.description : draft.memo || "";
+  const dueTime = editing ? task.dueTime : draft.dueTime || "";
+  const priority = editing ? task.priority : draft.priority || "";
+  const shareFamily = editing ? false : Boolean(draft.shareFamily || state.currentCollection === "owner:family");
   return `
     <form class="taskComposer taskContextComposer" ${editing ? "data-edit-task" : "data-create-task"}>
       ${editing ? `<input name="uid" type="hidden" value="${escapeHtml(task.id)}" />` : ""}
@@ -2685,14 +2757,14 @@ function renderTaskEditorForm(task = null) {
       <input name="due" type="hidden" value="${dueEnabled ? escapeHtml(state.selectedDate) : ""}" />
       <section class="panel">
         <div class="composer">
-          ${editing ? "" : renderFamilyShareToggle()}
+          ${editing ? "" : renderFamilyShareToggle(shareFamily)}
           <label>
             <span>${uiText("task.label", "Task")}</span>
-            <input name="title" type="text" autocomplete="off" value="${editing ? escapeHtml(task.title) : ""}" placeholder="${uiText("task.new", "New task")}" required />
+            <input name="title" type="text" autocomplete="off" value="${escapeHtml(title)}" placeholder="${uiText("task.new", "New task")}" required />
           </label>
           <label>
             <span>${uiText("common.memo", "Memo")}</span>
-            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${editing ? escapeHtml(task.description) : ""}</textarea>
+            <textarea name="memo" rows="6" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${escapeHtml(memo)}</textarea>
           </label>
         </div>
       </section>
@@ -2701,16 +2773,16 @@ function renderTaskEditorForm(task = null) {
         <div class="composer">
           <label>
             <span>${uiText("task.time", "Time")}</span>
-            <input name="dueTime" type="time" value="${dueEnabled && editing ? escapeHtml(task.dueTime) : ""}" step="300" />
+            <input name="dueTime" type="time" value="${dueEnabled ? escapeHtml(dueTime) : ""}" step="300" />
           </label>
           <p class="formNote">${uiText("task.defaultTime", "Default time 10:00 am")}</p>
           <label>
             <span>${uiText("task.priority", "Priority")}</span>
             <select name="priority">
-              <option value="" ${!editing || !task.priority ? "selected" : ""}>${uiText("common.none", "None")}</option>
-              <option value="9" ${editing && task.priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
-              <option value="5" ${editing && task.priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
-              <option value="1" ${editing && task.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
+              <option value="" ${!priority ? "selected" : ""}>${uiText("common.none", "None")}</option>
+              <option value="9" ${priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
+              <option value="5" ${priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
+              <option value="1" ${priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
             </select>
           </label>
           <div class="formActions">
@@ -4288,6 +4360,7 @@ document.addEventListener("click", async (event) => {
 
   const addEventMode = event.target.closest("[data-add-event-mode]");
   if (addEventMode) {
+    if (state.addEventMode === "normal") collectAddEventDraft();
     state.addEventMode = addEventMode.dataset.addEventMode === "preset" ? "preset" : "normal";
     if (state.addEventMode === "normal") state.eventPresetDraft = null;
     render();
@@ -4300,6 +4373,7 @@ document.addEventListener("click", async (event) => {
     const preset = state.eventPresets.items.find((item) => item.id === useEventPreset.dataset.useEventPreset);
     if (!preset) return;
     state.eventPresetDraft = cloneValue(preset);
+    state.addEventDraft = cloneValue(preset);
     state.addEventMode = "normal";
     state.currentCollection = preset.shareFamily ? "owner:family" : defaultPersonalCollectionViewId();
     render();
@@ -4542,8 +4616,15 @@ document.addEventListener("click", async (event) => {
   const day = event.target.closest("[data-date]");
   if (day) {
     const previousMonth = state.selectedDate.slice(0, 7);
+    if (getRoute() === "add-event" || (getRoute() === "add" && state.addKind === "event")) collectAddEventDraft();
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) collectAddTaskDraft();
     state.selectedDate = day.dataset.date;
     if (getRoute() === "add-task" || getRoute() === "edit-task" || (getRoute() === "add" && state.addKind === "task")) state.taskDueEnabled = true;
+    if (state.addTaskDraft) {
+      state.addTaskDraft.selectedDate = state.selectedDate;
+      state.addTaskDraft.due = state.taskDueEnabled ? state.selectedDate : "";
+      state.addTaskDraft.dueEnabled = state.taskDueEnabled;
+    }
     render();
     if (state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
@@ -4551,6 +4632,8 @@ document.addEventListener("click", async (event) => {
 
   const collection = event.target.closest("[data-collection]");
   if (collection) {
+    if (getRoute() === "add-event" || (getRoute() === "add" && state.addKind === "event")) collectAddEventDraft();
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) collectAddTaskDraft();
     state.currentCollection = collection.dataset.collection;
     render();
     return;
@@ -4559,7 +4642,10 @@ document.addEventListener("click", async (event) => {
   const monthShift = event.target.closest("[data-month-shift]");
   if (monthShift) {
     const previousMonth = state.selectedDate.slice(0, 7);
+    if (getRoute() === "add-event" || (getRoute() === "add" && state.addKind === "event")) collectAddEventDraft();
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) collectAddTaskDraft();
     shiftSelectedMonth(Number(monthShift.dataset.monthShift));
+    if (state.addTaskDraft && state.taskDueEnabled) state.addTaskDraft.due = state.selectedDate;
     render();
     if (getRoute() !== "caregiver" && state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
@@ -4567,31 +4653,47 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-month-today]")) {
     const previousMonth = state.selectedDate.slice(0, 7);
+    if (getRoute() === "add-event" || (getRoute() === "add" && state.addKind === "event")) collectAddEventDraft();
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) collectAddTaskDraft();
     selectToday();
+    if (state.addTaskDraft && state.taskDueEnabled) state.addTaskDraft.due = state.selectedDate;
     render();
     if (getRoute() !== "caregiver" && state.selectedDate.slice(0, 7) !== previousMonth) loadRemoteWeatherForSelectedMonth();
     return;
   }
 
   if (event.target.closest("[data-toggle-add-month]")) {
+    if (getRoute() === "add-event" || (getRoute() === "add" && state.addKind === "event")) collectAddEventDraft();
+    if (getRoute() === "add-task" || (getRoute() === "add" && state.addKind === "task")) collectAddTaskDraft();
     state.addMonthExpanded = !state.addMonthExpanded;
     render();
     return;
   }
 
   if (event.target.closest("[data-clear-task-due]")) {
+    collectAddTaskDraft();
     state.taskDueEnabled = false;
     const form = event.target.closest("form");
     const timeInput = form?.querySelector('input[name="dueTime"]');
     if (timeInput) {
       timeInput.value = "";
     }
+    if (state.addTaskDraft) {
+      state.addTaskDraft.due = "";
+      state.addTaskDraft.dueTime = "";
+      state.addTaskDraft.dueEnabled = false;
+    }
     render();
     return;
   }
 
   if (event.target.closest("[data-use-selected-due]")) {
+    collectAddTaskDraft();
     state.taskDueEnabled = true;
+    if (state.addTaskDraft) {
+      state.addTaskDraft.due = state.selectedDate;
+      state.addTaskDraft.dueEnabled = true;
+    }
     render();
     return;
   }
@@ -4708,6 +4810,7 @@ document.addEventListener("submit", async (event) => {
       try {
         await createRemoteEvent(formData);
         state.eventPresetDraft = null;
+        state.addEventDraft = null;
       } catch (error) {
         window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
           error: error.message || uiText("dialog.unknownError", "unknown error"),
@@ -4717,6 +4820,7 @@ document.addEventListener("submit", async (event) => {
     }
     mockAdapter.createEvent(formData);
     state.eventPresetDraft = null;
+    state.addEventDraft = null;
     window.location.hash = "#/calendar";
     render();
     return;
@@ -4751,6 +4855,7 @@ document.addEventListener("submit", async (event) => {
     if (state.remoteCalendar.live) {
       try {
         await createRemoteTask(formData);
+        state.addTaskDraft = null;
       } catch (error) {
         window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
           error: error.message || uiText("dialog.unknownError", "unknown error"),
@@ -4759,6 +4864,7 @@ document.addEventListener("submit", async (event) => {
       return;
     }
     mockAdapter.createTask(formData);
+    state.addTaskDraft = null;
     window.location.hash = "#/tasks";
     render();
   }
@@ -4964,7 +5070,17 @@ document.addEventListener("change", (event) => {
 
   const shareFamily = event.target.closest("[data-share-family]");
   if (shareFamily) {
-    if (shareFamily.closest("[data-create-event]") || shareFamily.closest("[data-create-task]")) {
+    const eventForm = shareFamily.closest("[data-create-event]");
+    const taskForm = shareFamily.closest("[data-create-task]");
+    if (eventForm || taskForm) {
+      if (eventForm) {
+        collectAddEventDraft();
+        if (state.addEventDraft) state.addEventDraft.shareFamily = shareFamily.checked;
+      }
+      if (taskForm) {
+        collectAddTaskDraft();
+        if (state.addTaskDraft) state.addTaskDraft.shareFamily = shareFamily.checked;
+      }
       state.currentCollection = shareFamily.checked ? "owner:family" : defaultPersonalCollectionViewId();
       render();
     }
