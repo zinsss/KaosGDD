@@ -67,6 +67,40 @@ class WeatherLocationTests(unittest.TestCase):
         self.assertNotIn("longitude", payload)
         reverse_geocode.assert_called_once_with(36.019, 129.3435, "en")
 
+    @mock.patch.object(SERVER, "weather_history_map", return_value={})
+    @mock.patch.object(SERVER, "fetch_open_meteo_forecast")
+    def test_month_weather_caps_forecast_to_provider_horizon(self, fetch_forecast, weather_history_map):
+        today = SERVER.datetime.now(SERVER.LOCAL_TIMEZONE).date()
+        capped_end = today + SERVER.timedelta(days=SERVER.OPEN_METEO_FORECAST_MAX_DAYS - 1)
+        visible_end = today + SERVER.timedelta(days=41)
+        fetch_forecast.return_value = {
+            "daily": {
+                "time": [today.isoformat(), capped_end.isoformat()],
+                "weather_code": [0, 3],
+                "temperature_2m_min": [21, 24],
+                "temperature_2m_max": [31, 34],
+            },
+            "hourly": {
+                "time": [f"{today.isoformat()}T09:00"],
+                "weather_code": [0],
+                "temperature_2m": [26],
+            },
+        }
+
+        payload = SERVER.month_weather_payload(
+            {
+                "city": ["pohang"],
+                "start": [today.isoformat()],
+                "end": [visible_end.isoformat()],
+            }
+        )
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["error"], "")
+        self.assertEqual(payload["end"], visible_end.isoformat())
+        self.assertEqual([item["date"] for item in payload["items"]], [today.isoformat(), capped_end.isoformat()])
+        fetch_forecast.assert_called_once_with("pohang", today.isoformat(), capped_end.isoformat())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -76,6 +76,7 @@ WEATHER_GLYPHS = {
     "fog": "🌫️",
     "unknown": "·",
 }
+OPEN_METEO_FORECAST_MAX_DAYS = 16
 
 SEOUL_VTIMEZONE = """BEGIN:VTIMEZONE
 TZID:Asia/Seoul
@@ -1209,13 +1210,15 @@ def month_weather_payload(query):
     forecast_error = ""
     if end >= today:
         forecast_start = max(start, today)
+        forecast_end = min(end, today + timedelta(days=OPEN_METEO_FORECAST_MAX_DAYS - 1))
         try:
-            payload = fetch_open_meteo_forecast(city, forecast_start.isoformat(), end.isoformat())
-            forecast_items = forecast_daily_items(city, payload)
-            dayparts_by_date = forecast_dayparts(payload)
-            for date_value, item in forecast_items.items():
-                item["dayparts"] = dayparts_by_date.get(date_value, [])
-                items[date_value] = item
+            if forecast_start <= forecast_end:
+                payload = fetch_open_meteo_forecast(city, forecast_start.isoformat(), forecast_end.isoformat())
+                forecast_items = forecast_daily_items(city, payload)
+                dayparts_by_date = forecast_dayparts(payload)
+                for date_value, item in forecast_items.items():
+                    item["dayparts"] = dayparts_by_date.get(date_value, [])
+                    items[date_value] = item
         except Exception:
             forecast_error = "weather unavailable"
 
