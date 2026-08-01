@@ -3809,6 +3809,7 @@ function renderRounyTemplateDetail() {
         <button class="openButton" type="button" data-rouny-add-item>${uiText("rouny.addClass", "Add class")}</button>
         <button class="openButton" type="button" data-rouny-undo ${canUndoRounyDraft() ? "" : "disabled"}>${uiText("rouny.undo", "Undo")}</button>
         <button class="openButton" type="button" data-rouny-reset>${uiText("rouny.reset", "Reset")}</button>
+        <button class="openButton" type="button" data-rouny-print>${uiText("rouny.print", "Print")}</button>
         <button class="primaryButton" type="button" data-rouny-save>${uiText("common.save", "Save")}</button>
         <button class="openButton" type="button" data-rouny-save-as>${uiText("rouny.saveAs", "Save as")}</button>
       </section>
@@ -4656,6 +4657,13 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-rouny-reset]")) {
     if (resetRounyDraftToSaved()) render();
+    return;
+  }
+
+  if (event.target.closest("[data-rouny-print]")) {
+    collectRounyDraft();
+    render();
+    window.setTimeout(() => window.print(), 50);
     return;
   }
 

@@ -3318,3 +3318,113 @@ h3 {
     padding-inline: 20px;
   }
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  html,
+  body,
+  .app {
+    width: auto;
+    min-height: auto;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .appTop,
+  #overlayRoot,
+  .rounyBackButton,
+  .rounySyncStatus,
+  .rounyGridToggle,
+  .rounyValidationSummary,
+  .rounyActions,
+  [data-rouny-rename] {
+    display: none !important;
+  }
+
+  .view {
+    display: block;
+    height: auto;
+    min-height: auto;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .rounyEditor {
+    display: block;
+    width: 100%;
+  }
+
+  .panel {
+    border: 1px solid #cfc8d2;
+    border-radius: 0;
+    background: #ffffff !important;
+    break-inside: avoid;
+    overflow: visible;
+  }
+
+  .rounyTemplateHeaderPanel {
+    margin: 0 0 6mm;
+    padding: 0;
+    border: 0;
+  }
+
+  .rounyTemplateHeader {
+    display: block;
+  }
+
+  .rounyTemplateNameRow {
+    display: block;
+  }
+
+  .rounyTemplateNameRow h2 {
+    color: #111111 !important;
+    font-size: 22pt;
+    line-height: 1.1;
+  }
+
+  .rounyTimelineGrid {
+    width: 100%;
+    background: #ffffff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .rounyTimelineCorner,
+  .rounyTimelineDayHeader,
+  .rounyTimelineTimeRail {
+    background: #ffffff !important;
+    color: #333333 !important;
+  }
+
+  .rounyTimelineDayColumn {
+    background: #fbf7fc !important;
+  }
+
+  .rounyTimelineHour,
+  .rounyTimelineDayHeader,
+  .rounyTimelineDayColumn {
+    border-color: #d7d0da !important;
+  }
+
+  .rounyTimelineHour i {
+    border-color: #ece5ef !important;
+  }
+
+  .rounyBlock {
+    border-color: rgba(46, 52, 64, 0.28) !important;
+  }
+}

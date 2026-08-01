@@ -213,6 +213,7 @@ window.KAOS_TRANSLATIONS = {
     "rouny.rename": "변경",
     "rouny.undo": "되돌리기",
     "rouny.reset": "초기화",
+    "rouny.print": "인쇄",
     "rouny.templateName": "시간표 이름",
     "rouny.addClass": "수업 추가",
     "rouny.editClass": "수업 수정",
