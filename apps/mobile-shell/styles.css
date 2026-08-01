@@ -2085,17 +2085,31 @@ h3 {
 
 .rounySlotRow {
   display: grid;
-  grid-template-columns: minmax(76px, 0.9fr) minmax(78px, 1fr) minmax(78px, 1fr) 34px;
+  grid-template-columns: minmax(76px, 0.9fr) minmax(78px, 1fr) minmax(78px, 1fr) 40px;
   align-items: end;
   gap: 7px;
   min-width: 0;
 }
 
+.rounySlotRow label {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+}
+
 .rounySlotRow input,
 .rounySlotRow select {
-  min-height: 34px;
+  height: 40px;
+  min-height: 40px;
   font-size: 16px;
-  padding: 0 7px;
+  line-height: 1;
+  padding: 0 9px;
+}
+
+.rounySlotRow .iconTextButton {
+  width: 40px;
+  height: 40px;
+  align-self: end;
 }
 
 .rounyMetaGrid {
