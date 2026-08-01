@@ -3115,10 +3115,12 @@ function saveRounyDraft({ asCopy = false } = {}) {
     return false;
   }
   const now = new Date().toISOString();
+  const originalTemplate = state.rouny.templates.find((template) => template.id === draft.id);
+  const saveAsName = asCopy && originalTemplate?.name === draft.name ? `${draft.name} copy` : draft.name;
   const nextDraft = normalizeRounyTemplate({
     ...draft,
     id: asCopy ? createId("rouny-template") : draft.id,
-    name: draft.name,
+    name: saveAsName,
     createdAt: asCopy ? now : draft.createdAt,
     updatedAt: now,
   });
