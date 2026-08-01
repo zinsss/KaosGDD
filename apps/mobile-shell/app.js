@@ -2788,7 +2788,7 @@ function defaultRounySlot() {
     id: createId("rouny-slot"),
     dayOfWeek: "1",
     startTime: "09:00",
-    endTime: "09:40",
+    endTime: "09:50",
   };
 }
 
@@ -2831,7 +2831,7 @@ function normalizeRounySlot(slot) {
     id: String(slot.id || createId("rouny-slot")),
     dayOfWeek: rounyDays.some((day) => day.value === String(slot.dayOfWeek)) ? String(slot.dayOfWeek) : "1",
     startTime: snapRounyTimeValue(slot.startTime, "09:00"),
-    endTime: snapRounyTimeValue(slot.endTime, "09:40"),
+    endTime: snapRounyTimeValue(slot.endTime, "09:50"),
   };
 }
 
@@ -3309,7 +3309,7 @@ function snapRounyTimeValue(timeValue, fallback = "09:00") {
 function snapRounyTimeInput(input) {
   if (!(input instanceof HTMLInputElement) || input.type !== "time" || !["slotStart", "slotEnd"].includes(input.name)) return;
   if (!input.value) return;
-  const snapped = snapRounyTimeValue(input.value, input.name === "slotEnd" ? "09:40" : "09:00");
+  const snapped = snapRounyTimeValue(input.value, input.name === "slotEnd" ? "09:50" : "09:00");
   if (input.value !== snapped) input.value = snapped;
 }
 
@@ -3650,7 +3650,7 @@ function itemFromRounyClassForm(form) {
         id: row.dataset.rounySlotId || createId("rouny-slot"),
         dayOfWeek: row.querySelector('[name="slotDay"]')?.value || "1",
         startTime: row.querySelector('[name="slotStart"]')?.value || "09:00",
-        endTime: row.querySelector('[name="slotEnd"]')?.value || "09:40",
+        endTime: row.querySelector('[name="slotEnd"]')?.value || "09:50",
       }),
     )
     .filter(Boolean);
