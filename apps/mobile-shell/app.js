@@ -449,11 +449,6 @@ function activeWeatherItems() {
 function collectionViews() {
   const data = activeCalendarData();
   const allIds = data.collections.map((collection) => collection.id);
-  const ownerLabels = {
-    zin: "GDD_ZiN",
-    family: uiText("collection.family", "Family"),
-    wife: uiText("collection.wife", "Bling02"),
-  };
   const ownerOrder = ["family", "zin", "wife"];
   const owners = [...new Set(data.collections.map((collection) => collection.owner).filter(Boolean))].sort((a, b) => {
     const rankA = ownerOrder.includes(a) ? ownerOrder.indexOf(a) : ownerOrder.length;
@@ -468,12 +463,43 @@ function collectionViews() {
       const ownerCollection = data.collections.find((collection) => collection.owner === owner);
       views.push({
         id: `owner:${owner}`,
-        name: ownerLabels[owner] || ownerCollection?.ownerLabel || owner,
+        name: calendarOwnerLabel(owner, ownerCollection),
         collectionIds,
       });
     }
   });
   return views;
+}
+
+function calendarOwnerLabel(owner, collection = null) {
+  const labels = {
+    zin: "GDD_ZiN",
+    family: uiText("collection.family", "Family"),
+    wife: uiText("collection.wife", "Bling02"),
+  };
+  return labels[owner] || collection?.ownerLabel || collection?.name || owner || uiText("common.personal", "Personal");
+}
+
+function collectionForItem(item) {
+  return activeCalendarData().collections.find((collection) => collection.id === item.collection) || null;
+}
+
+function collectionOwnerForItem(item) {
+  const collection = collectionForItem(item);
+  if (collection?.owner) return collection.owner;
+  if (String(item.collection || "").includes("family")) return "family";
+  if (String(item.collection || "").includes("wife") || String(item.collection || "").includes("bling")) return "wife";
+  return defaultPersonalOwner();
+}
+
+function collectionPillForItem(item) {
+  const collection = collectionForItem(item);
+  const owner = collectionOwnerForItem(item);
+  return {
+    owner,
+    ownerClass: String(owner || "personal").replace(/[^a-z0-9_-]/gi, "-").toLowerCase(),
+    label: calendarOwnerLabel(owner, collection),
+  };
 }
 
 function filterByCollectionView(items, viewId) {
@@ -1779,17 +1805,22 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
     <div class="panelBody">
       <ol class="timeline">
         ${events
-          .map(
-            (event) => `
+          .map((event) => {
+            const collectionPill = collectionPillForItem(event);
+            const timeLabel = event.allDay ? uiText("event.allDayPill", "All Day") : event.time;
+            return `
               <li>
-                <time>${escapeHtml(event.time)}</time>
+                <time class="${event.allDay ? "timelineAllDayPill" : ""}">${escapeHtml(timeLabel)}</time>
                 <a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
-                  <strong>${escapeHtml(event.title)}</strong>
+                  <span class="timelineTitleRow">
+                    <strong>${escapeHtml(event.title)}</strong>
+                    <span class="calendarPill is-${escapeHtml(collectionPill.ownerClass)}">${escapeHtml(collectionPill.label)}</span>
+                  </span>
                   ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
                 </a>
               </li>
-            `,
-          )
+            `;
+          })
           .join("")}
       </ol>
     </div>

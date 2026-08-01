@@ -57,6 +57,7 @@ window.KAOS_TRANSLATIONS = {
     "calendar.nextMonth": "다음 달",
     "calendar.monthGridAria": "월간 캘린더",
     "calendar.agenda": "일정",
+    "event.allDayPill": "종일 일정",
 
     "weather.selectedDayAria": "선택한 날의 날씨",
     "weather.label": "날씨",

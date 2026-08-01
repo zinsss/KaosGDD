@@ -660,22 +660,79 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+.timelineAllDayPill,
+.calendarPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 0.64rem;
+  font-weight: 880;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.timelineAllDayPill {
+  color: var(--nord13);
+  background: rgba(235, 203, 139, 0.12);
+  border-color: rgba(235, 203, 139, 0.32);
+}
+
 .timelineLink {
-  display: block;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.timelineTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .timeline strong {
   display: block;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.timeline span {
+.timelineLink > span:not(.timelineTitleRow):not(.calendarPill) {
   display: block;
   margin-top: 2px;
   color: var(--dim);
   font-size: 0.74rem;
+}
+
+.calendarPill {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.calendarPill.is-family {
+  border-color: rgba(180, 142, 173, 0.42);
+  background: rgba(180, 142, 173, 0.16);
+  color: var(--nord15);
+}
+
+.calendarPill.is-zin {
+  border-color: rgba(136, 192, 208, 0.42);
+  background: rgba(136, 192, 208, 0.14);
+  color: var(--nord8);
+}
+
+.calendarPill.is-wife {
+  border-color: rgba(244, 199, 223, 0.55);
+  background: rgba(244, 199, 223, 0.22);
+  color: #d98ab6;
 }
 
 .calendarGrid {
