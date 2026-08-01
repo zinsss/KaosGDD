@@ -2148,7 +2148,7 @@ h3 {
   gap: 10px;
   width: min(420px, 94vw);
   max-width: 100%;
-  padding: calc(28px + var(--safe-top)) 12px calc(18px + var(--safe-bottom));
+  padding: calc(56px + var(--safe-top)) 12px calc(18px + var(--safe-bottom));
   border-left: 1px solid var(--line);
   background: var(--panel);
   box-shadow: -18px 0 36px rgba(0, 0, 0, 0.26);
@@ -2158,8 +2158,8 @@ h3 {
 
 .rounyLayer > .panelHeader {
   align-items: center;
-  min-height: 52px;
-  padding-top: 4px;
+  min-height: 58px;
+  padding-top: 8px;
 }
 
 .rounyLayerForm {
