@@ -2830,8 +2830,8 @@ function normalizeRounySlot(slot) {
   return {
     id: String(slot.id || createId("rouny-slot")),
     dayOfWeek: rounyDays.some((day) => day.value === String(slot.dayOfWeek)) ? String(slot.dayOfWeek) : "1",
-    startTime: String(slot.startTime || "09:00"),
-    endTime: String(slot.endTime || "09:40"),
+    startTime: snapRounyTimeValue(slot.startTime, "09:00"),
+    endTime: snapRounyTimeValue(slot.endTime, "09:40"),
   };
 }
 
@@ -3297,6 +3297,24 @@ function rounyTimeFromMinutes(totalMinutes) {
   const hour = Math.floor(bounded / 60);
   const minute = bounded % 60;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function snapRounyTimeValue(timeValue, fallback = "09:00") {
+  const minutes = parseRounyMinutes(timeValue);
+  if (minutes === null) return fallback;
+  const snapped = Math.round(minutes / ROUNY_TIMELINE_SLOT_MINUTES) * ROUNY_TIMELINE_SLOT_MINUTES;
+  return rounyTimeFromMinutes(Math.min(23 * 60 + 50, Math.max(0, snapped)));
+}
+
+function snapRounyTimeInput(input) {
+  if (!(input instanceof HTMLInputElement) || input.type !== "time" || !["slotStart", "slotEnd"].includes(input.name)) return;
+  if (!input.value) return;
+  const snapped = snapRounyTimeValue(input.value, input.name === "slotEnd" ? "09:40" : "09:00");
+  if (input.value !== snapped) input.value = snapped;
+}
+
+function snapRounyClassFormTimes(form) {
+  form.querySelectorAll('[name="slotStart"], [name="slotEnd"]').forEach(snapRounyTimeInput);
 }
 
 function rounyTimeLabel(item) {
@@ -4553,6 +4571,7 @@ document.addEventListener("submit", async (event) => {
   const rounyClassForm = event.target.closest("[data-rouny-class-form]");
   if (rounyClassForm) {
     event.preventDefault();
+    snapRounyClassFormTimes(rounyClassForm);
     const { item, validation } = updateRounyClassFormValidation(rounyClassForm);
     const hasInvalidItemTime = item.slots.some((slot) =>
       validation.invalidKeys.has(rounySlotValidationKey(item.id, slot.id)),
@@ -4790,7 +4809,10 @@ document.addEventListener("change", (event) => {
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
 
   const rounyClassForm = event.target.closest("[data-rouny-class-form]");
-  if (rounyClassForm) updateRounyClassFormValidation(rounyClassForm);
+  if (rounyClassForm) {
+    snapRounyTimeInput(event.target);
+    updateRounyClassFormValidation(rounyClassForm);
+  }
 
   const weatherLocation = event.target.closest("[data-weather-location-setting]");
   if (weatherLocation) {
