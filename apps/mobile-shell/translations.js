@@ -263,6 +263,8 @@ window.KAOS_TRANSLATIONS = {
 
     "dialog.templateNameRequired": "시간표 이름을 입력하세요.",
     "dialog.renameTemplate": "새 시간표 이름",
+    "dialog.saveTemplate": "이 시간표를 저장할까요?",
+    "dialog.saveTemplateAs": "이 시간표를 새 시간표로 저장할까요?",
     "dialog.keepOneTemplate": "시간표를 하나 이상 남겨 두세요.",
     "dialog.deleteTemplate": "이 시간표를 삭제할까요?",
     "dialog.deleteEventPreset": "이 일정 프리셋을 삭제할까요?",

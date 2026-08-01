@@ -3105,11 +3105,20 @@ function saveRounyDraft({ asCopy = false } = {}) {
   ) {
     return false;
   }
+  if (
+    !window.confirm(
+      asCopy
+        ? uiText("dialog.saveTemplateAs", "Save this timetable as a new template?")
+        : uiText("dialog.saveTemplate", "Save this timetable?"),
+    )
+  ) {
+    return false;
+  }
   const now = new Date().toISOString();
   const nextDraft = normalizeRounyTemplate({
     ...draft,
     id: asCopy ? createId("rouny-template") : draft.id,
-    name: asCopy ? `${draft.name} copy` : draft.name,
+    name: draft.name,
     createdAt: asCopy ? now : draft.createdAt,
     updatedAt: now,
   });
