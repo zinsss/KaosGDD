@@ -2281,13 +2281,13 @@ function renderCalendarMonthPanel() {
               <button class="${classes}" type="button" data-date="${cell.value}">
                 <span class="dayHeader">
                   <span class="dayNumber">${cell.label}</span>
-                  ${hasCaregiver ? `<span class="dayCaregiverMark" aria-label="${uiText("caregiver.dayMarker", "Caregiver record")}">•</span>` : ""}
                 </span>
                 ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
                 ${
-                  eventCount || taskCount
+                  hasCaregiver || eventCount || taskCount
                     ? `
                       <span class="dayMarkers">
+                        ${hasCaregiver ? `<span class="dayCaregiverMark" aria-label="${uiText("caregiver.dayMarker", "Caregiver record")}">•</span>` : ""}
                         ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
                         ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
                       </span>
@@ -4740,8 +4740,18 @@ document.addEventListener("pointerup", (event) => {
     }
   }
   const moved = drag.moved;
+  const itemId = drag.itemId;
   clearRounyPointerDrag();
-  if (!moved) return;
+  if (!moved) {
+    state.rouny.editingItemId = itemId;
+    state.rouny.editingItemDraft = null;
+    suppressRounyGridClick = true;
+    render();
+    window.setTimeout(() => {
+      suppressRounyGridClick = false;
+    }, 0);
+    return;
+  }
   suppressRounyGridClick = true;
   render();
   window.setTimeout(() => {

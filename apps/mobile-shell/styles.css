@@ -770,8 +770,8 @@ h3 {
 
 .dayCaregiverMark {
   color: #b0528d;
-  font-size: 0.9rem;
-  line-height: 0.7;
+  font-size: 0.98rem;
+  line-height: 1;
 }
 
 .day.isSunday .dayNumber {
