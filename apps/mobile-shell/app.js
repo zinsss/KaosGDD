@@ -43,9 +43,9 @@ const ROUNY_SYNC_REVISION_KEY = "kaosgdd.v2.rouny.syncRevision.v1";
 const ROUNY_SYNC_DIRTY_KEY = "kaosgdd.v2.rouny.syncDirty.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
 const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
-const FAMILY_FONT_OPTIONS = new Set(["nanum", "nixgon", "skybori"]);
+const FAMILY_FONT_OPTIONS = new Set(["nanum", "pretendard", "nixgon", "skybori"]);
 const MAIN_FONT_STORAGE_KEY = "kaosgdd.v2.main.font.v1";
-const MAIN_FONT_OPTIONS = new Set(["orbit", "sarasa"]);
+const MAIN_FONT_OPTIONS = new Set(["pretendard", "orbit", "sarasa"]);
 const WEATHER_LOCATION_STORAGE_KEY = "kaosgdd.v2.weather.location.v1";
 const WEATHER_LOCATION_OPTIONS = [
   { id: "pohang", label: "Pohang", translationKey: "weather.locationPohang" },
@@ -1570,7 +1570,7 @@ function setFamilyFontPreference(value) {
 
 function mainFontPreference() {
   const stored = window.localStorage.getItem(MAIN_FONT_STORAGE_KEY) || "";
-  return MAIN_FONT_OPTIONS.has(stored) ? stored : "orbit";
+  return MAIN_FONT_OPTIONS.has(stored) ? stored : "pretendard";
 }
 
 function applyMainFontPreference(value = mainFontPreference()) {
@@ -1580,11 +1580,11 @@ function applyMainFontPreference(value = mainFontPreference()) {
     delete app.dataset.mainFont;
     return;
   }
-  app.dataset.mainFont = MAIN_FONT_OPTIONS.has(value) ? value : "orbit";
+  app.dataset.mainFont = MAIN_FONT_OPTIONS.has(value) ? value : "pretendard";
 }
 
 function setMainFontPreference(value) {
-  const normalized = MAIN_FONT_OPTIONS.has(value) ? value : "orbit";
+  const normalized = MAIN_FONT_OPTIONS.has(value) ? value : "pretendard";
   window.localStorage.setItem(MAIN_FONT_STORAGE_KEY, normalized);
   applyMainFontPreference(normalized);
 }
@@ -4032,6 +4032,7 @@ function renderSettings() {
                   <dd>
                     <select data-family-font-setting aria-label="${uiText("settings.font", "Font")}">
                       <option value="nanum" ${familyFontPreference() === "nanum" ? "selected" : ""}>${uiText("settings.fontNanum", "NanumBarunPen")}</option>
+                      <option value="pretendard" ${familyFontPreference() === "pretendard" ? "selected" : ""}>${uiText("settings.fontPretendard", "Pretendard")}</option>
                       <option value="nixgon" ${familyFontPreference() === "nixgon" ? "selected" : ""}>${uiText("settings.fontNixgon", "Nixgon")}</option>
                       <option value="skybori" ${familyFontPreference() === "skybori" ? "selected" : ""}>${uiText("settings.fontSkybori", "SKYBORI")}</option>
                     </select>
@@ -4043,6 +4044,7 @@ function renderSettings() {
                   <dt>Font</dt>
                   <dd>
                     <select data-main-font-setting aria-label="Font">
+                      <option value="pretendard" ${mainFontPreference() === "pretendard" ? "selected" : ""}>Pretendard</option>
                       <option value="orbit" ${mainFontPreference() === "orbit" ? "selected" : ""}>Orbit</option>
                       <option value="sarasa" ${mainFontPreference() === "sarasa" ? "selected" : ""}>Sarasa Gothic</option>
                     </select>

@@ -262,6 +262,7 @@ window.KAOS_TRANSLATIONS = {
     "settings.defaultWeather": "기본 날씨",
     "settings.font": "글꼴",
     "settings.fontNanum": "나눔바른펜",
+    "settings.fontPretendard": "프리텐다드",
     "settings.fontNixgon": "닉스곤",
     "settings.fontSkybori": "SKYBORI",
 
