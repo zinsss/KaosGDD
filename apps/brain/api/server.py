@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,10 +18,11 @@ from services.caregiver.upstream import (
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
+from services.supplies import service as supplies_service
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.4.1")
+VERSION = os.environ.get("BRAIN_VERSION", "0.4.2")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 500_000
 
@@ -83,6 +85,22 @@ def caregiver_month_payload(month):
     return calculate_month(selected_month, journals.get("days"), journals.get("settings"))
 
 
+def supplies_status_for_error(exc):
+    message = str(exc)
+    if message in {"supplies_not_configured", "supplies_collection_not_found"}:
+        return 503
+    if message == "not found":
+        return 404
+    return 400
+
+
+def re_match_supply_action(path):
+    match = re.fullmatch(r"/api/supplies/([^/]+)(?:/(done|active))?", path)
+    if not match:
+        return None
+    return urllib.parse.unquote(match.group(1)), match.group(2) or ""
+
+
 def proxy_request(handler, method):
     if not route_allowed(method, handler.path):
         raise ValueError("upstream_route_not_allowed")
@@ -130,6 +148,24 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return
 
+        if parsed.path == "/api/supplies":
+            try:
+                query = urllib.parse.parse_qs(parsed.query)
+                json_response(self, 200, supplies_service.list_supplies((query.get("mode") or ["active"])[0]))
+            except ValueError as exc:
+                json_response(self, supplies_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+
+        if parsed.path == "/api/supplies/presets":
+            try:
+                json_response(self, 200, supplies_service.list_presets())
+            except Exception as exc:
+                print(f"Supplies presets read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "supplies_presets_unavailable"})
+            return
+
         if self.path == "/health":
             payload = brain_status(self.headers)
             json_response(self, 200 if payload["ok"] else 503, payload)
@@ -155,6 +191,51 @@ class Handler(BaseHTTPRequestHandler):
         json_response(self, 404, {"error": "not_found"})
 
     def do_POST(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/supplies":
+            try:
+                payload = json_request(self)
+                json_response(self, 200, supplies_service.create_supply(payload.get("title")))
+            except ValueError as exc:
+                json_response(self, supplies_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+        if path == "/api/supplies/presets/use":
+            try:
+                payload = json_request(self)
+                json_response(self, 200, supplies_service.use_preset(payload.get("name")))
+            except ValueError as exc:
+                json_response(self, supplies_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+        supply_action = re_match_supply_action(path)
+        if supply_action and supply_action[1] in {"done", "active"}:
+            try:
+                result = (
+                    supplies_service.mark_supply_done(supply_action[0])
+                    if supply_action[1] == "done"
+                    else supplies_service.mark_supply_active(supply_action[0])
+                )
+                json_response(self, 200, result)
+            except ValueError as exc:
+                json_response(self, supplies_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+        if path in {"/api/capture", "/capture"}:
+            try:
+                payload = json_request(self)
+                raw = payload.get("raw")
+                if raw is None:
+                    raw = payload.get("text")
+                json_response(self, 200, supplies_service.capture_supply(raw))
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         self._proxy_write("POST")
 
     def do_PUT(self):
@@ -229,7 +310,8 @@ class Handler(BaseHTTPRequestHandler):
         self._proxy_write("PUT")
 
     def do_DELETE(self):
-        if urllib.parse.urlsplit(self.path).path == "/api/caregiver/day":
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/caregiver/day":
             try:
                 require_family_profile(self.headers)
                 payload = json_request(self)
@@ -241,6 +323,15 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, status, {"error": str(exc)})
             except CaregiverAdapterError as exc:
                 json_response(self, 502 if exc.status >= 500 else exc.status, exc.payload)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
+        supply_action = re_match_supply_action(path)
+        if supply_action and supply_action[1] == "":
+            try:
+                json_response(self, 200, supplies_service.delete_supply(supply_action[0]))
+            except ValueError as exc:
+                json_response(self, supplies_status_for_error(exc), {"ok": False, "error": str(exc)})
             except (urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return

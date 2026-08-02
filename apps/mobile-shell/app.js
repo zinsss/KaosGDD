@@ -20,6 +20,7 @@ const familyRoutes = {
   caregiver: uiText("route.caregiver", "Caregiver"),
   tasks: uiText("route.tasks", "Tasks"),
   add: uiText("route.add", "Add"),
+  supplies: uiText("route.supplies", "Supplies"),
   "add-event": uiText("route.addEvent", "Add Event"),
   "edit-event": uiText("route.editEvent", "Edit Event"),
   "add-task": uiText("route.addTask", "Add Task"),
@@ -202,6 +203,14 @@ const state = {
     items: [],
     editingId: "",
     expanded: false,
+  },
+  supplies: {
+    checked: false,
+    loading: false,
+    mode: "active",
+    error: "",
+    items: [],
+    presets: [],
   },
 };
 
@@ -431,7 +440,7 @@ const mockAdapter = {
       { name: "Radicale", type: "Calendar", href: "https://calendar.kaosgdd.net", meta: "Calendar backend candidate" },
       { name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault" },
       { name: "Stirling-PDF", type: "PDF", href: "https://pdf.kaosgdd.net", meta: "PDF workflows" },
-      { name: "Supplies", type: "Brain", href: "", meta: "Radicale buy-list planned" },
+      { name: "Supplies", type: "Brain", href: "#/supplies", meta: "Radicale buy-list" },
       { name: "Fax", type: "Legacy", href: "", meta: "Legacy backend stays alive for now" },
     ];
   },
@@ -1002,6 +1011,94 @@ async function loadCaregiverMonth() {
   if (getRoute() === "caregiver" || getRoute() === "calendar") render();
 }
 
+async function loadSupplies(options = {}) {
+  if (portalProfile() !== "main") return;
+  if (state.supplies.loading) return;
+  if (state.supplies.checked && !options.force) return;
+  state.supplies.loading = true;
+  try {
+    const params = new URLSearchParams({ mode: state.supplies.mode });
+    const [itemsResponse, presetsResponse] = await Promise.all([
+      fetch(`/api/supplies?${params.toString()}`, { headers: { Accept: "application/json" } }),
+      fetch("/api/supplies/presets", { headers: { Accept: "application/json" } }),
+    ]);
+    const itemsPayload = await itemsResponse.json().catch(() => ({}));
+    const presetsPayload = await presetsResponse.json().catch(() => ({}));
+    if (!itemsResponse.ok) throw new Error(itemsPayload.error || `HTTP ${itemsResponse.status}`);
+    state.supplies = {
+      ...state.supplies,
+      checked: true,
+      loading: false,
+      error: "",
+      items: Array.isArray(itemsPayload.items) ? itemsPayload.items : [],
+      presets: presetsResponse.ok && Array.isArray(presetsPayload.items) ? presetsPayload.items : [],
+    };
+  } catch (error) {
+    state.supplies = {
+      ...state.supplies,
+      checked: true,
+      loading: false,
+      error: error.message || "Supplies unavailable",
+      items: [],
+    };
+  }
+  if (getRoute() === "supplies") render();
+}
+
+async function createSupply(title) {
+  const response = await fetch("/api/supplies", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.supplies.mode = "active";
+  state.supplies.checked = false;
+  await loadSupplies({ force: true });
+}
+
+async function useSupplyPreset(name) {
+  const response = await fetch("/api/supplies/presets/use", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.supplies.mode = "active";
+  state.supplies.checked = false;
+  await loadSupplies({ force: true });
+}
+
+async function setSupplyState(id, mode) {
+  const response = await fetch(`/api/supplies/${encodeURIComponent(id)}/${mode}`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.supplies.checked = false;
+  await loadSupplies({ force: true });
+}
+
+async function deleteSupply(id) {
+  const response = await fetch(`/api/supplies/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.supplies.checked = false;
+  await loadSupplies({ force: true });
+}
+
 async function saveCaregiverSettings(formData) {
   const month = state.selectedDate.slice(0, 7);
   const numericValue = (name) => Number(String(formData.get(name) || "").replace(/[^\d]/g, "")) || 0;
@@ -1558,6 +1655,7 @@ function getRoute() {
   const route = raw.split("?", 1)[0];
   if (!routes[route]) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && (route === "today" || route === "services")) return profileConfig().defaultRoute;
+  if (portalProfile() === "family" && route === "supplies") return profileConfig().defaultRoute;
   if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver")) return profileConfig().defaultRoute;
   return route;
 }
@@ -1662,6 +1760,7 @@ function profileConfig() {
 function activeNavRoute(route) {
   if (route === "add" || route === "add-event" || route === "edit-event" || route === "caregiver") return "calendar";
   if (route === "add-task" || route === "edit-task") return "tasks";
+  if (route === "supplies") return "services";
   return route;
 }
 
@@ -2899,6 +2998,74 @@ function renderServices() {
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderSupplies() {
+  const active = state.supplies.mode === "active";
+  const loadingText = state.supplies.loading && !state.supplies.checked ? "Loading supplies..." : "";
+  const emptyText = active ? "No supplies queued." : "No done supplies.";
+  return `
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Supplies</p>
+          <h2>Buy list</h2>
+        </div>
+        <a class="openButton" href="#/services">Utils</a>
+      </div>
+      <form class="composer supplyComposer" data-create-supply>
+        <label>
+          <span>Item</span>
+          <input name="title" type="text" autocomplete="off" placeholder="gauze" required />
+        </label>
+        <button class="openButton supplyAddButton" type="submit">Add</button>
+      </form>
+      <div class="panelBody">
+        <div class="segmentedTabs supplyModeTabs" role="group" aria-label="Supply mode">
+          <button type="button" class="${active ? "isActive" : ""}" data-supplies-mode="active">Active</button>
+          <button type="button" class="${!active ? "isActive" : ""}" data-supplies-mode="done">Done</button>
+        </div>
+        ${
+          active && state.supplies.presets.length
+            ? `<div class="supplyPresets" aria-label="Recent supplies">
+                ${state.supplies.presets
+                  .map((preset) => `<button type="button" data-supply-preset="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}</button>`)
+                  .join("")}
+              </div>`
+            : ""
+        }
+        ${
+          state.supplies.error
+            ? `<div class="emptyState">${escapeHtml(state.supplies.error)}</div>`
+            : loadingText
+              ? `<div class="emptyState">${loadingText}</div>`
+              : state.supplies.items.length
+                ? `<ul class="supplyList">
+                    ${state.supplies.items.map((item) => renderSupplyRow(item)).join("")}
+                  </ul>`
+                : `<div class="emptyState">${emptyText}</div>`
+        }
+      </div>
+    </section>
+  `;
+}
+
+function renderSupplyRow(item) {
+  const done = state.supplies.mode === "done";
+  return `
+    <li class="supplyRow ${done ? "isDone" : ""}">
+      <button class="checkButton supplyCheck" type="button" data-supply-${done ? "active" : "done"}="${escapeHtml(item.id)}" aria-label="${done ? "Move back to active" : "Mark done"}"></button>
+      <div class="supplyRowMain">
+        <strong>${escapeHtml(item.title || "Untitled supply")}</strong>
+        <span>${escapeHtml(done ? item.done_at_display || item.done_date_key || "Done" : item.created_at || "")}</span>
+      </div>
+      ${
+        done
+          ? `<button class="taskIconButton" type="button" data-supply-delete="${escapeHtml(item.id)}" aria-label="Delete supply" title="Delete supply">×</button>`
+          : ""
+      }
+    </li>
   `;
 }
 
@@ -4320,6 +4487,7 @@ function render() {
   }
   else if (route === "edit-task") view.innerHTML = renderEditTask();
   else if (route === "services") view.innerHTML = renderServices();
+  else if (route === "supplies") view.innerHTML = renderSupplies();
   else if (route === "rouny") view.innerHTML = renderRouny();
   else if (route === "memos") view.innerHTML = renderMemos();
   else if (route === "settings") view.innerHTML = renderSettings();
@@ -4330,6 +4498,7 @@ function render() {
     loadRemoteWeatherForSelectedMonth();
   }
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
+  if (route === "supplies") loadSupplies();
   updateTopBarShadow();
 }
 
@@ -4345,6 +4514,57 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  const suppliesMode = event.target.closest("[data-supplies-mode]");
+  if (suppliesMode) {
+    state.supplies.mode = suppliesMode.dataset.suppliesMode === "done" ? "done" : "active";
+    state.supplies.checked = false;
+    render();
+    await loadSupplies({ force: true });
+    return;
+  }
+
+  const supplyPreset = event.target.closest("[data-supply-preset]");
+  if (supplyPreset) {
+    try {
+      await useSupplyPreset(supplyPreset.dataset.supplyPreset || "");
+    } catch (error) {
+      window.alert(`Could not add supply: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
+  const supplyDone = event.target.closest("[data-supply-done]");
+  if (supplyDone) {
+    try {
+      await setSupplyState(supplyDone.dataset.supplyDone || "", "done");
+    } catch (error) {
+      window.alert(`Could not update supply: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
+  const supplyActive = event.target.closest("[data-supply-active]");
+  if (supplyActive) {
+    if (!window.confirm("Move this supply back to Active?")) return;
+    try {
+      await setSupplyState(supplyActive.dataset.supplyActive || "", "active");
+    } catch (error) {
+      window.alert(`Could not update supply: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
+  const supplyDelete = event.target.closest("[data-supply-delete]");
+  if (supplyDelete) {
+    if (!window.confirm("Delete this supply?")) return;
+    try {
+      await deleteSupply(supplyDelete.dataset.supplyDelete || "");
+    } catch (error) {
+      window.alert(`Could not delete supply: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
   const currentLocationWeather = event.target.closest("[data-current-location-weather]");
   if (currentLocationWeather) {
     await openCurrentLocationWeather(currentLocationWeather.dataset.currentLocationWeather || state.selectedDate);
@@ -4870,6 +5090,19 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const supplyForm = event.target.closest("[data-create-supply]");
+  if (supplyForm) {
+    event.preventDefault();
+    const formData = new FormData(supplyForm);
+    try {
+      await createSupply(String(formData.get("title") || "").trim());
+      supplyForm.reset();
+    } catch (error) {
+      window.alert(`Could not add supply: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
   const caregiverDayForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverDayForm) {
     event.preventDefault();

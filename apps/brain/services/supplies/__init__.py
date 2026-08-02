@@ -1,0 +1,1 @@
+"""Supplies buy-list service."""
