@@ -481,10 +481,28 @@ h3 {
 .supplyComposer {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
+  column-gap: 8px;
+  row-gap: 5px;
+}
+
+.supplyComposer label {
+  display: contents;
+}
+
+.supplyComposer label span {
+  grid-column: 1 / -1;
+}
+
+.supplyComposer input {
+  grid-column: 1;
+  height: 44px;
 }
 
 .supplyAddButton {
+  grid-column: 2;
+  height: 44px;
   min-height: 44px;
+  align-self: end;
   padding-right: 18px;
   padding-left: 18px;
 }
