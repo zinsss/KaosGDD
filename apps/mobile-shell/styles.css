@@ -969,6 +969,13 @@ h3 {
   min-width: 0;
 }
 
+.taskTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .checkButton {
   position: relative;
   width: 22px;
@@ -997,9 +1004,13 @@ h3 {
 }
 
 .taskTitle {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-size: 0.9rem;
   font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .taskRow.isDone .taskTitle {

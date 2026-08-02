@@ -1853,12 +1853,16 @@ function renderTaskRows(tasks) {
         .map((task) => {
           const done = task.done;
           const classes = ["taskRow", task.priorityLabel ? `priority${task.priorityLabel}` : "", done ? "isDone" : ""].filter(Boolean).join(" ");
+          const collectionPill = collectionPillForItem(task);
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
                 <button class="checkButton ${done ? "isDone" : ""}" type="button" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(task.title)}"></button>
                 <a class="taskEditLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
-                  <p class="taskTitle">${escapeHtml(task.title)}</p>
+                  <span class="taskTitleRow">
+                    <p class="taskTitle">${escapeHtml(task.title)}</p>
+                    <span class="calendarPill is-${escapeHtml(collectionPill.ownerClass)}">${escapeHtml(collectionPill.label)}</span>
+                  </span>
                   <span class="taskMeta">${escapeHtml(task.meta)}</span>
                 </a>
                 <small class="taskBadge">${escapeHtml(task.badge)}</small>
