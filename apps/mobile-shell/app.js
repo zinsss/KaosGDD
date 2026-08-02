@@ -1155,6 +1155,7 @@ async function createRemoteTask(formData) {
       dueDate: due.date,
       dueTime: due.time,
       priority: taskPriorityFromForm(formData),
+      status: String(formData.get("status") || "").trim(),
     }),
   });
   if (!response.ok) {
@@ -4758,16 +4759,41 @@ document.addEventListener("click", async (event) => {
   if (check) {
     const row = check.closest("[data-task-id]");
     if (!row) return;
-    const rawTask = mockCalendarData.tasks.find((task) => task.uid === row.dataset.taskId);
+    const rawTask = activeCalendarData().tasks.find((task) => task.uid === row.dataset.taskId);
     if (!rawTask) return;
+    const previousStatus = rawTask.status || "NEEDS-ACTION";
+    const previousCompleted = rawTask.completed;
     if (rawTask.status === "COMPLETED") {
       rawTask.status = "NEEDS-ACTION";
       delete rawTask.completed;
     } else {
       rawTask.status = "COMPLETED";
-      rawTask.completed = `${state.selectedDate}T00:00:00`;
+      rawTask.completed = new Date().toISOString().slice(0, 19);
     }
     render();
+    if (state.remoteCalendar.live) {
+      try {
+        const formData = new FormData();
+        formData.set("uid", rawTask.uid);
+        formData.set("collectionId", rawTask.collection || "");
+        formData.set("title", rawTask.summary || "");
+        formData.set("memo", taskDescription(rawTask));
+        formData.set("due", rawTask.due || "");
+        formData.set("dueTime", rawTask.dueTime || "");
+        formData.set("priority", rawTask.priority || "");
+        formData.set("status", rawTask.status || "NEEDS-ACTION");
+        await updateRemoteTask(formData, { navigate: false });
+      } catch (error) {
+        rawTask.status = previousStatus;
+        if (previousCompleted) rawTask.completed = previousCompleted;
+        else delete rawTask.completed;
+        window.alert(uiText("dialog.taskSaveError", "Could not save task: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
+        await loadRemoteCalendar();
+        render();
+      }
+    }
     return;
   }
 

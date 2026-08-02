@@ -1385,7 +1385,8 @@ def build_vtodo(payload, existing=None):
     alarm_uid = str(uuid.uuid4()).upper()
     now = utc_stamp(datetime.now(timezone.utc))
     created = existing.get("CREATED") or now
-    status = existing.get("STATUS") or "NEEDS-ACTION"
+    requested_status = str(payload.get("status") or "").strip().upper()
+    status = requested_status if requested_status in {"COMPLETED", "NEEDS-ACTION"} else existing.get("STATUS") or "NEEDS-ACTION"
 
     lines = [
         "BEGIN:VCALENDAR",

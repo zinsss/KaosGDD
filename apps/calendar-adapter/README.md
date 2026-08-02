@@ -28,7 +28,7 @@ The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale fil
 
 `POST /api/calendar/tasks` creates a VTODO in the selected Radicale task collection. The mobile shell refreshes from `GET /api/calendar/bootstrap` after a successful write, so the UI shows Radicale as the source of truth.
 
-`PUT /api/calendar/tasks` updates an existing VTODO by UID while preserving the original task UID, created timestamp, and completion status. Updates use the Radicale ETag as an `If-Match` write guard.
+`PUT /api/calendar/tasks` updates an existing VTODO by UID while preserving the original task UID and created timestamp. It can also change completion status between `NEEDS-ACTION` and `COMPLETED`. Updates use the Radicale ETag as an `If-Match` write guard.
 
 `DELETE /api/calendar/tasks` deletes an existing VTODO by UID.
 
