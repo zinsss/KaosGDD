@@ -31,7 +31,8 @@ Brain owns those joins and calculations. It should not become a generic applicat
 | notes/knowledge | Wiki.js |
 | files | SFTPGo |
 | passwords | Vaultwarden |
-| supplies | KaosSupplies |
+| supplies buy-list VTODOs | Radicale |
+| supplies presets/recent history | Brain PostgreSQL |
 | fax | KaosFaxMail or legacy bridge until replaced |
 | PACS | KaosPACS |
 
@@ -44,9 +45,36 @@ Kaos_Calendar
 Kaos_Tasks
 Kaos_Weather
 Kaos_Caregiver
+Kaos_Supplies
 ```
 
 `Kaos_Weather` and `Kaos_Caregiver` are Kaos-owned generated/structured collections. They should not be edited by normal calendar clients.
+
+`Kaos_Supplies` is a dedicated task collection owned by the `supplies` Radicale
+account. It may sync through CalDAV clients, but KaosGDD presents it as a
+separate buy-list UI instead of mixing it into general tasks.
+
+## Supplies
+
+The old KaosSupplies API behavior is the compatibility reference, but the new
+runtime path is:
+
+```text
+KaosGDD UI -> Brain -> Radicale Kaos_Supplies VTODO collection
+```
+
+Brain should preserve the useful KaosSupplies rules:
+
+- active list: oldest created first
+- done list: newest completed first
+- clean title: trim and collapse whitespace
+- normalized title: lowercase, trim, collapse whitespace
+- active-title dedupe by normalized title
+- done items may be re-added as new active items
+- presets are recent names, capped to 15, stored in Brain PostgreSQL
+- `$$ title` capture creates a supply item
+
+Do not expose a new public supplies subdomain unless a future workflow needs it.
 
 ## Weather Journals
 

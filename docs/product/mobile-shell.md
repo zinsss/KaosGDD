@@ -53,6 +53,11 @@ Task adapter work should follow the [Radicale Task Plan](radicale-task-plan.md).
 
 Memos is included as a service link first. Any future integration should go through a `MemoService` adapter, not direct database reads.
 
+Supplies should become a first-class KaosGDD buy-list page. It should not reuse
+the general task UI, but it should store active/done items as Radicale VTODOs in
+the dedicated `Kaos_Supplies` collection through Brain. Presets/recent items
+belong in Brain PostgreSQL.
+
 Legacy subtask lines in VTODO descriptions are parsed and rendered in the task list:
 
 ```text
@@ -69,7 +74,7 @@ The shell is intended to become the main KaosGDD surface and is served at the po
 It does not:
 
 - talk directly to Radicale; writes go through the calendar adapter
-- call KaosSupplies
+- call KaosSupplies directly
 - touch PACS
 - touch Fax
 - access any database

@@ -16,7 +16,7 @@ The v2 platform now has dedicated services for many generic responsibilities:
 - SFTPGo for files
 - Stirling-PDF for PDF workflows
 - Vaultwarden for passwords
-- KaosSupplies for supplies
+- Radicale plus Brain for supplies, using a dedicated buy-list task collection
 
 KaosPACS remains production medical infrastructure and is not part of this migration phase.
 

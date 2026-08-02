@@ -68,7 +68,7 @@ Brain may restart independently from:
 - Radicale
 - Paperless
 - Wiki.js
-- KaosSupplies
+- KaosSupplies legacy service, while the new supplies path is built
 - KaosFaxMail or the legacy fax bridge
 
 Brain must not:

@@ -32,7 +32,7 @@ KaosGDD must not call:
 - Radicale files directly
 - SFTPGo database/files directly
 - Vaultwarden database directly
-- KaosSupplies database directly
+- KaosSupplies database directly; legacy-only while supplies moves to Radicale
 - KaosPACS database directly
 
 ## Production Edge

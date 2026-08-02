@@ -2,7 +2,7 @@
 
 KaosGDD Brain is the small backend for KaosGDD v2 orchestration.
 
-It is not a replacement for Radicale, Paperless, Wiki.js, KaosSupplies, KaosFaxMail, or PACS. It exists for logic that the static shell cannot do safely by itself.
+It is not a replacement for Radicale, Paperless, Wiki.js, KaosFaxMail, or PACS. It exists for logic that the static shell cannot do safely by itself.
 
 ## Scope
 
@@ -15,6 +15,7 @@ Brain owns:
 - generated calendar overlays, such as Market Saturday and Claim Day
 - weather fetch and generated weather history journals
 - caregiver journal normalization and monthly review calculations
+- supplies buy-list compatibility behavior over a Radicale task collection
 - service health/status aggregation
 
 Brain does not own:
@@ -63,7 +64,28 @@ Brain `0.4.1` is the side-by-side runtime:
 - strict method/path allowlisting
 - Caddy routes for `/api/caregiver/*` and `/api/rouny/*` only on `family.kaosgdd.net`
 
-PostgreSQL owns Brain configuration and Rouny timetable templates. Radicale remains authoritative for events, tasks, weather journals, and caregiver journals.
+PostgreSQL owns Brain configuration, Rouny timetable templates, and supplies
+preset/recent history. Radicale remains authoritative for events, tasks, weather
+journals, caregiver journals, and the supplies buy-list collection.
+
+## Supplies
+
+Supplies should move into KaosGDD as a dedicated buy-list UI backed by Brain.
+The browser should not call the old KaosSupplies service directly, and no
+`supplies.kaosgdd.net` entry point is required for the new path.
+
+The compatibility behavior comes from the existing KaosSupplies service:
+
+- active supplies are listed oldest first by created time
+- completed supplies are listed newest first by completion time
+- titles are cleaned with whitespace collapsed
+- active titles are deduplicated by lowercased collapsed title
+- completed items do not block adding the same title again
+- presets are recent supply names, capped to 15, newest first
+- `$$ item` capture creates a supply and returns `created_types: ["supply"]`
+
+Radicale stores each supply as a `VTODO` in the `Kaos_Supplies` task collection.
+Brain stores only the preset/recent metadata that Radicale does not model cleanly.
 
 Rouny templates are stored as one atomic document for the Family portal. Each
 write includes the last server revision; stale writes receive `409` and both

@@ -11,7 +11,7 @@
 | Calendar | `https://calendar.kaosgdd.net` | Radicale |
 | PDF | `https://pdf.kaosgdd.net` | Stirling-PDF |
 | Vaultwarden | `https://vault.kaosgdd.net` | Vaultwarden |
-| Supplies | `https://supplies.kaosgdd.net` | KaosSupplies |
+| Supplies | inside `https://kaosgdd.net` | KaosGDD Brain + Radicale |
 | ntfy | `https://ntfy.kaosgdd.net` | legacy `kaos` host for now |
 
 ## Internal Adapter URLs
@@ -28,7 +28,7 @@
 | Stirling-PDF | `http://100.94.208.16:8082` |
 | Vaultwarden | `http://100.94.208.16:8083` |
 | Radicale | `http://100.94.208.16:5232` |
-| KaosSupplies | `http://100.94.208.16:8008` |
+| KaosSupplies legacy | `http://100.94.208.16:8008` |
 
 ## Adapter Env
 

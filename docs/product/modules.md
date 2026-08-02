@@ -25,7 +25,7 @@ Build the first KaosGDD v2 surface as a service cockpit:
 | Documents | Link first, adapter/search later | Paperless-ngx |
 | Files | Link first, adapter later | SFTPGo |
 | PDF | Link first, workflow adapter later | Stirling-PDF |
-| Supplies | API adapter | KaosSupplies |
+| Supplies | Buy-list UI with recent presets | KaosGDD Brain + Radicale |
 | Fax | Legacy bridge for now | KaosGDD legacy, KaosFaxMail later |
 | PACS | API links only | KaosPACS |
 
@@ -84,6 +84,16 @@ Next module work should focus on:
 1. Caregiver wage/calendar support
 2. ROUN timetable
 3. Memos editor
+
+## Supplies
+
+Supplies should be a separate UI from general tasks, but use Radicale as the
+authoritative sync store. Brain provides the KaosSupplies-compatible behavior:
+clean title, active-title dedupe, active/done lists, recent preset names, and
+`$$ title` capture.
+
+This removes the need for a public `supplies.kaosgdd.net` frontend and also
+lets KaosEghis use the KaosGDD tab instead of a separate supplies frontend.
 
 Do not start the Memos editor before the Caregiver and ROUN shapes are usable.
 

@@ -431,7 +431,7 @@ const mockAdapter = {
       { name: "Radicale", type: "Calendar", href: "https://calendar.kaosgdd.net", meta: "Calendar backend candidate" },
       { name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault" },
       { name: "Stirling-PDF", type: "PDF", href: "https://pdf.kaosgdd.net", meta: "PDF workflows" },
-      { name: "KaosSupplies", type: "Clinic", href: "https://supplies.kaosgdd.net/docs", meta: "Supplies API" },
+      { name: "Supplies", type: "Brain", href: "", meta: "Radicale buy-list planned" },
       { name: "Fax", type: "Legacy", href: "", meta: "Legacy backend stays alive for now" },
     ];
   },

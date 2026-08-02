@@ -28,7 +28,7 @@ confirmation, because parallel classes can be intentional.
 Future adapters:
 
 - Calendar and task data -> Radicale adapter
-- Supplies -> KaosSupplies adapter
+- Supplies -> Brain plus Radicale `Kaos_Supplies` task collection
 - Documents -> Paperless adapter
 - Knowledge -> Wiki.js adapter
 
