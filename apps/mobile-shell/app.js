@@ -1173,7 +1173,6 @@ async function createRemoteTask(formData) {
       dueDate: due.date,
       dueTime: due.time,
       priority: taskPriorityFromForm(formData),
-      status: String(formData.get("status") || "").trim(),
     }),
   });
   if (!response.ok) {
@@ -1283,6 +1282,7 @@ async function updateRemoteTask(formData, options = {}) {
       dueDate: due.date,
       dueTime: due.time,
       priority: taskPriorityFromForm(formData),
+      status: String(formData.get("status") || "").trim(),
     }),
   });
   if (!response.ok) {
