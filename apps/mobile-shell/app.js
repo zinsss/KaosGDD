@@ -140,6 +140,7 @@ const state = {
   editingEventId: "",
   editingTaskId: "",
   taskDescriptions: {},
+  pendingTaskStatuses: {},
   remoteCalendar: {
     checked: false,
     configured: false,
@@ -203,6 +204,8 @@ const state = {
     expanded: false,
   },
 };
+
+let remoteCalendarRequestId = 0;
 
 const mockCalendarData = {
   collections: [
@@ -728,11 +731,25 @@ function findEventById(eventId) {
   return activeCalendarData().events.map(normalizeEvent).find((event) => event.id === eventId);
 }
 
+function applyPendingTaskStatuses(tasks) {
+  const pending = state.pendingTaskStatuses || {};
+  return (tasks || []).map((task) => {
+    const override = pending[task.uid];
+    if (!override) return task;
+    const nextTask = { ...task, status: override.status };
+    if (override.status === "COMPLETED") nextTask.completed = override.completed || new Date().toISOString().slice(0, 19);
+    else delete nextTask.completed;
+    return nextTask;
+  });
+}
+
 async function loadRemoteCalendar() {
+  const requestId = ++remoteCalendarRequestId;
   try {
     const response = await fetch("/api/calendar/bootstrap", { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
+    if (requestId !== remoteCalendarRequestId) return;
     state.remoteCalendar = {
       checked: true,
       configured: Boolean(payload.configured),
@@ -741,12 +758,13 @@ async function loadRemoteCalendar() {
       error: "",
       collections: payload.collections || [],
       events: payload.events || [],
-      tasks: payload.tasks || [],
+      tasks: applyPendingTaskStatuses(payload.tasks),
     };
     if (state.remoteCalendar.live && !collectionViews().some((collection) => collection.id === state.currentCollection)) {
       state.currentCollection = "all";
     }
   } catch (error) {
+    if (requestId !== remoteCalendarRequestId) return;
     state.remoteCalendar = {
       ...state.remoteCalendar,
       checked: true,
@@ -4774,6 +4792,10 @@ document.addEventListener("click", async (event) => {
       rawTask.status = "COMPLETED";
       rawTask.completed = new Date().toISOString().slice(0, 19);
     }
+    state.pendingTaskStatuses[rawTask.uid] = {
+      status: rawTask.status,
+      completed: rawTask.completed || "",
+    };
     render();
     if (state.remoteCalendar.live) {
       try {
@@ -4787,7 +4809,9 @@ document.addEventListener("click", async (event) => {
         formData.set("priority", rawTask.priority || "");
         formData.set("status", rawTask.status || "NEEDS-ACTION");
         await updateRemoteTask(formData, { navigate: false });
+        delete state.pendingTaskStatuses[rawTask.uid];
       } catch (error) {
+        delete state.pendingTaskStatuses[rawTask.uid];
         rawTask.status = previousStatus;
         if (previousCompleted) rawTask.completed = previousCompleted;
         else delete rawTask.completed;
@@ -4797,6 +4821,8 @@ document.addEventListener("click", async (event) => {
         await loadRemoteCalendar();
         render();
       }
+    } else {
+      delete state.pendingTaskStatuses[rawTask.uid];
     }
     return;
   }
