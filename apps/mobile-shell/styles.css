@@ -2353,6 +2353,48 @@ h3 {
     "Liberation Mono", monospace;
 }
 
+.app[data-profile="main"] .topNav a,
+.app[data-profile="main"] .collectionRail button,
+.app[data-profile="main"] .taskFilters select,
+.app[data-profile="main"] .segmentedTabs button,
+.app[data-profile="main"] .openButton,
+.app[data-profile="main"] .primaryButton,
+.app[data-profile="main"] .plainButton,
+.app[data-profile="main"] .dangerButton,
+.app[data-profile="main"] .monthNavButton,
+.app[data-profile="main"] .monthTodayButton,
+.app[data-profile="main"] .taskTitle,
+.app[data-profile="main"] .timeline strong,
+.app[data-profile="main"] .serviceRow strong,
+.app[data-profile="main"] .presetChoice strong,
+.app[data-profile="main"] .settingsList dd {
+  font-weight: 600;
+}
+
+.app[data-profile="main"] .kicker,
+.app[data-profile="main"] .label,
+.app[data-profile="main"] .composer label span,
+.app[data-profile="main"] .taskFilters span,
+.app[data-profile="main"] .settingsList dt,
+.app[data-profile="main"] .settingsDisclosure summary strong,
+.app[data-profile="main"] .weekday,
+.app[data-profile="main"] .day,
+.app[data-profile="main"] .dayMarkers,
+.app[data-profile="main"] .calendarPill,
+.app[data-profile="main"] .timelineAllDayPill,
+.app[data-profile="main"] .taskBadge,
+.app[data-profile="main"] .metric span,
+.app[data-profile="main"] .formNote {
+  font-weight: 500;
+}
+
+.app[data-profile="main"] .metric strong,
+.app[data-profile="main"] h1,
+.app[data-profile="main"] h2,
+.app[data-profile="main"] h3 {
+  font-weight: 600;
+}
+
 .app[data-profile="family"] {
   color-scheme: light;
   font-family:
