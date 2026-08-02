@@ -212,6 +212,7 @@ const state = {
     items: [],
     presets: [],
   },
+  selectedUtilityId: "",
 };
 
 let remoteCalendarRequestId = 0;
@@ -2964,6 +2965,7 @@ function renderTaskEditorForm(task = null, draft = {}) {
 }
 
 function renderServices() {
+  if (isDesktopLayout() && portalProfile() === "main") return renderDesktopServices();
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -2998,6 +3000,84 @@ function renderServices() {
         </div>
       </div>
     </section>
+  `;
+}
+
+function serviceId(service) {
+  return String(service.name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function selectedUtilityService() {
+  const services = mockAdapter.getServices();
+  const selected = state.selectedUtilityId || serviceId(services[0] || {});
+  return services.find((service) => serviceId(service) === selected) || services[0] || null;
+}
+
+function renderDesktopServices() {
+  const services = mockAdapter.getServices();
+  const selected = selectedUtilityService();
+  const selectedId = selected ? serviceId(selected) : "";
+  if (selectedId && state.selectedUtilityId !== selectedId) state.selectedUtilityId = selectedId;
+  return `
+    <div class="utilsDesktopGrid">
+      <aside class="panel utilsMenuPane">
+        <div class="panelHeader">
+          <div>
+            <p class="label">Utils</p>
+            <h2>Services</h2>
+          </div>
+        </div>
+        <div class="utilsMenuList">
+          ${services
+            .map((service) => {
+              const id = serviceId(service);
+              return `
+                <button type="button" class="utilsMenuItem ${id === selectedId ? "isActive" : ""}" data-utility-select="${escapeHtml(id)}">
+                  <strong>${escapeHtml(service.name)}</strong>
+                  <span>${escapeHtml(service.type)}</span>
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+      </aside>
+      <section class="panel utilsDetailPane">
+        ${
+          selected
+            ? `
+              <div class="panelHeader">
+                <div>
+                  <p class="label">${escapeHtml(selected.type)}</p>
+                  <h2>${escapeHtml(selected.name)}</h2>
+                </div>
+                ${
+                  selected.href
+                    ? `<a class="openButton" href="${escapeHtml(selected.href)}">Open</a>`
+                    : `<span class="openButton" aria-label="No direct service link">Hold</span>`
+                }
+              </div>
+              <div class="panelBody utilsDetailBody">
+                <p>${escapeHtml(selected.meta)}</p>
+                <dl class="settingsList utilsDetailList">
+                  <div>
+                    <dt>Owner</dt>
+                    <dd>${escapeHtml(selected.type)}</dd>
+                  </div>
+                  <div>
+                    <dt>Entry</dt>
+                    <dd>${escapeHtml(selected.href || "No direct entry yet")}</dd>
+                  </div>
+                </dl>
+              </div>
+            `
+            : `<div class="panelBody"><p class="emptyState">No utilities configured.</p></div>`
+        }
+      </section>
+    </div>
   `;
 }
 
@@ -4514,6 +4594,13 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  const utilitySelect = event.target.closest("[data-utility-select]");
+  if (utilitySelect) {
+    state.selectedUtilityId = utilitySelect.dataset.utilitySelect || "";
+    render();
+    return;
+  }
+
   const suppliesMode = event.target.closest("[data-supplies-mode]");
   if (suppliesMode) {
     state.supplies.mode = suppliesMode.dataset.suppliesMode === "done" ? "done" : "active";

@@ -1699,6 +1699,69 @@ h3 {
   gap: 8px;
 }
 
+.utilsDesktopGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.utilsMenuList {
+  display: grid;
+  gap: 0;
+  padding: 8px;
+}
+
+.utilsMenuItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px dotted var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.utilsMenuItem:last-child {
+  border-bottom: 0;
+}
+
+.utilsMenuItem strong,
+.utilsMenuItem span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.utilsMenuItem strong {
+  font-size: 0.88rem;
+  font-weight: 760;
+}
+
+.utilsMenuItem span {
+  color: var(--dim);
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.utilsMenuItem.isActive strong {
+  color: var(--nord8);
+}
+
+.utilsDetailBody {
+  display: grid;
+  gap: 16px;
+}
+
+.utilsDetailBody > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.96rem;
+  font-weight: 620;
+}
+
 .settingsList {
   display: grid;
   gap: 10px;
@@ -3446,6 +3509,40 @@ h3 {
   .servicesGrid .serviceRow {
     min-height: 82px;
     padding: 14px;
+  }
+
+  .utilsDesktopGrid {
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .utilsMenuPane {
+    position: sticky;
+    top: 0;
+    max-height: calc(100dvh - 48px);
+    overflow: hidden;
+  }
+
+  .utilsMenuList {
+    max-height: calc(100dvh - 118px);
+    overflow-y: auto;
+  }
+
+  .utilsMenuItem {
+    min-height: 54px;
+    padding: 0 8px;
+  }
+
+  .utilsMenuItem.isActive {
+    border-left: 3px solid var(--nord8);
+    background: rgba(136, 192, 208, 0.1);
+    padding-left: 10px;
+  }
+
+  .utilsDetailPane {
+    min-height: 280px;
   }
 
   .formGrid {
