@@ -2754,7 +2754,7 @@ function renderEventFormPanel(draft, shareFamily, allDay) {
       <form class="composer" ${editing ? "data-edit-event" : "data-create-event"}>
         ${editing ? `<input name="uid" type="hidden" value="${escapeHtml(draft.eventId)}" />` : ""}
         ${editing ? `<input name="collectionId" type="hidden" value="${escapeHtml(draft.collection)}" />` : ""}
-        ${editing ? "" : renderFamilyShareToggle(shareFamily)}
+        ${editing ? "" : renderFamilyShareToggle(shareFamily, "event")}
         <label>
           <span>${uiText("common.title", "Title")}</span>
           <input name="title" type="text" autocomplete="off" placeholder="${uiText("event.new", "New event")}" value="${escapeHtml(draft.title)}" required />
@@ -2911,10 +2911,14 @@ function renderAddTask() {
   return `${renderCollectionRail()}${form}`;
 }
 
-function renderFamilyShareToggle(checked = state.currentCollection === "owner:family") {
+function renderFamilyShareToggle(checked = state.currentCollection === "owner:family", kind = "task") {
+  const label =
+    kind === "event"
+      ? uiText("event.shareFamily", "Share to Family")
+      : uiText("task.shareFamily", "Family shared");
   return `
     <label class="toggleLine shareLine">
-      <span>${uiText("task.shareFamily", "Family shared")}</span>
+      <span>${label}</span>
       <input name="shareFamily" type="checkbox" data-share-family ${checked ? "checked" : ""} />
     </label>
   `;
@@ -4335,7 +4339,7 @@ function renderEventPresetSettings() {
           <span>${uiText("common.title", "Title")}</span>
           <input name="title" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.title) : ""}" placeholder="${uiText("event.titlePlaceholder", "Event title")}" required />
         </label>
-        ${renderFamilyShareToggle(Boolean(isEditing && editing.shareFamily))}
+        ${renderFamilyShareToggle(Boolean(isEditing && editing.shareFamily), "event")}
         <label class="toggleLine">
           <span>${uiText("event.allDay", "All-day")}</span>
           <input name="allDay" type="checkbox" data-all-day-toggle ${!isEditing || editing.allDay ? "checked" : ""} />
