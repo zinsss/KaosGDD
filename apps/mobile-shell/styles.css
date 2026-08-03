@@ -644,6 +644,10 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+.recurringError {
+  color: var(--nord11);
+}
+
 .formNote {
   color: var(--dim);
   font-size: 0.78rem;

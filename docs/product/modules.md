@@ -77,6 +77,11 @@ The first v2 data shape should stay close to the legacy model for easier migrati
 
 Legacy named plans, assignment start dates, and calendar overrides should remain reference material only for now.
 
+Event presets are stored in Brain PostgreSQL so they follow the user across
+devices. Personal presets are isolated by portal profile; Family presets are
+available from both the main and Family portals. Actual events remain in
+Radicale as standard VEVENT records.
+
 ## Priority Order
 
 Next module work should focus on:

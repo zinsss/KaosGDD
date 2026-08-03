@@ -16,6 +16,8 @@ Brain owns:
 - weather fetch and generated weather history journals
 - caregiver journal normalization and monthly review calculations
 - supplies buy-list compatibility behavior over a Radicale task collection
+- repeating-task definitions and one-at-a-time VTODO generation
+- cross-device event preset storage with personal and Family scopes
 - service health/status aggregation
 
 Brain does not own:
@@ -46,7 +48,7 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.4.2` is the side-by-side runtime:
+Brain `0.5.1` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
@@ -63,12 +65,23 @@ Brain `0.4.2` is the side-by-side runtime:
 - strict Rouny time-range validation while allowing intentional overlaps
 - strict method/path allowlisting
 - supplies API backed by Radicale `Kaos_Supplies`
+- repeating-task CRUD and scheduler APIs backed by standard Radicale VTODOs
+- event preset CRUD shared by the main and Family portal UIs
 - Caddy routes for `/api/caregiver/*` and `/api/rouny/*` on `family.kaosgdd.net`
 - Caddy route for `/api/supplies*` on `kaosgdd.net`
 
 PostgreSQL owns Brain configuration, Rouny timetable templates, and supplies
 preset/recent history. Radicale remains authoritative for events, tasks, weather
 journals, caregiver journals, and the supplies buy-list collection.
+
+Repeating task definitions live in Brain PostgreSQL. Brain generates one normal
+VTODO at a time and watches its UID in Radicale. Completion or deletion advances
+the fixed daily, weekly, monthly, or yearly schedule. Generated tasks contain no
+Kaos-only calendar metadata, so they remain compatible with iOS Reminders.
+
+Event presets also live in Brain PostgreSQL. Personal presets belong to either
+ZiN or Bling02, while Family presets are visible from both portals. Presets only
+store template fields; events created from them remain normal Radicale VEVENTs.
 
 ## Supplies
 

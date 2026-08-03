@@ -143,5 +143,91 @@ class RounyRequestTests(unittest.TestCase):
         self.assertEqual(payload["document"]["revision"], 3)
 
 
+class RecurringTaskRequestTests(unittest.TestCase):
+    @mock.patch.object(server.recurring_task_service, "list_definitions")
+    def test_list_uses_host_profile(self, list_definitions):
+        list_definitions.return_value = {"ok": True, "items": []}
+        handler = mock.Mock()
+        handler.path = "/api/recurring-tasks"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        list_definitions.assert_called_once_with("family")
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.recurring_task_service, "create_definition")
+    @mock.patch.object(server, "json_request")
+    def test_create_uses_host_profile(self, json_request, create_definition):
+        json_request.return_value = {"title": "Review"}
+        create_definition.return_value = {"id": "repeat-1", "title": "Review"}
+        handler = mock.Mock()
+        handler.path = "/api/recurring-tasks"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        create_definition.assert_called_once_with({"title": "Review"}, "main")
+        handler.send_response.assert_called_once_with(201)
+
+    @mock.patch.object(server.recurring_task_service, "delete_definition")
+    def test_delete_definition(self, delete_definition):
+        delete_definition.return_value = {"ok": True, "id": "repeat-1"}
+        handler = mock.Mock()
+        handler.path = "/api/recurring-tasks/repeat-1"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_DELETE(handler)
+
+        delete_definition.assert_called_once_with("repeat-1", "main")
+        handler.send_response.assert_called_once_with(200)
+
+
+class EventPresetRequestTests(unittest.TestCase):
+    @mock.patch.object(server.event_preset_service, "list_items")
+    def test_list_uses_family_host_profile(self, list_items):
+        list_items.return_value = {"ok": True, "items": []}
+        handler = mock.Mock()
+        handler.path = "/api/event-presets"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        list_items.assert_called_once_with("family")
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.event_preset_service, "create_item")
+    @mock.patch.object(server, "json_request")
+    def test_create_uses_main_host_profile(self, json_request, create_item):
+        json_request.return_value = {"name": "Duty", "title": "Duty"}
+        create_item.return_value = {"id": "preset-1", "name": "Duty", "title": "Duty"}
+        handler = mock.Mock()
+        handler.path = "/api/event-presets"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        create_item.assert_called_once_with({"name": "Duty", "title": "Duty"}, "main")
+        handler.send_response.assert_called_once_with(201)
+
+    @mock.patch.object(server.event_preset_service, "delete_item")
+    def test_delete_checks_portal_scope(self, delete_item):
+        delete_item.return_value = {"ok": True, "id": "preset-1"}
+        handler = mock.Mock()
+        handler.path = "/api/event-presets/preset-1"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_DELETE(handler)
+
+        delete_item.assert_called_once_with("preset-1", "family")
+        handler.send_response.assert_called_once_with(200)
+
+
 if __name__ == "__main__":
     unittest.main()

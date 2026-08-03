@@ -200,9 +200,19 @@ const state = {
   },
   eventPresets: {
     checked: false,
+    loading: false,
     items: [],
     editingId: "",
     expanded: false,
+    error: "",
+  },
+  recurringTasks: {
+    checked: false,
+    loading: false,
+    items: [],
+    editingId: "",
+    expanded: false,
+    error: "",
   },
   supplies: {
     checked: false,
@@ -584,7 +594,7 @@ function defaultEventPreset() {
 function normalizeEventPreset(preset) {
   if (!preset || typeof preset !== "object") return null;
   return {
-    id: String(preset.id || createId("event-preset")),
+    id: String(preset.id || ""),
     name: String(preset.name || preset.title || uiText("event.untitledPreset", "Untitled preset")).trim() || uiText("event.untitledPreset", "Untitled preset"),
     title: String(preset.title || ""),
     allDay: Boolean(preset.allDay),
@@ -593,10 +603,11 @@ function normalizeEventPreset(preset) {
     alarm: String(preset.alarm || "").slice(0, 5),
     memo: String(preset.memo || ""),
     shareFamily: Boolean(preset.shareFamily),
+    owner: String(preset.owner || ""),
   };
 }
 
-function loadEventPresets() {
+function loadLocalEventPresets() {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(EVENT_PRESET_STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed.map(normalizeEventPreset).filter(Boolean) : [];
@@ -606,20 +617,106 @@ function loadEventPresets() {
 }
 
 function ensureEventPresets() {
-  if (state.eventPresets.checked) return;
-  state.eventPresets.items = loadEventPresets();
-  state.eventPresets.checked = true;
+  if (state.eventPresets.checked || state.eventPresets.loading) return;
+  loadEventPresetsFromBrain();
 }
 
-function saveEventPresets(items) {
-  const normalized = items.map(normalizeEventPreset).filter(Boolean);
-  state.eventPresets.items = normalized;
-  window.localStorage.setItem(EVENT_PRESET_STORAGE_KEY, JSON.stringify(normalized));
+function eventPresetSignature(preset) {
+  return JSON.stringify([
+    preset.name,
+    preset.title,
+    preset.allDay,
+    preset.startTime,
+    preset.endTime,
+    preset.alarm,
+    preset.memo,
+    preset.shareFamily,
+  ]);
+}
+
+function eventPresetPayload(preset) {
+  return {
+    name: preset.name,
+    title: preset.title,
+    allDay: preset.allDay,
+    startTime: preset.startTime,
+    endTime: preset.endTime,
+    alarm: preset.alarm,
+    memo: preset.memo,
+    shareFamily: preset.shareFamily,
+  };
+}
+
+async function requestEventPreset(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload;
+}
+
+async function migrateLocalEventPresets(remoteItems) {
+  const localItems = loadLocalEventPresets();
+  if (!localItems.length) return remoteItems;
+  const merged = [...remoteItems];
+  const signatures = new Set(merged.map(eventPresetSignature));
+  for (const localItem of localItems) {
+    const signature = eventPresetSignature(localItem);
+    if (signatures.has(signature)) continue;
+    const created = normalizeEventPreset(
+      await requestEventPreset("/api/event-presets", {
+        method: "POST",
+        body: JSON.stringify(eventPresetPayload(localItem)),
+      }),
+    );
+    if (created) {
+      merged.push(created);
+      signatures.add(eventPresetSignature(created));
+    }
+  }
+  window.localStorage.removeItem(EVENT_PRESET_STORAGE_KEY);
+  return merged;
+}
+
+async function loadEventPresetsFromBrain({ force = false } = {}) {
+  if (state.eventPresets.loading) return;
+  if (state.eventPresets.checked && !force) return;
+  state.eventPresets.loading = true;
+  try {
+    const payload = await requestEventPreset("/api/event-presets");
+    const remoteItems = Array.isArray(payload.items) ? payload.items.map(normalizeEventPreset).filter(Boolean) : [];
+    const items = await migrateLocalEventPresets(remoteItems);
+    state.eventPresets = {
+      ...state.eventPresets,
+      checked: true,
+      loading: false,
+      error: "",
+      items,
+    };
+    if (state.eventPresets.editingId && !items.some((item) => item.id === state.eventPresets.editingId)) {
+      state.eventPresets.editingId = "";
+    }
+  } catch (error) {
+    state.eventPresets = {
+      ...state.eventPresets,
+      checked: true,
+      loading: false,
+      error: error.message || uiText("event.presetsUnavailable", "Event presets unavailable"),
+      items: [],
+    };
+  }
+  if (["settings", "add-event"].includes(getRoute())) render();
 }
 
 function eventPresetFromForm(form) {
   const preset = normalizeEventPreset({
-    id: form.dataset.eventPresetId || createId("event-preset"),
+    id: form.dataset.eventPresetId || "",
     name: form.querySelector('[name="presetName"]')?.value || "",
     title: form.querySelector('[name="title"]')?.value || "",
     allDay: form.querySelector('[name="allDay"]')?.checked || false,
@@ -693,12 +790,144 @@ function collectAddTaskDraft() {
   return state.addTaskDraft;
 }
 
-function upsertEventPreset(preset) {
-  ensureEventPresets();
-  const exists = state.eventPresets.items.some((item) => item.id === preset.id);
-  saveEventPresets(exists
-    ? state.eventPresets.items.map((item) => (item.id === preset.id ? preset : item))
-    : [...state.eventPresets.items, preset]);
+async function upsertEventPreset(preset) {
+  const saved = normalizeEventPreset(
+    await requestEventPreset(
+      preset.id ? `/api/event-presets/${encodeURIComponent(preset.id)}` : "/api/event-presets",
+      {
+        method: preset.id ? "PUT" : "POST",
+        body: JSON.stringify(eventPresetPayload(preset)),
+      },
+    ),
+  );
+  if (!saved?.id) throw new Error("event_preset_invalid_response");
+  state.eventPresets.checked = false;
+  await loadEventPresetsFromBrain({ force: true });
+  return saved;
+}
+
+async function deleteEventPresetFromBrain(id) {
+  const payload = await requestEventPreset(`/api/event-presets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!payload.ok) throw new Error(payload.error || "event_preset_delete_failed");
+  state.eventPresets.checked = false;
+  state.eventPresets.editingId = "";
+  await loadEventPresetsFromBrain({ force: true });
+}
+
+function normalizeRecurringTask(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    id: String(item.id || ""),
+    title: String(item.title || ""),
+    memo: String(item.memo || ""),
+    shareFamily: Boolean(item.shareFamily),
+    owner: String(item.owner || ""),
+    firstDueDate: String(item.firstDueDate || ""),
+    dueTime: String(item.dueTime || DEFAULT_TASK_DUE_TIME).slice(0, 5),
+    priority: String(item.priority || ""),
+    frequency: String(item.frequency || "weekly"),
+    enabled: item.enabled !== false,
+    activeUid: String(item.activeUid || ""),
+    activeDueDate: String(item.activeDueDate || ""),
+    nextDueDate: String(item.nextDueDate || ""),
+    error: String(item.error || ""),
+  };
+}
+
+function defaultRecurringTask() {
+  return {
+    id: "",
+    title: "",
+    memo: "",
+    shareFamily: false,
+    owner: defaultPersonalOwner(),
+    firstDueDate: ymd(new Date()),
+    dueTime: DEFAULT_TASK_DUE_TIME,
+    priority: "",
+    frequency: "weekly",
+    enabled: true,
+    activeUid: "",
+    activeDueDate: "",
+    nextDueDate: "",
+    error: "",
+  };
+}
+
+async function loadRecurringTasks({ force = false } = {}) {
+  if (state.recurringTasks.loading) return;
+  if (state.recurringTasks.checked && !force) return;
+  state.recurringTasks.loading = true;
+  try {
+    const response = await fetch("/api/recurring-tasks", { headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.recurringTasks = {
+      ...state.recurringTasks,
+      checked: true,
+      loading: false,
+      error: "",
+      items: Array.isArray(payload.items) ? payload.items.map(normalizeRecurringTask).filter(Boolean) : [],
+    };
+    if (state.recurringTasks.editingId && !state.recurringTasks.items.some((item) => item.id === state.recurringTasks.editingId)) {
+      state.recurringTasks.editingId = "";
+    }
+  } catch (error) {
+    state.recurringTasks = {
+      ...state.recurringTasks,
+      checked: true,
+      loading: false,
+      error: error.message || uiText("recurring.unavailable", "Repeating tasks unavailable"),
+    };
+  }
+  if (getRoute() === "settings") render();
+}
+
+function recurringTaskPayloadFromForm(form) {
+  return {
+    title: form.querySelector('[name="title"]')?.value || "",
+    memo: form.querySelector('[name="memo"]')?.value || "",
+    firstDueDate: form.querySelector('[name="firstDueDate"]')?.value || "",
+    dueTime: form.querySelector('[name="dueTime"]')?.value || DEFAULT_TASK_DUE_TIME,
+    priority: form.querySelector('[name="priority"]')?.value || "",
+    frequency: form.querySelector('[name="frequency"]')?.value || "weekly",
+    shareFamily: form.querySelector('[name="shareFamily"]')?.checked || false,
+    enabled: form.querySelector('[name="enabled"]')?.checked || false,
+  };
+}
+
+async function saveRecurringTask(id, payload) {
+  const response = await fetch(id ? `/api/recurring-tasks/${encodeURIComponent(id)}` : "/api/recurring-tasks", {
+    method: id ? "PUT" : "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.id) throw new Error(result.error || `HTTP ${response.status}`);
+  state.recurringTasks.checked = false;
+  state.recurringTasks.editingId = "";
+  await loadRecurringTasks({ force: true });
+  window.setTimeout(() => {
+    state.recurringTasks.checked = false;
+    loadRecurringTasks({ force: true });
+    loadRemoteCalendar();
+  }, 1200);
+}
+
+async function deleteRecurringTask(id) {
+  const response = await fetch(`/api/recurring-tasks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.recurringTasks.checked = false;
+  state.recurringTasks.editingId = "";
+  await loadRecurringTasks({ force: true });
 }
 
 function writableTaskCollectionId() {
@@ -2878,6 +3107,12 @@ function renderAddEventTabs() {
 }
 
 function renderEventPresetChoices() {
+  if (state.eventPresets.loading && !state.eventPresets.checked) {
+    return `<p class="taskMeta">${uiText("event.presetsLoading", "Loading event presets...")}</p>`;
+  }
+  if (state.eventPresets.error) {
+    return `<div class="caregiverError"><span>${escapeHtml(state.eventPresets.error)}</span><button class="openButton" type="button" data-event-presets-retry>${uiText("common.retry", "Retry")}</button></div>`;
+  }
   if (!state.eventPresets.items.length) {
     return `<p class="taskMeta">${uiText("event.noPresets", "No event presets yet.")}</p>`;
   }
@@ -4290,6 +4525,7 @@ function renderSettings() {
           }
         </dl>
         ${renderEventPresetSettings()}
+        ${renderRecurringTaskSettings()}
       </div>
     </section>
   `;
@@ -4299,6 +4535,11 @@ function renderEventPresetSettings() {
   const editing = state.eventPresets.items.find((preset) => preset.id === state.eventPresets.editingId) || defaultEventPreset();
   const isEditing = Boolean(state.eventPresets.editingId);
   const presetCount = state.eventPresets.items.length;
+  const statusBody = state.eventPresets.loading && !state.eventPresets.checked
+    ? `<p class="taskMeta">${uiText("event.presetsLoading", "Loading event presets...")}</p>`
+    : state.eventPresets.error
+      ? `<div class="caregiverError"><span>${escapeHtml(state.eventPresets.error)}</span><button class="openButton" type="button" data-event-presets-retry>${uiText("common.retry", "Retry")}</button></div>`
+      : "";
   return `
     <details class="settingsDisclosure" data-event-presets ${state.eventPresets.expanded ? "open" : ""}>
       <summary>
@@ -4308,6 +4549,7 @@ function renderEventPresetSettings() {
         </span>
       </summary>
       <div class="settingsDisclosureBody">
+        ${statusBody}
         ${isEditing ? `<div class="presetInlineActions"><button class="openButton" type="button" data-event-preset-new>${uiText("event.newPreset", "New")}</button></div>` : ""}
         ${
           presetCount
@@ -4328,8 +4570,9 @@ function renderEventPresetSettings() {
                   .join("")}
               </div>
             `
-            : `<p class="taskMeta">${uiText("event.noPresets", "No event presets yet.")}</p>`
+            : !statusBody ? `<p class="taskMeta">${uiText("event.noPresets", "No event presets yet.")}</p>` : ""
         }
+        ${state.eventPresets.error ? "" : `
         <form class="composer presetEditor" data-event-preset-form data-event-preset-id="${isEditing ? escapeHtml(editing.id) : ""}">
         <label>
           <span>${uiText("event.presetName", "Preset name")}</span>
@@ -4363,6 +4606,119 @@ function renderEventPresetSettings() {
           <textarea name="memo" rows="4" placeholder="${uiText("event.notes", "Event notes")}">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
         </label>
         <button class="primaryButton" type="submit">${isEditing ? uiText("event.savePreset", "Save preset") : uiText("event.createPreset", "Create preset")}</button>
+        </form>
+        `}
+      </div>
+    </details>
+  `;
+}
+
+function recurringFrequencyLabel(frequency) {
+  const labels = {
+    daily: uiText("recurring.daily", "Daily"),
+    weekly: uiText("recurring.weekly", "Weekly"),
+    monthly: uiText("recurring.monthly", "Monthly"),
+    yearly: uiText("recurring.yearly", "Yearly"),
+  };
+  return labels[frequency] || frequency;
+}
+
+function recurringOwnerLabel(item) {
+  if (item.shareFamily || item.owner === "family") return uiText("common.family", "Family");
+  if (item.owner === "wife") return uiText("collection.wife", "Bling02");
+  return "ZiN";
+}
+
+function renderRecurringTaskSettings() {
+  const recurring = state.recurringTasks;
+  const editing = recurring.items.find((item) => item.id === recurring.editingId) || defaultRecurringTask();
+  const isEditing = Boolean(recurring.editingId);
+  const taskCount = recurring.items.length;
+  const statusBody = recurring.loading && !recurring.checked
+    ? `<p class="taskMeta">${uiText("recurring.loading", "Loading repeating tasks...")}</p>`
+    : recurring.error
+      ? `<div class="caregiverError"><span>${escapeHtml(recurring.error)}</span><button class="openButton" type="button" data-recurring-retry>${uiText("common.retry", "Retry")}</button></div>`
+      : "";
+  return `
+    <details class="settingsDisclosure" data-recurring-tasks ${recurring.expanded ? "open" : ""}>
+      <summary>
+        <span>
+          <strong>${uiText("recurring.title", "Repeating tasks")}</strong>
+          <small>${taskCount ? uiText("recurring.savedCount", "{count} saved", { count: taskCount }) : uiText("recurring.noneSaved", "None saved")}</small>
+        </span>
+      </summary>
+      <div class="settingsDisclosureBody">
+        ${statusBody}
+        ${isEditing ? `<div class="presetInlineActions"><button class="openButton" type="button" data-recurring-new>${uiText("recurring.new", "New")}</button></div>` : ""}
+        ${
+          taskCount
+            ? `
+              <div class="presetList">
+                ${recurring.items
+                  .map((item) => {
+                    const due = item.activeDueDate || item.nextDueDate || item.firstDueDate;
+                    const stateLabel = item.enabled ? "" : ` · ${uiText("recurring.paused", "Paused")}`;
+                    return `
+                      <div class="presetRow">
+                        <button class="presetChoice ${item.id === recurring.editingId ? "isActive" : ""}" type="button" data-edit-recurring="${escapeHtml(item.id)}">
+                          <strong>${escapeHtml(item.title)}</strong>
+                          <span>${escapeHtml(`${recurringFrequencyLabel(item.frequency)} · ${due} ${item.dueTime} · ${recurringOwnerLabel(item)}${stateLabel}`)}</span>
+                        </button>
+                        <button class="plainButton" type="button" data-delete-recurring="${escapeHtml(item.id)}">${uiText("common.delete", "Delete")}</button>
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : !statusBody ? `<p class="taskMeta">${uiText("recurring.noTasks", "No repeating tasks yet.")}</p>` : ""
+        }
+        <form class="composer presetEditor" data-recurring-form data-recurring-id="${isEditing ? escapeHtml(editing.id) : ""}">
+          <label>
+            <span>${uiText("task.label", "Task")}</span>
+            <input name="title" type="text" autocomplete="off" value="${isEditing ? escapeHtml(editing.title) : ""}" placeholder="${uiText("task.new", "New task")}" required />
+          </label>
+          <label>
+            <span>${uiText("common.memo", "Memo")}</span>
+            <textarea name="memo" rows="5" placeholder="${escapeHtml(uiText("task.memoPlaceholder", TASK_MEMO_PLACEHOLDER))}">${isEditing ? escapeHtml(editing.memo) : ""}</textarea>
+          </label>
+          ${renderFamilyShareToggle(Boolean(isEditing && editing.shareFamily))}
+          <div class="formGrid">
+            <label>
+              <span>${uiText("recurring.firstDueDate", "First due date")}</span>
+              <input name="firstDueDate" type="date" value="${escapeHtml(editing.firstDueDate)}" required />
+            </label>
+            <label>
+              <span>${uiText("task.time", "Time")}</span>
+              <input name="dueTime" type="time" value="${escapeHtml(editing.dueTime || DEFAULT_TASK_DUE_TIME)}" step="300" required />
+            </label>
+          </div>
+          <div class="formGrid">
+            <label>
+              <span>${uiText("task.priority", "Priority")}</span>
+              <select name="priority">
+                <option value="" ${!editing.priority ? "selected" : ""}>${uiText("common.none", "None")}</option>
+                <option value="9" ${editing.priority === "9" ? "selected" : ""}>${uiText("task.priorityLow", "Low")} (!)</option>
+                <option value="5" ${editing.priority === "5" ? "selected" : ""}>${uiText("task.priorityMedium", "Medium")} (!!)</option>
+                <option value="1" ${editing.priority === "1" ? "selected" : ""}>${uiText("task.priorityHigh", "High")} (!!!)</option>
+              </select>
+            </label>
+            <label>
+              <span>${uiText("recurring.frequency", "Repeat")}</span>
+              <select name="frequency">
+                <option value="daily" ${editing.frequency === "daily" ? "selected" : ""}>${uiText("recurring.daily", "Daily")}</option>
+                <option value="weekly" ${editing.frequency === "weekly" ? "selected" : ""}>${uiText("recurring.weekly", "Weekly")}</option>
+                <option value="monthly" ${editing.frequency === "monthly" ? "selected" : ""}>${uiText("recurring.monthly", "Monthly")}</option>
+                <option value="yearly" ${editing.frequency === "yearly" ? "selected" : ""}>${uiText("recurring.yearly", "Yearly")}</option>
+              </select>
+            </label>
+          </div>
+          <label class="toggleLine">
+            <span>${uiText("recurring.enabled", "Enabled")}</span>
+            <input name="enabled" type="checkbox" ${editing.enabled ? "checked" : ""} />
+          </label>
+          ${editing.error ? `<p class="formNote recurringError">${escapeHtml(editing.error)}</p>` : ""}
+          <button class="primaryButton" type="submit">${isEditing ? uiText("recurring.save", "Save repeating task") : uiText("recurring.create", "Create repeating task")}</button>
         </form>
       </div>
     </details>
@@ -4545,6 +4901,7 @@ function render() {
   }
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   if (route === "supplies") loadSupplies();
+  if (route === "settings") loadRecurringTasks();
   updateTopBarShadow();
 }
 
@@ -4740,14 +5097,59 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-event-presets-retry]")) {
+    state.eventPresets.checked = false;
+    state.eventPresets.error = "";
+    loadEventPresetsFromBrain({ force: true });
+    return;
+  }
+
   const deleteEventPreset = event.target.closest("[data-delete-event-preset]");
   if (deleteEventPreset) {
-    ensureEventPresets();
     if (!window.confirm(uiText("dialog.deleteEventPreset", "Delete this event preset?"))) return;
-    saveEventPresets(state.eventPresets.items.filter((preset) => preset.id !== deleteEventPreset.dataset.deleteEventPreset));
-    if (state.eventPresets.editingId === deleteEventPreset.dataset.deleteEventPreset) state.eventPresets.editingId = "";
-    state.eventPresets.expanded = true;
+    try {
+      await deleteEventPresetFromBrain(deleteEventPreset.dataset.deleteEventPreset || "");
+      state.eventPresets.expanded = true;
+    } catch (error) {
+      window.alert(uiText("dialog.eventPresetError", "Could not update event preset: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
+  const editRecurring = event.target.closest("[data-edit-recurring]");
+  if (editRecurring) {
+    state.recurringTasks.editingId = editRecurring.dataset.editRecurring || "";
+    state.recurringTasks.expanded = true;
     render();
+    return;
+  }
+
+  if (event.target.closest("[data-recurring-new]")) {
+    state.recurringTasks.editingId = "";
+    state.recurringTasks.expanded = true;
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-recurring-retry]")) {
+    state.recurringTasks.checked = false;
+    state.recurringTasks.error = "";
+    loadRecurringTasks({ force: true });
+    return;
+  }
+
+  const deleteRecurring = event.target.closest("[data-delete-recurring]");
+  if (deleteRecurring) {
+    if (!window.confirm(uiText("dialog.deleteRecurringTask", "Delete this repeating task rule? The current task remains in Radicale."))) return;
+    try {
+      await deleteRecurringTask(deleteRecurring.dataset.deleteRecurring || "");
+    } catch (error) {
+      window.alert(uiText("dialog.recurringTaskError", "Could not update repeating task: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
     return;
   }
 
@@ -5192,10 +5594,29 @@ document.addEventListener("submit", async (event) => {
       window.alert(uiText("dialog.presetFieldsRequired", "Preset name and title are required."));
       return;
     }
-    upsertEventPreset(preset);
-    state.eventPresets.editingId = "";
-    state.eventPresets.expanded = true;
-    render();
+    try {
+      await upsertEventPreset(preset);
+      state.eventPresets.editingId = "";
+      state.eventPresets.expanded = true;
+    } catch (error) {
+      window.alert(uiText("dialog.eventPresetError", "Could not update event preset: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
+  const recurringForm = event.target.closest("[data-recurring-form]");
+  if (recurringForm) {
+    event.preventDefault();
+    try {
+      await saveRecurringTask(recurringForm.dataset.recurringId || "", recurringTaskPayloadFromForm(recurringForm));
+      state.recurringTasks.expanded = true;
+    } catch (error) {
+      window.alert(uiText("dialog.recurringTaskError", "Could not update repeating task: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
     return;
   }
 
@@ -5434,8 +5855,9 @@ document.addEventListener(
   "toggle",
   (event) => {
     const disclosure = event.target;
-    if (!(disclosure instanceof HTMLDetailsElement) || !disclosure.matches("[data-event-presets]")) return;
-    state.eventPresets.expanded = disclosure.open;
+    if (!(disclosure instanceof HTMLDetailsElement)) return;
+    if (disclosure.matches("[data-event-presets]")) state.eventPresets.expanded = disclosure.open;
+    if (disclosure.matches("[data-recurring-tasks]")) state.recurringTasks.expanded = disclosure.open;
   },
   true,
 );

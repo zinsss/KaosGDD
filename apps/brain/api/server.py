@@ -17,12 +17,14 @@ from services.caregiver.upstream import (
     put_caregiver_settings,
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
+from services.event_presets import service as event_preset_service
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
+from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.4.2")
+VERSION = os.environ.get("BRAIN_VERSION", "0.5.1")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 500_000
 
@@ -101,6 +103,29 @@ def re_match_supply_action(path):
     return urllib.parse.unquote(match.group(1)), match.group(2) or ""
 
 
+def re_match_recurring_task(path):
+    match = re.fullmatch(r"/api/recurring-tasks/([^/]+)", path)
+    return urllib.parse.unquote(match.group(1)) if match else ""
+
+
+def recurring_task_status_for_error(exc):
+    message = str(exc)
+    if message == "recurring_task_not_found":
+        return 404
+    if message in {"calendar_adapter_unavailable", "calendar_adapter_invalid_response"}:
+        return 502
+    return 400
+
+
+def re_match_event_preset(path):
+    match = re.fullmatch(r"/api/event-presets/([^/]+)", path)
+    return urllib.parse.unquote(match.group(1)) if match else ""
+
+
+def event_preset_status_for_error(exc):
+    return 404 if str(exc) == "event_preset_not_found" else 400
+
+
 def proxy_request(handler, method):
     if not route_allowed(method, handler.path):
         raise ValueError("upstream_route_not_allowed")
@@ -123,6 +148,28 @@ def proxy_request(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/event-presets":
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(self, 200, event_preset_service.list_items(profile))
+            except ValueError as exc:
+                json_response(self, event_preset_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Event preset read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "event_preset_storage_unavailable"})
+            return
+
+        if parsed.path == "/api/recurring-tasks":
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(self, 200, recurring_task_service.list_definitions(profile))
+            except ValueError as exc:
+                json_response(self, recurring_task_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Recurring task read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "recurring_task_storage_unavailable"})
+            return
+
         if parsed.path == "/api/rouny/templates":
             try:
                 require_family_profile(self.headers)
@@ -192,6 +239,31 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/event-presets":
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(self, 201, event_preset_service.create_item(json_request(self), profile))
+            except ValueError as exc:
+                json_response(self, event_preset_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Event preset create failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "event_preset_storage_unavailable"})
+            return
+
+        if path == "/api/recurring-tasks":
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                payload = json_request(self)
+                json_response(self, 201, recurring_task_service.create_definition(payload, profile))
+            except ValueError as exc:
+                json_response(self, recurring_task_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            except Exception as exc:
+                print(f"Recurring task create failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "recurring_task_storage_unavailable"})
+            return
+
         if path == "/api/supplies":
             try:
                 payload = json_request(self)
@@ -240,6 +312,41 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        event_preset_id = re_match_event_preset(path)
+        if event_preset_id:
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(
+                    self,
+                    200,
+                    event_preset_service.update_item(event_preset_id, json_request(self), profile),
+                )
+            except ValueError as exc:
+                json_response(self, event_preset_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Event preset update failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "event_preset_storage_unavailable"})
+            return
+
+        recurring_task_id = re_match_recurring_task(path)
+        if recurring_task_id:
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                payload = json_request(self)
+                json_response(
+                    self,
+                    200,
+                    recurring_task_service.update_definition(recurring_task_id, payload, profile),
+                )
+            except ValueError as exc:
+                json_response(self, recurring_task_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            except Exception as exc:
+                print(f"Recurring task update failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "recurring_task_storage_unavailable"})
+            return
+
         if path == "/api/rouny/templates":
             try:
                 require_family_profile(self.headers)
@@ -311,6 +418,34 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urllib.parse.urlsplit(self.path).path
+        event_preset_id = re_match_event_preset(path)
+        if event_preset_id:
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(self, 200, event_preset_service.delete_item(event_preset_id, profile))
+            except ValueError as exc:
+                json_response(self, event_preset_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Event preset delete failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "event_preset_storage_unavailable"})
+            return
+
+        recurring_task_id = re_match_recurring_task(path)
+        if recurring_task_id:
+            try:
+                profile = recurring_task_service.profile_for_host(portal_host(self.headers))
+                json_response(
+                    self,
+                    200,
+                    recurring_task_service.delete_definition(recurring_task_id, profile),
+                )
+            except ValueError as exc:
+                json_response(self, recurring_task_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Recurring task delete failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "recurring_task_storage_unavailable"})
+            return
+
         if path == "/api/caregiver/day":
             try:
                 require_family_profile(self.headers)
@@ -352,6 +487,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     wait_for_database_and_migrate(MIGRATIONS)
+    recurring_task_service.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"KaosGDD Brain {VERSION} listening on {PORT} in shadow mode", flush=True)
     server.serve_forever()
