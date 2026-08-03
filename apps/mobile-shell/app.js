@@ -212,7 +212,7 @@ const state = {
     items: [],
     presets: [],
   },
-  selectedUtilityId: "",
+  desktopUtilsExpanded: null,
 };
 
 let remoteCalendarRequestId = 0;
@@ -1769,6 +1769,47 @@ function renderTopNav(route) {
   const nav = document.getElementById("topNav");
   if (!nav) return;
   const activeRoute = activeNavRoute(route);
+  if (isDesktopLayout() && portalProfile() === "main") {
+    const utilsActive = activeRoute === "services";
+    const utilsExpanded = state.desktopUtilsExpanded ?? utilsActive;
+    nav.innerHTML = profileConfig()
+      .nav.map((item) => {
+        if (item.route !== "services") {
+          return `
+            <a href="#/${item.route}" data-nav="${item.route}" class="${item.route === activeRoute ? "isActive" : ""}" aria-label="${escapeHtml(item.label)}">
+              ${escapeHtml(item.label)}
+            </a>
+          `;
+        }
+        return `
+          <div class="desktopNavGroup ${utilsActive ? "isActive" : ""}">
+            <button
+              type="button"
+              class="desktopNavToggle ${utilsActive ? "isActive" : ""}"
+              data-toggle-desktop-utils
+              aria-expanded="${utilsExpanded ? "true" : "false"}"
+              aria-controls="desktopUtilsMenu"
+            >
+              <span>${escapeHtml(item.label)}</span>
+              <span class="desktopNavChevron" aria-hidden="true">›</span>
+            </button>
+            <div class="desktopNavSubmenu ${utilsExpanded ? "" : "isCollapsed"}" id="desktopUtilsMenu">
+              ${mockAdapter
+                .getServices()
+                .map((service) => {
+                  const isCurrent = route === "supplies" && service.href === "#/supplies";
+                  return service.href
+                    ? `<a href="${escapeHtml(service.href)}" class="${isCurrent ? "isActive" : ""}">${escapeHtml(service.name)}</a>`
+                    : `<span class="desktopNavUtility isDisabled" aria-disabled="true">${escapeHtml(service.name)}</span>`;
+                })
+                .join("")}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+    return;
+  }
   nav.innerHTML = profileConfig()
     .nav.map(
       (item) => `
@@ -2965,7 +3006,6 @@ function renderTaskEditorForm(task = null, draft = {}) {
 }
 
 function renderServices() {
-  if (isDesktopLayout() && portalProfile() === "main") return renderDesktopServices();
   return `
     <section class="panel">
       <div class="panelHeader">
@@ -3000,84 +3040,6 @@ function renderServices() {
         </div>
       </div>
     </section>
-  `;
-}
-
-function serviceId(service) {
-  return String(service.name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function selectedUtilityService() {
-  const services = mockAdapter.getServices();
-  const selected = state.selectedUtilityId || serviceId(services[0] || {});
-  return services.find((service) => serviceId(service) === selected) || services[0] || null;
-}
-
-function renderDesktopServices() {
-  const services = mockAdapter.getServices();
-  const selected = selectedUtilityService();
-  const selectedId = selected ? serviceId(selected) : "";
-  if (selectedId && state.selectedUtilityId !== selectedId) state.selectedUtilityId = selectedId;
-  return `
-    <div class="utilsDesktopGrid">
-      <aside class="panel utilsMenuPane">
-        <div class="panelHeader">
-          <div>
-            <p class="label">Utils</p>
-            <h2>Services</h2>
-          </div>
-        </div>
-        <div class="utilsMenuList">
-          ${services
-            .map((service) => {
-              const id = serviceId(service);
-              return `
-                <button type="button" class="utilsMenuItem ${id === selectedId ? "isActive" : ""}" data-utility-select="${escapeHtml(id)}">
-                  <strong>${escapeHtml(service.name)}</strong>
-                  <span>${escapeHtml(service.type)}</span>
-                </button>
-              `;
-            })
-            .join("")}
-        </div>
-      </aside>
-      <section class="panel utilsDetailPane">
-        ${
-          selected
-            ? `
-              <div class="panelHeader">
-                <div>
-                  <p class="label">${escapeHtml(selected.type)}</p>
-                  <h2>${escapeHtml(selected.name)}</h2>
-                </div>
-                ${
-                  selected.href
-                    ? `<a class="openButton" href="${escapeHtml(selected.href)}">Open</a>`
-                    : `<span class="openButton" aria-label="No direct service link">Hold</span>`
-                }
-              </div>
-              <div class="panelBody utilsDetailBody">
-                <p>${escapeHtml(selected.meta)}</p>
-                <dl class="settingsList utilsDetailList">
-                  <div>
-                    <dt>Owner</dt>
-                    <dd>${escapeHtml(selected.type)}</dd>
-                  </div>
-                  <div>
-                    <dt>Entry</dt>
-                    <dd>${escapeHtml(selected.href || "No direct entry yet")}</dd>
-                  </div>
-                </dl>
-              </div>
-            `
-            : `<div class="panelBody"><p class="emptyState">No utilities configured.</p></div>`
-        }
-      </section>
-    </div>
   `;
 }
 
@@ -4594,10 +4556,10 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
-  const utilitySelect = event.target.closest("[data-utility-select]");
-  if (utilitySelect) {
-    state.selectedUtilityId = utilitySelect.dataset.utilitySelect || "";
-    render();
+  const desktopUtilsToggle = event.target.closest("[data-toggle-desktop-utils]");
+  if (desktopUtilsToggle) {
+    state.desktopUtilsExpanded = desktopUtilsToggle.getAttribute("aria-expanded") !== "true";
+    renderTopNav(getRoute());
     return;
   }
 

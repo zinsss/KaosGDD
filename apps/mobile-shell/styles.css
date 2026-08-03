@@ -1699,69 +1699,6 @@ h3 {
   gap: 8px;
 }
 
-.utilsDesktopGrid {
-  display: grid;
-  gap: 12px;
-}
-
-.utilsMenuList {
-  display: grid;
-  gap: 0;
-  padding: 8px;
-}
-
-.utilsMenuItem {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  border: 0;
-  border-bottom: 1px dotted var(--line);
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-}
-
-.utilsMenuItem:last-child {
-  border-bottom: 0;
-}
-
-.utilsMenuItem strong,
-.utilsMenuItem span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.utilsMenuItem strong {
-  font-size: 0.88rem;
-  font-weight: 760;
-}
-
-.utilsMenuItem span {
-  color: var(--dim);
-  font-size: 0.72rem;
-  font-weight: 720;
-}
-
-.utilsMenuItem.isActive strong {
-  color: var(--nord8);
-}
-
-.utilsDetailBody {
-  display: grid;
-  gap: 16px;
-}
-
-.utilsDetailBody > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.96rem;
-  font-weight: 620;
-}
-
 .settingsList {
   display: grid;
   gap: 10px;
@@ -3335,7 +3272,8 @@ h3 {
     margin-top: 32px;
   }
 
-  .topNav a {
+  .topNav a,
+  .desktopNavToggle {
     justify-content: flex-start;
     min-height: 44px;
     padding: 0 12px;
@@ -3345,10 +3283,87 @@ h3 {
     font-size: 0.96rem;
   }
 
-  .topNav a.isActive {
+  .topNav a.isActive,
+  .desktopNavToggle.isActive {
     border-bottom-color: transparent;
     border-left-color: var(--nord8);
     background: rgba(136, 192, 208, 0.1);
+  }
+
+  .desktopNavGroup {
+    display: grid;
+    gap: 3px;
+  }
+
+  .desktopNavToggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 3px solid transparent;
+    border-radius: 0 6px 6px 0;
+    background: transparent;
+    color: var(--dim);
+    font: inherit;
+    font-size: 0.96rem;
+    font-weight: 760;
+    text-align: left;
+  }
+
+  .desktopNavToggle.isActive {
+    color: var(--nord8);
+  }
+
+  .desktopNavChevron {
+    margin-left: auto;
+    font-size: 1.25rem;
+    line-height: 1;
+    transform: rotate(0);
+    transition: transform 120ms ease;
+  }
+
+  .desktopNavToggle[aria-expanded="true"] .desktopNavChevron {
+    transform: rotate(90deg);
+  }
+
+  .desktopNavSubmenu {
+    display: grid;
+    gap: 2px;
+    margin: 1px 0 4px 20px;
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+  }
+
+  .desktopNavSubmenu.isCollapsed {
+    display: none;
+  }
+
+  .desktopNavSubmenu a,
+  .desktopNavUtility {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 5px;
+    color: var(--dim);
+    font-size: 0.8rem;
+    font-weight: 680;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .desktopNavSubmenu a:hover,
+  .desktopNavSubmenu a.isActive {
+    background: rgba(136, 192, 208, 0.1);
+    color: var(--nord8);
+  }
+
+  .desktopNavUtility.isDisabled {
+    opacity: 0.46;
   }
 
   .app[data-profile="family"] .topNav a.isActive {
@@ -3509,40 +3524,6 @@ h3 {
   .servicesGrid .serviceRow {
     min-height: 82px;
     padding: 14px;
-  }
-
-  .utilsDesktopGrid {
-    grid-template-columns: 300px minmax(0, 1fr);
-    align-items: start;
-    gap: 16px;
-    min-height: 0;
-  }
-
-  .utilsMenuPane {
-    position: sticky;
-    top: 0;
-    max-height: calc(100dvh - 48px);
-    overflow: hidden;
-  }
-
-  .utilsMenuList {
-    max-height: calc(100dvh - 118px);
-    overflow-y: auto;
-  }
-
-  .utilsMenuItem {
-    min-height: 54px;
-    padding: 0 8px;
-  }
-
-  .utilsMenuItem.isActive {
-    border-left: 3px solid var(--nord8);
-    background: rgba(136, 192, 208, 0.1);
-    padding-left: 10px;
-  }
-
-  .utilsDetailPane {
-    min-height: 280px;
   }
 
   .formGrid {
