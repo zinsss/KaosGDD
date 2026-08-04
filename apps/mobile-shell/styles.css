@@ -3229,12 +3229,13 @@ h3 {
   }
 
   .app {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
+    gap: 16px;
     max-width: 1420px;
     height: 100dvh;
-    padding: 0;
-    background: var(--bg);
+    padding: 16px;
+    background: transparent;
     overflow: hidden;
   }
 
@@ -3248,9 +3249,11 @@ h3 {
     align-items: stretch;
     min-height: 0;
     margin: 0;
-    padding: 28px 18px;
-    border-right: 1px solid rgba(76, 86, 106, 0.78);
-    border-bottom: 0;
+    padding: 24px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    box-shadow: 0 12px 28px var(--shadow);
     overflow-y: auto;
   }
 
@@ -3272,8 +3275,8 @@ h3 {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 7px;
-    margin-top: 32px;
+    gap: 6px;
+    margin-top: 28px;
   }
 
   .topNav a,
@@ -3283,7 +3286,7 @@ h3 {
     padding: 0 12px;
     border-bottom: 0;
     border-left: 3px solid transparent;
-    border-radius: 0 6px 6px 0;
+    border-radius: 6px;
     font-size: 0.96rem;
   }
 
@@ -3297,6 +3300,13 @@ h3 {
   .desktopNavGroup {
     display: grid;
     gap: 3px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+  }
+
+  .desktopNavGroup.isActive {
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
   }
 
   .desktopNavToggle {
@@ -3307,7 +3317,7 @@ h3 {
     border-right: 0;
     border-bottom: 0;
     border-left: 3px solid transparent;
-    border-radius: 0 6px 6px 0;
+    border-radius: 6px;
     background: transparent;
     color: var(--dim);
     font: inherit;
@@ -3335,7 +3345,7 @@ h3 {
   .desktopNavSubmenu {
     display: grid;
     gap: 2px;
-    margin: 1px 0 4px 20px;
+    margin: 1px 6px 6px 18px;
     padding-left: 10px;
     border-left: 1px solid var(--line);
   }
@@ -3380,7 +3390,7 @@ h3 {
     grid-column: 2;
     grid-row: 1;
     gap: 16px;
-    padding: 24px 16px 40px 24px;
+    padding: 0 0 40px;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -3528,6 +3538,9 @@ h3 {
   .servicesGrid .serviceRow {
     min-height: 82px;
     padding: 14px;
+    border-color: var(--line);
+    background: var(--panel);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--shadow) 72%, transparent);
   }
 
   .formGrid {
