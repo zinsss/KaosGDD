@@ -1354,7 +1354,21 @@ async function saveCaregiverSettings(formData) {
   };
 }
 
-async function saveCaregiverDay(payload) {
+function caregiverDayRecordMatches(payload, record) {
+  if (!record || record.date !== payload.date) return false;
+  const normalizeSessions = (sessions) => (sessions || []).map((session) => ({
+    start: String(session.start || ""),
+    end: String(session.end || ""),
+  }));
+  const normalizeExtras = (extras) => (extras || []).map((extra) => ({
+    label: String(extra.label || "").trim(),
+    amount: Number(extra.amount) || 0,
+  }));
+  return JSON.stringify(normalizeSessions(record.sessions)) === JSON.stringify(normalizeSessions(payload.sessions))
+    && JSON.stringify(normalizeExtras(record.extraItems)) === JSON.stringify(normalizeExtras(payload.extras));
+}
+
+async function requestCaregiverDayWrite(payload) {
   const response = await fetch("/api/caregiver/day", {
     method: "PUT",
     headers: {
@@ -1365,6 +1379,45 @@ async function saveCaregiverDay(payload) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  if (!result.ok) throw new TypeError("caregiver_response_incomplete");
+  return result;
+}
+
+async function verifyCaregiverDayWrite(payload) {
+  const month = payload.date.slice(0, 7);
+  const response = await fetch(`/api/caregiver/month?${new URLSearchParams({ month }).toString()}`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) return null;
+  const record = (result.daily || []).find((item) => item.date === payload.date);
+  return caregiverDayRecordMatches(payload, record) ? result : null;
+}
+
+async function saveCaregiverDay(payload) {
+  let result;
+  try {
+    result = await requestCaregiverDayWrite(payload);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    result = await verifyCaregiverDayWrite(payload).catch(() => null);
+    if (!result) {
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      try {
+        result = await requestCaregiverDayWrite(payload);
+      } catch (retryError) {
+        if (!(retryError instanceof TypeError)) throw retryError;
+        result = await verifyCaregiverDayWrite(payload).catch(() => null);
+        if (!result) {
+          throw new Error(uiText(
+            "caregiver.saveResponseLost",
+            "The server response could not be confirmed. Reopen this date to check whether it was saved.",
+          ));
+        }
+      }
+    }
+  }
   state.caregiver = {
     key: payload.date.slice(0, 7),
     loadingKey: "",

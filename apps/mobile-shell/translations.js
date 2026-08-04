@@ -121,6 +121,7 @@ window.KAOS_TRANSLATIONS = {
     "caregiver.clearDay": "기록 지우기",
     "caregiver.confirmClear": "이 날짜의 돌봄 기록을 지울까요?",
     "caregiver.invalidSession": "종료 시간은 시작 시간보다 늦어야 해요.",
+    "caregiver.saveResponseLost": "서버 응답을 확인하지 못했습니다. 이 날짜를 다시 열어 저장 여부를 확인해 주세요.",
 
     "event.dutyName": "당직",
     "event.untitled": "제목 없는 일정",
