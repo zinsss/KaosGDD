@@ -18,6 +18,7 @@ Brain owns:
 - supplies buy-list compatibility behavior over a Radicale task collection
 - repeating-task definitions and one-at-a-time VTODO generation
 - cross-device event preset storage with personal and Family scopes
+- incoming fax notification polling over the HylaFAX receive queue
 - service health/status aggregation
 
 Brain does not own:
@@ -83,6 +84,31 @@ Event presets also live in Brain PostgreSQL. Personal presets belong to either
 ZiN or Bling02, while Family presets are visible from both portals. Presets only
 store template fields; events created from them remain normal Radicale VEVENTs.
 
+
+## Fax Notifications
+
+Incoming fax remains owned by HylaFAX and the hosted mailbox. Brain only watches
+the HylaFAX receive queue and sends a push notification through ntfy when a new
+TIFF appears.
+
+```text
+HylaFAX recvq mounted read-only at /integrations/hylafax
+Brain polls recvq/fax*.tif
+Brain posts a short message to ntfy
+Roundcube remains the fax inbox
+```
+
+The worker is controlled by:
+
+```text
+FAX_NOTIFY_ENABLED=true
+NTFY_URL=http://ntfy
+NTFY_TOPIC=kaosgdd-fax
+FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
+```
+
+The first run marks existing receive-queue files as already seen by default, so
+deploying the worker does not spam notifications for old faxes.
 ## Supplies
 
 Supplies should move into KaosGDD as a dedicated buy-list UI backed by Brain.

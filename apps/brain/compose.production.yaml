@@ -33,6 +33,15 @@ services:
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
+      FAX_NOTIFY_RECVQ: "/integrations/hylafax/recvq"
+      FAX_NOTIFY_XFERFAXLOG: "/integrations/hylafax/log/xferfaxlog"
+      FAX_NOTIFY_STATE_PATH: "/data/faxmail/notified-recvq.json"
+      FAX_NOTIFY_POLL_SECONDS: "20"
+      FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
+      FAX_NOTIFY_CLICK_URL: "https://roundcube.kaosgdd.net/"
+    volumes:
+      - /srv/kaos/data/kaosgdd/brain/faxmail:/data/faxmail
+      - /var/spool/hylafax:/integrations/hylafax:ro
     ports:
       - "100.94.208.16:8092:8092/tcp"
     healthcheck:

@@ -1,0 +1,1 @@
+"""Faxmail notification worker."""

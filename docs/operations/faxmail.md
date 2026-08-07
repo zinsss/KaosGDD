@@ -265,6 +265,43 @@ If the device appears as `ttyACM1` or `ttyUSB0`, stop and decide whether to add
 a udev rule or adjust the service/config names. Do not keep re-running
 `faxaddmodem` against different names without taking notes and backups.
 
+## Brain ntfy Push
+
+Incoming fax email remains handled by HylaFAX hooks. Brain only polls the
+HylaFAX receive queue and sends a push notification through ntfy when a new
+`recvq/fax*.tif` appears.
+
+Production Brain needs a read-only HylaFAX spool mount and a durable state
+mount:
+
+```text
+/var/spool/hylafax -> /integrations/hylafax:ro
+/srv/kaos/data/kaosgdd/brain/faxmail -> /data/faxmail
+```
+
+Enable the worker in `/srv/kaos/secrets/kaosgdd-brain.env`:
+
+```text
+FAX_NOTIFY_ENABLED=true
+NTFY_URL=http://ntfy-host-or-ip
+NTFY_TOPIC=kaosgdd-fax
+FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
+```
+
+If ntfy requires auth, also set:
+
+```text
+NTFY_TOKEN=replace-with-ntfy-access-token
+```
+
+`FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true` prevents old received faxes from
+creating a notification storm the first time Brain starts. To test against an
+existing receive file, temporarily set it to `false` and delete:
+
+```text
+/srv/kaos/data/kaosgdd/brain/faxmail/notified-recvq.json
+```
+
 ## Outgoing Fax Worker
 
 Brain should accept only messages matching:

@@ -18,6 +18,7 @@ from services.caregiver.upstream import (
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 from services.event_presets import service as event_preset_service
+from services.faxmail import notifier as faxmail_notifier
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -52,6 +53,7 @@ def brain_status(headers):
         "database": database,
         "upstreams": {
             "calendarAdapter": calendar_adapter,
+            "faxmailNotifications": faxmail_notifier.status(),
         },
     }
 
@@ -488,6 +490,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     wait_for_database_and_migrate(MIGRATIONS)
     recurring_task_service.start_scheduler()
+    faxmail_notifier.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"KaosGDD Brain {VERSION} listening on {PORT} in shadow mode", flush=True)
     server.serve_forever()
