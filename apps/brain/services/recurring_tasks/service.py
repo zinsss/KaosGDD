@@ -18,7 +18,7 @@ PROFILE_HOSTS = {
 }
 PROFILE_OWNERS = {
     "main": ("zin", "family"),
-    "family": ("wife", "family"),
+    "family": ("family",),
 }
 DEFAULT_TIME = "10:00"
 LOCAL_ZONE = ZoneInfo(os.environ.get("KAOSGDD_LOCAL_TZID", "Asia/Seoul"))
@@ -80,7 +80,7 @@ def validate_payload(payload, profile):
     priority = clean_text(payload.get("priority"))
     if priority not in PRIORITIES:
         raise ValueError("invalid_priority")
-    owner = "family" if payload.get("shareFamily") is True else ("wife" if profile == "family" else "zin")
+    owner = "family" if profile == "family" or payload.get("shareFamily") is True else "zin"
     return {
         "owner": owner,
         "adapter_profile": profile,

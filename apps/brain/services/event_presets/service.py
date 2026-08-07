@@ -6,7 +6,7 @@ from models.database import connect
 
 PROFILE_OWNERS = {
     "main": ("zin", "family"),
-    "family": ("wife", "family"),
+    "family": ("family",),
 }
 
 SELECT_COLUMNS = """
@@ -47,7 +47,7 @@ def validate_payload(payload, profile):
         raise ValueError("name_required")
     if not title:
         raise ValueError("title_required")
-    owner = "family" if payload.get("shareFamily") is True else ("wife" if profile == "family" else "zin")
+    owner = "family" if profile == "family" or payload.get("shareFamily") is True else "zin"
     return {
         "owner": owner,
         "name": name,

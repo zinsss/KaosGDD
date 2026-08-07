@@ -14,7 +14,7 @@ from services.recurring_tasks import service
 class RecurringTaskValidationTests(unittest.TestCase):
     def test_profile_owners_are_isolated_except_family(self):
         self.assertEqual(service.owners_for_profile("main"), ("zin", "family"))
-        self.assertEqual(service.owners_for_profile("family"), ("wife", "family"))
+        self.assertEqual(service.owners_for_profile("family"), ("family",))
 
     def test_payload_uses_portal_personal_owner(self):
         payload = {
@@ -25,7 +25,7 @@ class RecurringTaskValidationTests(unittest.TestCase):
             "frequency": "weekly",
         }
         self.assertEqual(service.validate_payload(payload, "main")["owner"], "zin")
-        self.assertEqual(service.validate_payload(payload, "family")["owner"], "wife")
+        self.assertEqual(service.validate_payload(payload, "family")["owner"], "family")
         payload["shareFamily"] = True
         self.assertEqual(service.validate_payload(payload, "main")["owner"], "family")
 

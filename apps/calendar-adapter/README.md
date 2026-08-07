@@ -62,7 +62,7 @@ kaosgdd.net
   reads/writes: zin, family
 
 family.kaosgdd.net
-  reads/writes: wife, family
+  reads/writes: family only
 ```
 
 The system/brain Radicale account is not exposed through the browser calendar API.
@@ -84,7 +84,7 @@ Example payload:
 ```json
 {
   "summary": "Radicale portal profiles deployed",
-  "memo": "kaosgdd.net reads zin + family; family.kaosgdd.net reads wife + family.",
+  "memo": "kaosgdd.net reads zin + family; family.kaosgdd.net reads family only.",
   "category": "deploy"
 }
 ```

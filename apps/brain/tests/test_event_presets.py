@@ -25,9 +25,10 @@ class EventPresetValidationTests(unittest.TestCase):
         payload.update(overrides)
         return payload
 
-    def test_personal_owner_follows_portal_profile(self):
+    def test_family_portal_always_uses_shared_owner(self):
         self.assertEqual(service.validate_payload(self.payload(), "main")["owner"], "zin")
-        self.assertEqual(service.validate_payload(self.payload(), "family")["owner"], "wife")
+        self.assertEqual(service.validate_payload(self.payload(), "family")["owner"], "family")
+        self.assertEqual(service.owners_for_profile("family"), ("family",))
 
     def test_shared_owner_is_visible_to_both_profiles(self):
         self.assertEqual(service.validate_payload(self.payload(shareFamily=True), "main")["owner"], "family")

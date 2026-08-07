@@ -80,9 +80,10 @@ VTODO at a time and watches its UID in Radicale. Completion or deletion advances
 the fixed daily, weekly, monthly, or yearly schedule. Generated tasks contain no
 Kaos-only calendar metadata, so they remain compatible with iOS Reminders.
 
-Event presets also live in Brain PostgreSQL. Personal presets belong to either
-ZiN or Bling02, while Family presets are visible from both portals. Presets only
-store template fields; events created from them remain normal Radicale VEVENTs.
+Event presets also live in Brain PostgreSQL. Main personal presets belong to
+ZiN. The Family portal creates and sees only shared Family presets, which remain
+visible from both portals. Presets only store template fields; events created
+from them remain normal Radicale VEVENTs.
 
 
 ## Fax Notifications

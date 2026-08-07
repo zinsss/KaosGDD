@@ -472,6 +472,8 @@ function activeWeatherItems() {
 function collectionViews() {
   const data = activeCalendarData();
   const allIds = data.collections.map((collection) => collection.id);
+  const views = [{ id: "all", name: uiText("collection.all", "All"), collectionIds: allIds }];
+  if (portalProfile() === "family") return views;
   const ownerOrder = ["family", "zin", "wife"];
   const owners = [...new Set(data.collections.map((collection) => collection.owner).filter(Boolean))].sort((a, b) => {
     const rankA = ownerOrder.includes(a) ? ownerOrder.indexOf(a) : ownerOrder.length;
@@ -479,7 +481,6 @@ function collectionViews() {
     if (rankA !== rankB) return rankA - rankB;
     return a.localeCompare(b);
   });
-  const views = [{ id: "all", name: uiText("collection.all", "All"), collectionIds: allIds }];
   owners.forEach((owner) => {
     const collectionIds = data.collections.filter((collection) => collection.owner === owner).map((collection) => collection.id);
     if (collectionIds.length) {
@@ -538,7 +539,7 @@ function writableCollectionId() {
 }
 
 function defaultPersonalOwner() {
-  return portalProfile() === "family" ? "wife" : "zin";
+  return portalProfile() === "family" ? "family" : "zin";
 }
 
 function defaultPersonalCollectionViewId() {
@@ -587,7 +588,7 @@ function defaultEventPreset() {
     endTime: DEFAULT_EVENT_END_TIME,
     alarm: "",
     memo: "",
-    shareFamily: false,
+    shareFamily: portalProfile() === "family",
   };
 }
 
@@ -841,7 +842,7 @@ function defaultRecurringTask() {
     id: "",
     title: "",
     memo: "",
-    shareFamily: false,
+    shareFamily: portalProfile() === "family",
     owner: defaultPersonalOwner(),
     firstDueDate: ymd(new Date()),
     dueTime: DEFAULT_TASK_DUE_TIME,
@@ -3200,6 +3201,9 @@ function renderAddTask() {
 }
 
 function renderFamilyShareToggle(checked = state.currentCollection === "owner:family", kind = "task") {
+  if (portalProfile() === "family") {
+    return '<input name="shareFamily" type="hidden" value="on" />';
+  }
   const label =
     kind === "event"
       ? uiText("event.shareFamily", "Share to Family")
@@ -4505,8 +4509,8 @@ function renderSettings() {
     portalProfile() === "family"
       ? [
           [uiText("settings.portal", "Portal"), uiText("settings.familyPortal", "Family")],
-          [uiText("settings.calendar", "Calendar"), uiText("settings.familyCalendarValue", "Bling02 + Family shared")],
-          [uiText("settings.tasks", "Tasks"), uiText("settings.familyTasksValue", "Bling02 + Family shared")],
+          [uiText("settings.calendar", "Calendar"), uiText("settings.familyCalendarValue", "Family shared")],
+          [uiText("settings.tasks", "Tasks"), uiText("settings.familyTasksValue", "Family shared")],
           [uiText("settings.theme", "Theme"), uiText("settings.familyThemeValue", "Pastel family")],
         ]
       : [

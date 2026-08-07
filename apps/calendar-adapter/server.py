@@ -119,7 +119,7 @@ def profile_from_headers(headers):
 
 
 def profile_accounts(profile):
-    keys = ["wife", "family"] if profile == "family" else ["zin", "family"]
+    keys = ["family"] if profile == "family" else ["zin", "family"]
     return [ACCOUNTS[key] for key in keys if ACCOUNTS[key]["configured"]]
 
 

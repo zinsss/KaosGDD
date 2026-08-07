@@ -217,6 +217,21 @@ class EventWritingTests(unittest.TestCase):
         )
 
 
+class PortalProfileTests(unittest.TestCase):
+    def test_family_profile_only_exposes_shared_account(self):
+        configured = {key: value["configured"] for key, value in SERVER.ACCOUNTS.items()}
+        try:
+            SERVER.ACCOUNTS["wife"]["configured"] = True
+            SERVER.ACCOUNTS["family"]["configured"] = True
+            self.assertEqual(
+                [account["key"] for account in SERVER.profile_accounts("family")],
+                ["family"],
+            )
+        finally:
+            for key, value in configured.items():
+                SERVER.ACCOUNTS[key]["configured"] = value
+
+
 class CaregiverJournalTests(unittest.TestCase):
     def test_builds_deterministic_daily_journal(self):
         uid, body = SERVER.build_caregiver_day_vjournal(
