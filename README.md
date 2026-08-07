@@ -86,7 +86,9 @@ Start with the docs in this repository:
 
 - [Architecture](docs/architecture/architecture.md)
 - [KaosGDD Brain](docs/architecture/kaosgdd-brain.md)
+- [Brain Faxmail](docs/architecture/brain-faxmail.md)
 - [Service Map](docs/architecture/service-map.md)
 - [Module Plan](docs/product/modules.md)
 - [Operations](docs/operations/production.md)
+- [Faxmail Operations](docs/operations/faxmail.md)
 - [ADR 0001](docs/decisions/0001-thin-orchestration-shell.md)
