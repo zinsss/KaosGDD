@@ -2,7 +2,7 @@
 
 LOG=/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 ENV_FILE=/etc/kaosgdd/faxmail.env
-SENDER_SCRIPT=/srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py
+SENDER_SCRIPT=/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py
 
 FILE_ARG="${1:-}"
 DEVICE="${2:-ttyACM0}"

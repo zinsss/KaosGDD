@@ -172,12 +172,14 @@ sudo ./ops/faxmail/install-mailbox-faxrcvd.sh --install
 This installer also makes the live receive hook permissions explicit:
 
 ```text
+/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py -> root:uucp 0755
 /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log -> uucp:uucp 0640
 /etc/kaosgdd/faxmail.env                              -> root:uucp 0640
 ```
 
 HylaFAX receive hooks run as `uucp`. Manual `sudo` tests can pass even when the
-live hook cannot read the env file or append to the log.
+live hook cannot traverse the repo directory, read the env file, or append to
+the log.
 
 To send an already-received TIFF through the mailbox path manually:
 

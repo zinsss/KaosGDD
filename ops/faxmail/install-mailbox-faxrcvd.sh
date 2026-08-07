@@ -4,6 +4,8 @@ set -eu
 MODE="${1:-}"
 FAXRCVD_PATH="${FAXRCVD_PATH:-/var/spool/hylafax/bin/faxrcvd}"
 TEMPLATE_PATH="${TEMPLATE_PATH:-/srv/projects/KaosGDD/ops/faxmail/templates/faxrcvd.mailbox}"
+SOURCE_SCRIPT="${SOURCE_SCRIPT:-/srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py}"
+INSTALLED_SCRIPT="${INSTALLED_SCRIPT:-/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py}"
 LOG_PATH="${LOG_PATH:-/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log}"
 ENV_FILE="${ENV_FILE:-/etc/kaosgdd/faxmail.env}"
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -44,6 +46,14 @@ if [ ! -f "$TEMPLATE_PATH" ]; then
   exit 1
 fi
 
+if [ ! -f "$SOURCE_SCRIPT" ]; then
+  echo "Missing sender script: $SOURCE_SCRIPT" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$INSTALLED_SCRIPT")"
+install -o root -g uucp -m 0755 "$SOURCE_SCRIPT" "$INSTALLED_SCRIPT"
+
 if [ -f "$FAXRCVD_PATH" ]; then
   cp -a "$FAXRCVD_PATH" "$FAXRCVD_PATH.pre-kaosgdd-faxmail-mailbox.$STAMP"
 fi
@@ -62,6 +72,7 @@ fi
 
 echo "Installed mailbox faxrcvd:"
 ls -lah "$FAXRCVD_PATH"
+ls -lah "$INSTALLED_SCRIPT"
 echo
 echo "Prepared live hook access:"
 ls -lah "$LOG_PATH"
