@@ -2239,6 +2239,7 @@ function renderAddDatePicker({ title, allowNoDate = false }) {
 }
 
 function renderCollectionRail() {
+  if (portalProfile() === "family") return "";
   return `
     <section class="collectionRail" aria-label="${uiText("collection.aria", "Radicale collections")}">
       ${mockAdapter
@@ -4486,6 +4487,19 @@ function updateRounyClassFormValidation(form) {
 }
 
 function renderMemos() {
+  if (portalProfile() === "family") {
+    return `
+      <section class="familyMemosWorkspace">
+        <iframe
+          class="familyMemosFrame"
+          src="${escapeHtml(MEMOS_URL)}"
+          title="${escapeHtml(uiText("memos.label", "Memos"))}"
+          allow="clipboard-read; clipboard-write"
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+      </section>
+    `;
+  }
   return `
     <section class="panel">
       <div class="panelHeader">
