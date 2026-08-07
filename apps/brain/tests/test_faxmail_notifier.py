@@ -72,6 +72,18 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(sent, 0)
         self.assertEqual(len(payload["known"]), 1)
 
+    def test_unreadable_xferfaxlog_does_not_block_recvq_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            recvq = pathlib.Path(tmp) / "recvq"
+            recvq.mkdir()
+            (recvq / "fax000000007.tif").write_bytes(b"fax")
+            with mock.patch.object(pathlib.Path, "read_text", side_effect=PermissionError):
+                events = notifier.scan_received_faxes(recvq, pathlib.Path(tmp) / "xferfaxlog")
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].commid, "000000007")
+        self.assertEqual(events[0].remote, "unknown")
+
     def test_new_fax_posts_to_ntfy_and_updates_state(self):
         requests = []
 

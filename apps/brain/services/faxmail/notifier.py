@@ -107,7 +107,7 @@ def parse_xferfaxlog(path=None):
     events = {}
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except FileNotFoundError:
+    except OSError:
         return events
     for line in lines:
         parts = line.split("\t")
