@@ -133,13 +133,6 @@ Run before changing HylaFAX configs, hooks, services, or modem placement:
 sudo /projects/KaosGDD/ops/faxmail/inventory-hylafax-host.sh /docker/kaosgdd/faxmail/inventory/hylafax-before-mailbox-cutover
 ```
 
-If the helper script has not yet been moved into KaosGDD, use the temporary
-copy from the archived KaosFaxMail planning repo before deleting the clone:
-
-```bash
-sudo /projects/KaosFaxMail/ops/host/inventory-hylafax-host.sh /docker/kaosgdd/faxmail/inventory/hylafax-before-mailbox-cutover
-```
-
 Keep inventory tarballs out of git.
 
 ## Incoming Fax To Mailbox
@@ -148,13 +141,13 @@ Test SMTP delivery before installing any hook:
 
 ```bash
 TIFF=$(ls -1 /var/spool/hylafax/recvq/*.tif | tail -1)
-sudo sh -c 'set -a; . /etc/kaosfaxmail/faxmail.env; set +a; /usr/bin/python3 /projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0 --dry-run' "$TIFF"
+sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; /usr/bin/python3 /projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0 --dry-run' "$TIFF"
 ```
 
 Then send a real test email:
 
 ```bash
-sudo sh -c 'set -a; . /etc/kaosfaxmail/faxmail.env; set +a; /usr/bin/python3 /projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0' "$TIFF"
+sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; /usr/bin/python3 /projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0' "$TIFF"
 ```
 
 Only after Roundcube receives the PDF should `FaxDispatch` be changed.
