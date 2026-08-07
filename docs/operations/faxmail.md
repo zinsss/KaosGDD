@@ -187,15 +187,24 @@ After plugging the modem into the target host:
 ls -lah /dev/ttyACM0
 lsusb | grep -Ei 'conexant|rockwell|0572:1340|modem|fax'
 sudo usermod -aG dialout,uucp fax || true
-sudo faxaddmodem ttyACM0
+sudo timeout 90 faxaddmodem ttyACM0
 ```
 
-Let `faxaddmodem` create the full HylaFAX modem config first. Then apply the
-KaosGDD known-good overrides:
+Let `faxaddmodem` create the full HylaFAX modem config first if it can finish
+quickly. Then apply the KaosGDD known-good overrides:
 
 ```bash
 cd /srv/projects/KaosGDD
 sudo ./ops/faxmail/apply-ttyacm0-known-good-baseline.sh
+```
+
+If `faxaddmodem` hangs during probing, stop it and install the known-good
+baseline config directly:
+
+```bash
+sudo pkill -f faxaddmodem || true
+cd /srv/projects/KaosGDD
+sudo ./ops/faxmail/install-ttyacm0-baseline-config.sh
 ```
 
 Install and start the receive service:

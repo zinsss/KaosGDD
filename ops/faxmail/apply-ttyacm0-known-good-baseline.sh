@@ -14,9 +14,12 @@ if [ ! -f "$CONFIG_PATH" ]; then
 Missing modem config:
   $CONFIG_PATH
 
-Move the modem, confirm it appears as ttyACM0, then run faxaddmodem/faxsetup
-first so HylaFAX creates a complete device config. This script only applies the
-KaosGDD known-good overrides; it does not generate a full modem profile.
+If faxaddmodem probing hangs or does not create this file, use:
+
+  sudo /srv/projects/KaosGDD/ops/faxmail/install-ttyacm0-baseline-config.sh
+
+This script only applies the KaosGDD known-good overrides to an existing modem
+config.
 EOF
   exit 1
 fi

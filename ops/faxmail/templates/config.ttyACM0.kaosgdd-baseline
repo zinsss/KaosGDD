@@ -1,0 +1,51 @@
+# KaosGDD HylaFAX ttyACM0 baseline.
+#
+# Use this only when faxaddmodem probing hangs and does not create a usable
+# /var/spool/hylafax/etc/config.ttyACM0. It keeps the modem configuration
+# intentionally small and preserves the settings captured from the previous
+# working Conexant/Rockwell USB modem host.
+
+CountryCode:            82
+AreaCode:               054
+FAXNumber:              "+82 54"
+LongDistancePrefix:     0
+InternationalPrefix:    001
+DialStringRules:        etc/dialrules
+ServerTracing:          1
+SessionTracing:         11
+RecvFileMode:           0600
+LogFileMode:            0600
+DeviceMode:             0600
+RingsBeforeAnswer:      1
+SpeakerVolume:          off
+GettyArgs:              "-h %l dx_%s"
+LocalIdentifier:        "KaosGDD"
+TagLineFont:            etc/lutRS18.pcf
+TagLineFormat:          "From %%l|%c|Page %%p of %%t"
+MaxRecvPages:           25
+
+ModemType:              Class1
+ModemRate:              38400
+ModemFlowControl:       rtscts
+ModemNoFlowCmd:         AT&K0
+ModemHardFlowCmd:       AT&K3
+ModemSoftFlowCmd:       AT&K4
+ModemSetupDTRCmd:       ATS13=1&D2
+ModemSetupDCDCmd:       AT&C1
+ModemMfrQueryCmd:       !Rockwell
+ModemModelQueryCmd:     !RC288DPi
+ModemRevQueryCmd:       ATI3
+
+Class1Cmd:              AT+FCLASS=1
+Class1PPMWaitCmd:       AT+FTS=7
+Class1TCFWaitCmd:       AT+FTS=7
+Class1EOPWaitCmd:       AT+FTS=9
+Class1SwitchingCmd:     AT+FRS=7
+Class1RecvAbortOK:      200
+Class1FrameOverhead:    4
+Class1RecvIdentTimer:   40000
+Class1TCFMaxNonZero:    10
+Class1TCFMinRun:        1000
+Class1ECMSupport:       No
+Class1PersistentECM:    No
+Class1ECMFrameSize:     64
