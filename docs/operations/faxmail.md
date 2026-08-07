@@ -8,6 +8,18 @@ preserving the working HylaFAX modem setup.
 Do not move or reconfigure the modem until the current host is inventoried and
 the mailbox path has been tested without touching HylaFAX hooks.
 
+Also check the archived legacy repo before changing anything:
+
+```text
+/srv/projects/_archive/KaosGdd-web-archived-20260806-121403
+```
+
+The most useful legacy handoff document is:
+
+```text
+docs/fax-hylafax-operations.md
+```
+
 ## Current Host
 
 Current modem host:
@@ -34,6 +46,57 @@ The custom daemon unit starts:
 ```
 
 `hylafax-core.service` is not the active service model on this host.
+
+## Legacy Customization Checklist
+
+Review these files before implementation or cutover:
+
+```text
+docs/fax-hylafax-operations.md
+docs/fax-settings.md
+ops/hylafax/README.md
+ops/hylafax/faxrcvd.kaosgdd-working
+ops/hylafax/kaosgdd-faxrcvd.working
+ops/hylafax/install-kaosgdd-hylafax-hooks.sh
+ops/backup/kaosgdd-backup.sh
+backend/scripts/hylafax_recv_hook.py
+backend/app/engine/fax_service.py
+backend/app/engine/fax_pdf_conversion_service.py
+backend/tests/test_fax_v0.py
+```
+
+Carry these lessons forward:
+
+- **Client auth**: if `faxstat` prompts for `Password:` or reports `331
+  Password required`, patch the active `hosts.hfaxd` with explicit `:::`
+  no-password entries.
+- **Path variance**: check all candidate auth/config paths:
+
+  ```bash
+  find /etc /var/spool -name hosts.hfaxd -print
+  ```
+
+- **Docker bridge**: old KaosGdd needed `host.docker.internal:host-gateway`
+  and sometimes firewall allowance to host port `4559`. Brain may run on host
+  instead, but any containerized worker must re-check this.
+- **Outgoing conversion**: convert PDF to fax-ready TIFF before `sendfax`.
+  Do not submit raw PDF to HylaFAX.
+- **Known failure smell**: `/undefinedfilename` in `doneq` means HylaFAX tried
+  to do PDF conversion in its spool context.
+- **Status parsing**: `doneq/q*` files contain useful `jobid`, `number`,
+  `status`, `statuscode`, `state`, and `returned` fields.
+- **Lazy status was a compromise**: old KaosGdd synced `doneq` when opening
+  fax list/detail. Brain should do this as worker behavior, not UI behavior.
+- **Hook upgrades**: package updates may replace HylaFAX hooks. Always keep a
+  timestamped backup before installing replacements.
+- **Failure behavior**: missing `sendfax`, timed out `sendfax`, and provider
+  failure should produce rejected/failed mailbox state and a notification, not
+  a wedged worker.
+
+The live `kaos` host currently uses `/var/spool/hylafax/etc/FaxDispatch` as the
+incoming integration point. The archived repo also contains older wrapper
+scripts for `/var/spool/hylafax/bin/faxrcvd`. Preserve the live path during the
+first mailbox cutover unless inventory proves it has changed.
 
 ## Hosted Mailbox
 

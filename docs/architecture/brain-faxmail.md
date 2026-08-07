@@ -101,6 +101,53 @@ The current host snapshot from `kaos`:
 Treat these as production behavior to preserve. Do not regenerate the modem
 config from package defaults.
 
+## Legacy KaosGdd-web Lessons
+
+Before implementing or moving fax behavior, check the archived legacy repo:
+
+```text
+/srv/projects/_archive/KaosGdd-web-archived-20260806-121403
+```
+
+Key legacy references:
+
+```text
+docs/fax-hylafax-operations.md
+docs/fax-settings.md
+ops/hylafax/README.md
+ops/hylafax/faxrcvd.kaosgdd-working
+ops/hylafax/kaosgdd-faxrcvd.working
+ops/hylafax/install-kaosgdd-hylafax-hooks.sh
+ops/backup/kaosgdd-backup.sh
+backend/scripts/hylafax_recv_hook.py
+backend/app/engine/fax_service.py
+backend/app/engine/fax_pdf_conversion_service.py
+backend/tests/test_fax_v0.py
+```
+
+Preserve these legacy decisions in the Brain worker:
+
+- HylaFAX is transport authority, not application state authority.
+- PDF remains the human/mailbox artifact.
+- Outgoing fax should be converted to fax-ready TIFF before `sendfax`.
+- Do not allow HylaFAX host-side PDF conversion to become the normal path.
+- Parse HylaFAX `doneq` files for status with `statuscode`, `state`, and
+  `returned`.
+- Treat `Error: /undefinedfilename` as a regression signal that PDF conversion
+  leaked back into HylaFAX spool handling.
+- Handle `sendfax command not found` and `sendfax command timed out` as normal
+  operational errors, not crashes.
+- Find the active `hosts.hfaxd`; package paths vary.
+- Use explicit no-password client rules with `:::` if `hfaxd` prompts for
+  `PASS`.
+- Back up HylaFAX hooks and config before edits.
+
+The live `kaos` host currently uses `FaxDispatch` for incoming integration,
+while older legacy docs also describe wrapper scripts under
+`/var/spool/hylafax/bin`. Treat the live host inventory as the immediate
+cutover source of truth, and the legacy repo as the explanation of why the
+customizations exist.
+
 ## Brain Module Boundary
 
 Future code should live under Brain with a narrow module boundary, for example:
