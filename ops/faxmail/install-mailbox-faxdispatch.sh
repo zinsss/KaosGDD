@@ -4,6 +4,8 @@ set -eu
 MODE="${1:-}"
 FAXDISPATCH_PATH="${FAXDISPATCH_PATH:-/var/spool/hylafax/etc/FaxDispatch}"
 TEMPLATE_PATH="${TEMPLATE_PATH:-/srv/projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox}"
+LOG_PATH="${LOG_PATH:-/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log}"
+ENV_FILE="${ENV_FILE:-/etc/kaosgdd/faxmail.env}"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ "$MODE" != "--install" ]; then
@@ -48,8 +50,26 @@ fi
 
 install -o uucp -g uucp -m 0755 "$TEMPLATE_PATH" "$FAXDISPATCH_PATH"
 
+mkdir -p "$(dirname "$LOG_PATH")"
+touch "$LOG_PATH"
+chown uucp:uucp "$LOG_PATH"
+chmod 0640 "$LOG_PATH"
+
+if [ -f "$ENV_FILE" ]; then
+  chgrp uucp "$ENV_FILE"
+  chmod 0640 "$ENV_FILE"
+fi
+
 echo "Installed mailbox FaxDispatch:"
 ls -lah "$FAXDISPATCH_PATH"
+echo
+echo "Prepared live hook access:"
+ls -lah "$LOG_PATH"
+if [ -f "$ENV_FILE" ]; then
+  ls -lah "$ENV_FILE"
+else
+  echo "missing env file: $ENV_FILE"
+fi
 echo
 echo "Backups:"
 ls -lah "$FAXDISPATCH_PATH".pre-kaosgdd-faxmail-mailbox.* 2>/dev/null || true

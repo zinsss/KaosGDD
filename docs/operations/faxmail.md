@@ -169,15 +169,24 @@ cd /srv/projects/KaosGDD
 sudo ./ops/faxmail/install-mailbox-faxrcvd.sh --install
 ```
 
+This installer also makes the live receive hook permissions explicit:
+
+```text
+/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log -> uucp:uucp 0640
+/etc/kaosgdd/faxmail.env                              -> root:uucp 0640
+```
+
+HylaFAX receive hooks run as `uucp`. Manual `sudo` tests can pass even when the
+live hook cannot read the env file or append to the log.
+
 To send an already-received TIFF through the mailbox path manually:
 
 ```bash
-sudo env \
-  FILE=/var/spool/hylafax/recvq/fax000000001.tif \
-  DEVICE=ttyACM0 \
-  COMMID=000000001 \
-  CIDNUMBER=unknown \
-  /bin/sh /var/spool/hylafax/etc/FaxDispatch
+sudo /bin/sh /var/spool/hylafax/bin/faxrcvd \
+  recvq/fax000000001.tif \
+  ttyACM0 \
+  000000001 \
+  ""
 ```
 
 ## Modem Transfer
