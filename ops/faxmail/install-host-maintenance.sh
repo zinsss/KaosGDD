@@ -31,6 +31,9 @@ cp -a /etc/hylafax/hfaxd.systemd.conf \
 "$FAXMAIL/install-mailbox-faxrcvd.sh" --install
 install -o root -g root -m 0755 \
   "$FAXMAIL/backup-hylafax-recvq.sh" /usr/local/sbin/kaos-hylafax-backup
+install -o root -g uucp -m 0755 \
+  "$FAXMAIL/cleanup-received-faxes.py" \
+  /usr/local/lib/kaosgdd/faxmail/cleanup-received-faxes.py
 install -o root -g root -m 0644 \
   "$FAXMAIL/templates/hfaxd.systemd.conf.kaosgdd" /etc/hylafax/hfaxd.systemd.conf
 install -o root -g root -m 0644 \
@@ -42,11 +45,18 @@ install -o root -g root -m 0644 \
 install -o root -g root -m 0644 \
   "$FAXMAIL/templates/kaos-hylafax-backup.timer" /etc/systemd/system/kaos-hylafax-backup.timer
 install -o root -g root -m 0644 \
+  "$FAXMAIL/templates/kaos-faxmail-retention.service" /etc/systemd/system/kaos-faxmail-retention.service
+install -o root -g root -m 0644 \
+  "$FAXMAIL/templates/kaos-faxmail-retention.timer" /etc/systemd/system/kaos-faxmail-retention.timer
+install -o root -g root -m 0644 \
   "$FAXMAIL/templates/kaosgdd-faxmail.logrotate" /etc/logrotate.d/kaosgdd-faxmail
 
 systemctl daemon-reload
 systemctl enable hylafax.service
-systemctl enable --now kaos-faxmail-retry.timer kaos-hylafax-backup.timer
+systemctl enable --now \
+  kaos-faxmail-retry.timer \
+  kaos-hylafax-backup.timer \
+  kaos-faxmail-retention.timer
 systemctl restart hfaxd.service
 
 systemctl start kaos-hylafax-backup.service

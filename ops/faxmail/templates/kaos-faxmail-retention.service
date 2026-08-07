@@ -1,0 +1,13 @@
+[Unit]
+Description=Delete successfully emailed incoming fax TIFFs after retention
+After=kaos-hylafax-backup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/kaosgdd/faxmail/cleanup-received-faxes.py --retention-days 30
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/spool/hylafax/recvq
+ReadWritePaths=/var/spool/hylafax/status/kaosgdd-faxmail
+ReadWritePaths=/srv/kaos/backups/faxmail

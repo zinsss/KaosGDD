@@ -33,6 +33,7 @@ check "hylafax.service enabled at boot" systemctl is-enabled --quiet hylafax.ser
 check "faxgetty@$DEVICE.service enabled at boot" systemctl is-enabled --quiet "faxgetty@$DEVICE.service"
 check "mail retry timer enabled" systemctl is-enabled --quiet kaos-faxmail-retry.timer
 check "recvq backup timer enabled" systemctl is-enabled --quiet kaos-hylafax-backup.timer
+check "fax retention timer enabled" systemctl is-enabled --quiet kaos-faxmail-retention.timer
 echo
 
 echo "== Local protocol exposure =="

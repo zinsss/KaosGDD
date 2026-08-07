@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily retention cleanup for successfully emailed incoming faxes
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

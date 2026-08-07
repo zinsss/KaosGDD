@@ -476,7 +476,8 @@ On a new system:
 8. Create `/etc/kaosgdd/faxmail.env`.
 9. Confirm Cloudflare routes `fax-in@kaosgdd.net` to the destination mailbox.
 10. Run `install-host-maintenance.sh --install` to install the mailbox hook,
-    retry timer, local-only hfaxd binding, log rotation, and backup timer.
+    retry timer, local-only hfaxd binding, log rotation, backup timer, and
+    30-day sent-fax retention timer.
 11. Test an existing TIFF through `sudo -u uucp /bin/sh ... faxrcvd`.
 12. Send one live fax and confirm PDF email arrives.
 13. Enable Brain ntfy env.
@@ -504,6 +505,11 @@ sudo /srv/projects/KaosGDD/ops/faxmail/inventory-hylafax-host.sh /srv/kaos/data/
 ```
 
 Do not commit inventory tarballs or env files.
+
+Successfully emailed TIFFs are retained locally for 30 days. The retention
+timer then deletes the `recvq` file and its local backup copy while preserving
+the sent marker as an audit record. Failed or unconfirmed faxes are never
+eligible for automatic deletion.
 
 ## Troubleshooting
 

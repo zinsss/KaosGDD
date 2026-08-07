@@ -58,6 +58,7 @@ Kaos maintenance units:
 ```text
 kaos-faxmail-retry.timer
 kaos-hylafax-backup.timer
+kaos-faxmail-retention.timer
 ```
 
 `hylafax.service` must be enabled because `faxq` and `hfaxd` are its child
@@ -78,6 +79,7 @@ This command does not restart `faxgetty` or alter the modem baseline. It:
 - enables the HylaFAX parent service at boot
 - installs faxmail log rotation
 - enables a daily local recvq backup
+- deletes successfully emailed local TIFF and backup copies after 30 days
 - verifies the resulting host state
 
 ## Mailbox Configuration
@@ -214,9 +216,29 @@ sudo systemctl start kaos-hylafax-backup.service
 sudo cat /srv/kaos/backups/faxmail/current/status.txt
 ```
 
-This is local staging, not disaster recovery. Sync this directory to encrypted
-Synology storage when the backup target is ready. The script never deletes or
-moves production TIFFs and never copies `/etc/kaosgdd/faxmail.env`.
+This is local staging, not disaster recovery. Sync it to encrypted Synology
+storage when the backup target is ready. The backup script never copies
+`/etc/kaosgdd/faxmail.env`.
+
+The daily retention timer removes both copies of a received TIFF after 30 days
+only when its durable `sentAt` marker confirms successful SMTP submission. It
+never removes a fax with a failed marker, an unrecognized path, or no sent
+marker. The small sent marker remains and records `purgedAt` for audit and
+idempotency.
+
+Preview current eligibility without deleting anything:
+
+```bash
+sudo /usr/bin/python3 \
+  /usr/local/lib/kaosgdd/faxmail/cleanup-received-faxes.py \
+  --retention-days 30 --dry-run
+```
+
+Run the policy immediately:
+
+```bash
+sudo systemctl start kaos-faxmail-retention.service
+```
 
 The hook log rotates daily for 30 days. HylaFAX rotates `xferfaxlog` separately.
 
