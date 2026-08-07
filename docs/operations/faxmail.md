@@ -20,6 +20,12 @@ The most useful legacy handoff document is:
 docs/fax-hylafax-operations.md
 ```
 
+For a complete rebuild and maintenance checklist, use:
+
+```text
+docs/operations/faxmail-maintenance-reproduction.md
+```
+
 ## Current Host
 
 Current modem host:
