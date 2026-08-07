@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Send a received HylaFAX TIFF as a PDF email attachment.
 
-This script is intended to be called from HylaFAX FaxDispatch. It does not
-delete the source TIFF and it does not require a local mail server. SMTP
-settings are read from environment variables so credentials can live in a
+This script is intended to be called from HylaFAX FaxDispatch or faxrcvd. It
+does not delete the source TIFF and it does not require a local mail server.
+SMTP settings are read from environment variables so credentials can live in a
 root-readable env file outside the repository.
 """
 

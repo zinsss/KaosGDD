@@ -158,6 +158,27 @@ Current migration checkpoint:
 - `/var/spool/hylafax` exists on the target host.
 - The mailbox `FaxDispatch` hook was manually triggered with a fake TIFF.
 - SMTP delivery through the hosted mailbox path was confirmed.
+- A real incoming fax reached `recvq/fax000000001.tif`, proving modem receive.
+- The target package invoked `/var/spool/hylafax/bin/faxrcvd` directly, so the
+  mailbox receive hook must be installed at `bin/faxrcvd` for live faxes.
+
+Install the live receive hook used by this package:
+
+```bash
+cd /srv/projects/KaosGDD
+sudo ./ops/faxmail/install-mailbox-faxrcvd.sh --install
+```
+
+To send an already-received TIFF through the mailbox path manually:
+
+```bash
+sudo env \
+  FILE=/var/spool/hylafax/recvq/fax000000001.tif \
+  DEVICE=ttyACM0 \
+  COMMID=000000001 \
+  CIDNUMBER=unknown \
+  /bin/sh /var/spool/hylafax/etc/FaxDispatch
+```
 
 ## Modem Transfer
 

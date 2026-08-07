@@ -1,0 +1,62 @@
+#!/bin/sh
+
+LOG=/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
+ENV_FILE=/etc/kaosgdd/faxmail.env
+SENDER_SCRIPT=/srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py
+
+FILE_ARG="${1:-}"
+DEVICE="${2:-ttyACM0}"
+COMMID="${3:-}"
+MSG="${4:-}"
+SENDER="${5:-}"
+
+{
+  echo "--- $(date -Is) faxrcvd mailbox start ---"
+  echo "args=$*"
+  echo "FILE_ARG=$FILE_ARG"
+  echo "DEVICE=$DEVICE"
+  echo "COMMID=$COMMID"
+  echo "MSG=$MSG"
+  echo "SENDER=$SENDER"
+} >> "$LOG" 2>&1
+
+case "$FILE_ARG" in
+  /*) SRC="$FILE_ARG" ;;
+  "") SRC="" ;;
+  *)  SRC="/var/spool/hylafax/$FILE_ARG" ;;
+esac
+
+echo "SRC=$SRC" >> "$LOG" 2>&1
+
+if [ -z "$SRC" ] || [ ! -f "$SRC" ]; then
+  echo "skip: fax file missing: $SRC" >> "$LOG" 2>&1
+  echo "--- $(date -Is) faxrcvd mailbox end ---" >> "$LOG" 2>&1
+  exit 0
+fi
+
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  set -a
+  . "$ENV_FILE"
+  set +a
+else
+  echo "skip: missing $ENV_FILE" >> "$LOG" 2>&1
+  echo "--- $(date -Is) faxrcvd mailbox end ---" >> "$LOG" 2>&1
+  exit 0
+fi
+
+REMOTE_NUMBER=${SENDER:-unknown}
+[ -n "$REMOTE_NUMBER" ] || REMOTE_NUMBER=unknown
+echo "REMOTE_NUMBER=$REMOTE_NUMBER" >> "$LOG" 2>&1
+
+/usr/bin/python3 "$SENDER_SCRIPT" \
+  "$SRC" \
+  --remote-number "$REMOTE_NUMBER" \
+  --device "$DEVICE" \
+  --commid "$COMMID" >> "$LOG" 2>&1
+
+echo "sender exit=$?" >> "$LOG" 2>&1
+echo "--- $(date -Is) faxrcvd mailbox end ---" >> "$LOG" 2>&1
+
+# Prevent the package default faxrcvd from trying local mail delivery.
+exit 0
