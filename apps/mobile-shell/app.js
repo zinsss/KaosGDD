@@ -526,6 +526,12 @@ function collectionPillForItem(item) {
   };
 }
 
+function renderCollectionPill(item) {
+  if (portalProfile() === "family") return "";
+  const pill = collectionPillForItem(item);
+  return `<span class="calendarPill is-${escapeHtml(pill.ownerClass)}">${escapeHtml(pill.label)}</span>`;
+}
+
 function filterByCollectionView(items, viewId) {
   const view = collectionViews().find((collection) => collection.id === viewId) || collectionViews()[0];
   if (view.id === "all") return items;
@@ -2265,7 +2271,6 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
       <ol class="timeline">
         ${events
           .map((event) => {
-            const collectionPill = collectionPillForItem(event);
             const timeLabel = event.allDay ? uiText("event.allDayPill", "All Day") : event.time;
             return `
               <li>
@@ -2273,7 +2278,7 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
                 <a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
                   <span class="timelineTitleRow">
                     <strong>${escapeHtml(event.title)}</strong>
-                    <span class="calendarPill is-${escapeHtml(collectionPill.ownerClass)}">${escapeHtml(collectionPill.label)}</span>
+                    ${renderCollectionPill(event)}
                   </span>
                   ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
                 </a>
@@ -2296,7 +2301,6 @@ function renderTaskRows(tasks) {
         .map((task) => {
           const done = task.done;
           const classes = ["taskRow", task.priorityLabel ? `priority${task.priorityLabel}` : "", done ? "isDone" : ""].filter(Boolean).join(" ");
-          const collectionPill = collectionPillForItem(task);
           return `
             <li class="${classes}" data-task-id="${escapeHtml(task.id)}">
               <div class="taskRowMain">
@@ -2304,7 +2308,7 @@ function renderTaskRows(tasks) {
                 <a class="taskEditLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
                   <span class="taskTitleRow">
                     <p class="taskTitle">${escapeHtml(task.title)}</p>
-                    <span class="calendarPill is-${escapeHtml(collectionPill.ownerClass)}">${escapeHtml(collectionPill.label)}</span>
+                    ${renderCollectionPill(task)}
                   </span>
                   <span class="taskMeta">${escapeHtml(task.meta)}</span>
                 </a>
