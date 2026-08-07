@@ -152,6 +152,78 @@ sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; /usr/bin/python3 /srv/pr
 
 Only after Roundcube receives the PDF should `FaxDispatch` be changed.
 
+Current migration checkpoint:
+
+- HylaFAX was installed on the target `kaos` host.
+- `/var/spool/hylafax` exists on the target host.
+- The mailbox `FaxDispatch` hook was manually triggered with a fake TIFF.
+- SMTP delivery through the hosted mailbox path was confirmed.
+
+## Modem Transfer
+
+Do not move the modem until the mailbox hook has passed the manual TIFF test.
+After that, move only the modem and keep the old host otherwise unchanged until
+one receive and one send test pass on the new host.
+
+Expected device and modem facts from the working host:
+
+```text
+device: ttyACM0
+USB modem: Conexant/Rockwell 0572:1340
+HylaFAX package version observed: 6.0.7
+RingsBeforeAnswer: 1
+MaxRecvPages: 25
+ModemType: Class1
+ModemRate: 38400
+ModemFlowControl: rtscts
+Class1ECMSupport: No
+Class1PersistentECM: No
+Class1ECMFrameSize: 64
+```
+
+After plugging the modem into the target host:
+
+```bash
+ls -lah /dev/ttyACM0
+lsusb | grep -Ei 'conexant|rockwell|0572:1340|modem|fax'
+sudo usermod -aG dialout,uucp fax || true
+sudo faxaddmodem ttyACM0
+```
+
+Let `faxaddmodem` create the full HylaFAX modem config first. Then apply the
+KaosGDD known-good overrides:
+
+```bash
+cd /srv/projects/KaosGDD
+sudo ./ops/faxmail/apply-ttyacm0-known-good-baseline.sh
+```
+
+Install and start the receive service:
+
+```bash
+sudo systemctl enable --now faxgetty@ttyACM0.service
+sudo systemctl restart hylafax-core.service || true
+sudo systemctl restart faxgetty@ttyACM0.service
+```
+
+Check readiness:
+
+```bash
+cd /srv/projects/KaosGDD
+sudo ./ops/faxmail/verify-hylafax-modem-ready.sh ttyACM0
+```
+
+Live receive test:
+
+```bash
+sudo journalctl -u faxgetty@ttyACM0.service -f
+sudo tail -f /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
+```
+
+If the device appears as `ttyACM1` or `ttyUSB0`, stop and decide whether to add
+a udev rule or adjust the service/config names. Do not keep re-running
+`faxaddmodem` against different names without taking notes and backups.
+
 ## Outgoing Fax Worker
 
 Brain should accept only messages matching:
