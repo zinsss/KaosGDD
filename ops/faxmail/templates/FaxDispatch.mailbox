@@ -2,7 +2,7 @@
 
 LOG=/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 ENV_FILE=/etc/kaosgdd/faxmail.env
-SENDER_SCRIPT=/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py
+SENDER_SCRIPT=/srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py
 
 {
   echo "--- $(date -Is) FaxDispatch start ---"

@@ -3,7 +3,7 @@ set -eu
 
 MODE="${1:-}"
 FAXDISPATCH_PATH="${FAXDISPATCH_PATH:-/var/spool/hylafax/etc/FaxDispatch}"
-TEMPLATE_PATH="${TEMPLATE_PATH:-/projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox}"
+TEMPLATE_PATH="${TEMPLATE_PATH:-/srv/projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox}"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ "$MODE" != "--install" ]; then

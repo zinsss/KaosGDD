@@ -67,8 +67,8 @@ for p in \
   /srv/KaosGdd-web/backend/scripts/hylafax_recv_hook.py \
   /srv/kaos-stack/kaosgdd/repo/backend/scripts/hylafax_recv_hook.py \
   /projects/KaosGdd-web/backend/scripts/hylafax_recv_hook.py \
-  /projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py \
-  /projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox \
+  /srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py \
+  /srv/projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox \
   /etc/kaosgdd/faxmail.env \
   /docker/kaosgdd/.env \
   /docker/kaosgdd/docker-compose.yml \
