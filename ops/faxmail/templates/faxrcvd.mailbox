@@ -49,14 +49,22 @@ REMOTE_NUMBER=${SENDER:-unknown}
 [ -n "$REMOTE_NUMBER" ] || REMOTE_NUMBER=unknown
 echo "REMOTE_NUMBER=$REMOTE_NUMBER" >> "$LOG" 2>&1
 
-/usr/bin/python3 "$SENDER_SCRIPT" \
-  "$SRC" \
-  --remote-number "$REMOTE_NUMBER" \
-  --device "$DEVICE" \
-  --commid "$COMMID" >> "$LOG" 2>&1
+if /usr/bin/python3 "$SENDER_SCRIPT" \
+    "$SRC" \
+    --remote-number "$REMOTE_NUMBER" \
+    --device "$DEVICE" \
+    --commid "$COMMID" >> "$LOG" 2>&1; then
+  SENDER_STATUS=0
+else
+  SENDER_STATUS=$?
+fi
 
-echo "sender exit=$?" >> "$LOG" 2>&1
+echo "sender exit=$SENDER_STATUS" >> "$LOG" 2>&1
+if [ "$SENDER_STATUS" -ne 0 ]; then
+  echo "delivery queued for retry by kaos-faxmail-retry.timer" >> "$LOG" 2>&1
+fi
 echo "--- $(date -Is) faxrcvd mailbox end ---" >> "$LOG" 2>&1
 
-# Prevent the package default faxrcvd from trying local mail delivery.
+# The sender persists failures for the retry timer. Keep HylaFAX out of the
+# mailbox retry policy and prevent package-default local mail delivery.
 exit 0

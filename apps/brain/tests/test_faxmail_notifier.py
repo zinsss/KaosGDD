@@ -39,7 +39,7 @@ class FaxmailNotifierTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            events = notifier.scan_received_faxes(recvq, log)
+            events = notifier.scan_received_faxes(recvq, log, minimum_age=0)
 
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0].commid, "000000123")
@@ -60,6 +60,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_XFERFAXLOG": str(root / "missing.log"),
                     "FAX_NOTIFY_STATE_PATH": str(state),
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "true",
+                    "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
+                    "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                     "NTFY_URL": "http://ntfy",
                     "NTFY_TOPIC": "kaosgdd-fax",
                 },
@@ -78,7 +80,11 @@ class FaxmailNotifierTests(unittest.TestCase):
             recvq.mkdir()
             (recvq / "fax000000007.tif").write_bytes(b"fax")
             with mock.patch.object(pathlib.Path, "read_text", side_effect=PermissionError):
-                events = notifier.scan_received_faxes(recvq, pathlib.Path(tmp) / "xferfaxlog")
+                events = notifier.scan_received_faxes(
+                    recvq,
+                    pathlib.Path(tmp) / "xferfaxlog",
+                    minimum_age=0,
+                )
 
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0].commid, "000000007")
@@ -107,6 +113,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
                     "NTFY_URL": "http://ntfy",
                     "NTFY_TOPIC": "kaosgdd-fax",
+                    "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
+                    "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                 },
                 clear=False,
             ):
@@ -118,6 +126,88 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(len(payload["known"]), 1)
         self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd-fax")
         self.assertIn(b"fax000000002.tif", requests[0][0].data)
+
+    def test_recent_fax_waits_until_stable_age(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            recvq = pathlib.Path(tmp) / "recvq"
+            recvq.mkdir()
+            fax = recvq / "fax000000009.tif"
+            fax.write_bytes(b"partial")
+            modified = fax.stat().st_mtime
+
+            recent = notifier.scan_received_faxes(
+                recvq,
+                pathlib.Path(tmp) / "missing.log",
+                minimum_age=60,
+                now=modified + 10,
+            )
+            stable = notifier.scan_received_faxes(
+                recvq,
+                pathlib.Path(tmp) / "missing.log",
+                minimum_age=60,
+                now=modified + 61,
+            )
+
+        self.assertEqual(recent, [])
+        self.assertEqual(len(stable), 1)
+
+    def test_delivery_failure_posts_urgent_ntfy_once(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append((request, timeout))
+            return FakeResponse()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            recvq = root / "recvq"
+            failures = root / "failed"
+            recvq.mkdir()
+            failures.mkdir()
+            state = root / "state.json"
+            notifier.save_state({"known": [], "knownFailures": []}, state)
+            (failures / "000000010.json").write_text(
+                json.dumps(
+                    {
+                        "deliveryKey": "000000010",
+                        "source": "/integrations/hylafax/recvq/fax000000010.tif",
+                        "attempts": 1,
+                        "lastErrorType": "SMTPConnectError",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "FAX_NOTIFY_RECVQ": str(recvq),
+                    "FAX_NOTIFY_XFERFAXLOG": str(root / "missing.log"),
+                    "FAX_NOTIFY_STATE_PATH": str(state),
+                    "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
+                    "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
+                    "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(failures),
+                    "NTFY_URL": "http://ntfy",
+                    "NTFY_TOPIC": "kaosgdd-fax",
+                },
+                clear=False,
+            ):
+                sent = notifier.scan_and_notify(opener=opener)
+                sent_again = notifier.scan_and_notify(opener=opener)
+
+            payload = json.loads(state.read_text(encoding="utf-8"))
+
+        self.assertEqual(sent, 1)
+        self.assertEqual(sent_again, 0)
+        self.assertEqual(payload["knownFailures"], ["000000010"])
+        self.assertEqual(requests[0][0].get_header("Priority"), "urgent")
+
+    def test_unreadable_delivery_failure_directory_does_not_stop_scan(self):
+        with mock.patch.object(pathlib.Path, "is_dir", return_value=True), mock.patch.object(
+            pathlib.Path, "glob", side_effect=PermissionError
+        ):
+            failures = notifier.scan_delivery_failures("/unreadable")
+
+        self.assertEqual(failures, [])
 
 
 if __name__ == "__main__":

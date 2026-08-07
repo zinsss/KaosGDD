@@ -1,361 +1,251 @@
 # Faxmail Operations
 
-Faxmail migration moves fax workflow to a hosted mailbox plus Brain worker while
-preserving the working HylaFAX modem setup.
+HylaFAX owns modem transport, the hosted mailbox/Roundcube owns the human fax
+inbox, and Brain owns push notifications. KaosGDD UI is not in the fax path.
 
-## Safety Rule
-
-Do not move or reconfigure the modem until the current host is inventoried and
-the mailbox path has been tested without touching HylaFAX hooks.
-
-Also check the archived legacy repo before changing anything:
+## Production Workflow
 
 ```text
-/srv/projects/_archive/KaosGdd-web-archived-20260806-121403
+Conexant/Rockwell 0572:1340 on /dev/ttyACM0 (USB 2.0)
+  -> faxgetty@ttyACM0 receives TIFF into /var/spool/hylafax/recvq
+  -> /var/spool/hylafax/bin/faxrcvd
+  -> TIFF-to-PDF sender submits through hosted SMTP
+  -> hosted mailbox / Roundcube
+  -> Brain observes stable recvq files and mailbox-delivery failures
+  -> ntfy push
 ```
 
-The most useful legacy handoff document is:
+Do not regenerate the working modem configuration casually. Incoming fax is
+production clinic transport.
+
+## Source Of Truth
+
+Maintained files are under:
 
 ```text
-docs/fax-hylafax-operations.md
+/srv/projects/KaosGDD/ops/faxmail
 ```
 
-For a complete rebuild and maintenance checklist, use:
+Live paths:
 
 ```text
-docs/operations/faxmail-maintenance-reproduction.md
+/etc/hylafax/config.ttyACM0
+/etc/hylafax/hfaxd.systemd.conf
+/etc/kaosgdd/faxmail.env
+/var/spool/hylafax/bin/faxrcvd
+/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py
+/var/spool/hylafax/status/kaosgdd-faxmail/{sent,failed}
+/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 ```
 
-## Current Host
+The Debian package invokes `bin/faxrcvd` directly on this host. `FaxDispatch`,
+`hylafax-core.service`, and `kaos-hylafax-daemons.service` are not part of the
+production workflow.
 
-Current modem host:
+## Services
 
-```text
-kaos
-```
-
-Known working pieces:
+Package services:
 
 ```text
+hylafax.service
+faxq.service
+hfaxd.service
 faxgetty@ttyACM0.service
-kaos-hylafax-daemons.service
-/var/spool/hylafax/etc/FaxDispatch
-/var/spool/hylafax/etc/config.ttyACM0
-/etc/udev/rules.d/99-faxmodem.rules
 ```
 
-The custom daemon unit starts:
+Kaos maintenance units:
 
 ```text
-/usr/sbin/faxq
-/usr/sbin/hfaxd -i hylafax
+kaos-faxmail-retry.timer
+kaos-hylafax-backup.timer
 ```
 
-`hylafax-core.service` is not the active service model on this host.
+`hylafax.service` must be enabled because `faxq` and `hfaxd` are its child
+units. `faxgetty@ttyACM0.service` is enabled separately.
 
-## Legacy Customization Checklist
-
-Review these files before implementation or cutover:
-
-```text
-docs/fax-hylafax-operations.md
-docs/fax-settings.md
-ops/hylafax/README.md
-ops/hylafax/faxrcvd.kaosgdd-working
-ops/hylafax/kaosgdd-faxrcvd.working
-ops/hylafax/install-kaosgdd-hylafax-hooks.sh
-ops/backup/kaosgdd-backup.sh
-backend/scripts/hylafax_recv_hook.py
-backend/app/engine/fax_service.py
-backend/app/engine/fax_pdf_conversion_service.py
-backend/tests/test_fax_v0.py
-```
-
-Carry these lessons forward:
-
-- **Client auth**: if `faxstat` prompts for `Password:` or reports `331
-  Password required`, patch the active `hosts.hfaxd` with explicit `:::`
-  no-password entries.
-- **Path variance**: check all candidate auth/config paths:
-
-  ```bash
-  find /etc /var/spool -name hosts.hfaxd -print
-  ```
-
-- **Docker bridge**: old KaosGdd needed `host.docker.internal:host-gateway`
-  and sometimes firewall allowance to host port `4559`. Brain may run on host
-  instead, but any containerized worker must re-check this.
-- **Outgoing conversion**: convert PDF to fax-ready TIFF before `sendfax`.
-  Do not submit raw PDF to HylaFAX.
-- **Known failure smell**: `/undefinedfilename` in `doneq` means HylaFAX tried
-  to do PDF conversion in its spool context.
-- **Status parsing**: `doneq/q*` files contain useful `jobid`, `number`,
-  `status`, `statuscode`, `state`, and `returned` fields.
-- **Lazy status was a compromise**: old KaosGdd synced `doneq` when opening
-  fax list/detail. Brain should do this as worker behavior, not UI behavior.
-- **Hook upgrades**: package updates may replace HylaFAX hooks. Always keep a
-  timestamped backup before installing replacements.
-- **Failure behavior**: missing `sendfax`, timed out `sendfax`, and provider
-  failure should produce rejected/failed mailbox state and a notification, not
-  a wedged worker.
-
-The live `kaos` host currently uses `/var/spool/hylafax/etc/FaxDispatch` as the
-incoming integration point. The archived repo also contains older wrapper
-scripts for `/var/spool/hylafax/bin/faxrcvd`. Preserve the live path during the
-first mailbox cutover unless inventory proves it has changed.
-
-## Hosted Mailbox
-
-Create hosted mailboxes or aliases:
-
-```text
-fax@kaosgdd.net
-fax-send@kaosgdd.net
-```
-
-Optional aliases:
-
-```text
-fax-in@kaosgdd.net      -> fax@kaosgdd.net
-fax-failed@kaosgdd.net  -> fax@kaosgdd.net
-```
-
-Suggested folders:
-
-```text
-Incoming
-OutgoingRequests
-Processed
-Rejected
-Failed
-Archive
-```
-
-## Inventory
-
-Run before changing HylaFAX configs, hooks, services, or modem placement:
-
-```bash
-sudo /srv/projects/KaosGDD/ops/faxmail/inventory-hylafax-host.sh /docker/kaosgdd/faxmail/inventory/hylafax-before-mailbox-cutover
-```
-
-Keep inventory tarballs out of git.
-
-## Incoming Fax To Mailbox
-
-Test SMTP delivery before installing any hook:
-
-```bash
-TIFF=$(ls -1 /var/spool/hylafax/recvq/*.tif | tail -1)
-sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; /usr/bin/python3 /srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0 --dry-run' "$TIFF"
-```
-
-Then send a real test email:
-
-```bash
-sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; /usr/bin/python3 /srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py "$0" --remote-number test --device ttyACM0' "$TIFF"
-```
-
-Only after Roundcube receives the PDF should `FaxDispatch` be changed.
-
-Current migration checkpoint:
-
-- HylaFAX was installed on the target `kaos` host.
-- `/var/spool/hylafax` exists on the target host.
-- The mailbox `FaxDispatch` hook was manually triggered with a fake TIFF.
-- SMTP delivery through the hosted mailbox path was confirmed.
-- A real incoming fax reached `recvq/fax000000001.tif`, proving modem receive.
-- The target package invoked `/var/spool/hylafax/bin/faxrcvd` directly, so the
-  mailbox receive hook must be installed at `bin/faxrcvd` for live faxes.
-
-Install the live receive hook used by this package:
+Install or repair the maintained host integration:
 
 ```bash
 cd /srv/projects/KaosGDD
-sudo ./ops/faxmail/install-mailbox-faxrcvd.sh --install
+sudo ./ops/faxmail/install-host-maintenance.sh --install
 ```
 
-This installer also makes the live receive hook permissions explicit:
+This command does not restart `faxgetty` or alter the modem baseline. It:
+
+- protects the custom `faxrcvd` with a dpkg diversion
+- installs durable delivery state and a five-minute retry timer
+- binds `hfaxd` to localhost and disables unused SNPP port 444
+- enables the HylaFAX parent service at boot
+- installs faxmail log rotation
+- enables a daily local recvq backup
+- verifies the resulting host state
+
+## Mailbox Configuration
+
+`/etc/kaosgdd/faxmail.env` is `root:uucp 0640` and stays outside Git.
+
+Required variables:
 
 ```text
-/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py -> root:uucp 0755
-/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log -> uucp:uucp 0640
-/etc/kaosgdd/faxmail.env                              -> root:uucp 0640
+FAXMAIL_SMTP_HOST=
+FAXMAIL_SMTP_PORT=587
+FAXMAIL_SMTP_STARTTLS=true
+FAXMAIL_SMTP_SSL=false
+FAXMAIL_SMTP_USER=
+FAXMAIL_SMTP_PASSWORD=
+FAXMAIL_FROM=
+FAXMAIL_TO=
+FAXMAIL_SUBJECT_PREFIX=Incoming fax
+FAXMAIL_STATE_DIR=/var/spool/hylafax/status/kaosgdd-faxmail
 ```
 
-HylaFAX receive hooks run as `uucp`. Manual `sudo` tests can pass even when the
-live hook cannot traverse the repo directory, read the env file, or append to
-the log.
+Use either STARTTLS or implicit SSL, never both. Keep the SMTP password out of
+inventory archives and backups.
 
-To send an already-received TIFF through the mailbox path manually:
+## Delivery State And Retry
 
-```bash
-sudo /bin/sh /var/spool/hylafax/bin/faxrcvd \
-  recvq/fax000000001.tif \
-  ttyACM0 \
-  000000001 \
-  ""
-```
-
-## Modem Transfer
-
-Do not move the modem until the mailbox hook has passed the manual TIFF test.
-After that, move only the modem and keep the old host otherwise unchanged until
-one receive and one send test pass on the new host.
-
-Expected device and modem facts from the working host:
+Successful deliveries create:
 
 ```text
-device: ttyACM0
-USB modem: Conexant/Rockwell 0572:1340
-HylaFAX package version observed: 6.0.7
-RingsBeforeAnswer: 1
-MaxRecvPages: 25
-ModemType: Class1
-ModemRate: 38400
-ModemFlowControl: rtscts
-Class1ECMSupport: No
-Class1PersistentECM: No
-Class1ECMFrameSize: 64
+/var/spool/hylafax/status/kaosgdd-faxmail/sent/COMMID.json
 ```
 
-After plugging the modem into the target host:
+Failures create:
+
+```text
+/var/spool/hylafax/status/kaosgdd-faxmail/failed/COMMID.json
+```
+
+The retry timer retries indefinitely with bounded backoff. Brain sends an
+urgent ntfy alert when a failed marker first appears. A sent marker prevents a
+manual hook replay from sending the same fax twice.
+
+Inspect pending failures:
 
 ```bash
-ls -lah /dev/ttyACM0
-lsusb | grep -Ei 'conexant|rockwell|0572:1340|modem|fax'
-sudo usermod -aG dialout,uucp fax || true
-sudo timeout 90 faxaddmodem ttyACM0
+sudo find /var/spool/hylafax/status/kaosgdd-faxmail/failed \
+  -maxdepth 1 -name '*.json' -type f -print
+sudo systemctl start kaos-faxmail-retry.service
+sudo journalctl -u kaos-faxmail-retry.service -n 50 --no-pager
 ```
 
-Let `faxaddmodem` create the full HylaFAX modem config first if it can finish
-quickly. Then apply the KaosGDD known-good overrides:
+## Historical Replay
+
+Mark a fax already confirmed in the mailbox without sending it:
 
 ```bash
-cd /srv/projects/KaosGDD
-sudo ./ops/faxmail/apply-ttyacm0-known-good-baseline.sh
+sudo -u uucp env FAXMAIL_STATE_DIR=/var/spool/hylafax/status/kaosgdd-faxmail \
+  /usr/bin/python3 /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py \
+  /var/spool/hylafax/recvq/fax000000001.tif \
+  --commid 000000001 --device ttyACM0 --mark-sent
 ```
 
-If `faxaddmodem` hangs during probing, stop it and install the known-good
-baseline config directly:
+Replay an undelivered fax through the normal idempotent hook:
 
 ```bash
-sudo pkill -f faxaddmodem || true
-cd /srv/projects/KaosGDD
-sudo ./ops/faxmail/install-ttyacm0-baseline-config.sh
+sudo -u uucp /bin/sh /var/spool/hylafax/bin/faxrcvd \
+  recvq/fax000000001.tif ttyACM0 000000001 ""
 ```
 
-Install and start the receive service:
+Use sender `--force` only when an intentional duplicate email is required.
 
-```bash
-sudo systemctl enable --now faxgetty@ttyACM0.service
-sudo systemctl restart hylafax-core.service || true
-sudo systemctl restart faxgetty@ttyACM0.service
+## Brain Notifications
+
+Production Brain mounts `/var/spool/hylafax` read-only. Important settings:
+
+```text
+FAX_NOTIFY_ENABLED=true
+FAX_NOTIFY_RECVQ=/integrations/hylafax/recvq
+FAX_NOTIFY_XFERFAXLOG=/integrations/hylafax/log/xferfaxlog
+FAX_NOTIFY_STATE_PATH=/data/faxmail/notified-recvq.json
+FAX_NOTIFY_DELIVERY_FAILURE_ROOT=/integrations/hylafax/status/kaosgdd-faxmail/failed
+FAX_NOTIFY_MIN_FILE_AGE_SECONDS=60
+FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
+NTFY_URL=
+NTFY_TOPIC=kaosgdd-fax
 ```
 
-Check readiness:
+The minimum file age prevents notification while HylaFAX may still be writing
+the TIFF. Check `/api/brain/status` under `faxmailNotifications` for enabled,
+configured, lastError, failureCount, and minimumFileAgeSeconds.
+
+## Verification
+
+Run the non-destructive verifier:
 
 ```bash
 cd /srv/projects/KaosGDD
 sudo ./ops/faxmail/verify-hylafax-modem-ready.sh ttyACM0
 ```
 
-Live receive test:
+Expected essentials:
+
+```text
+hylafax, faxq, hfaxd, and faxgetty active
+hylafax and faxgetty enabled
+hfaxd listening only on 127.0.0.1:4559
+port 444 closed
+faxrcvd and sender matching maintained source
+no pending mailbox delivery failures
+modem Running and idle
+```
+
+Watch a live receive:
 
 ```bash
 sudo journalctl -u faxgetty@ttyACM0.service -f
 sudo tail -f /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 ```
 
-If the device appears as `ttyACM1` or `ttyUSB0`, stop and decide whether to add
-a udev rule or adjust the service/config names. Do not keep re-running
-`faxaddmodem` against different names without taking notes and backups.
+Confirm all three results: TIFF in `recvq`, PDF in the mailbox, and ntfy push.
 
-## Brain ntfy Push
+## Backup And Retention
 
-Incoming fax email remains handled by HylaFAX hooks. Brain only polls the
-HylaFAX receive queue and sends a push notification through ntfy when a new
-`recvq/fax*.tif` appears.
-
-Production Brain needs a read-only HylaFAX spool mount and a durable state
-mount:
+The daily timer copies received TIFFs and non-secret active configuration into:
 
 ```text
-/var/spool/hylafax -> /integrations/hylafax:ro
-/srv/kaos/data/kaosgdd/brain/faxmail -> /data/faxmail
+/srv/kaos/backups/faxmail
 ```
 
-Enable the worker in `/srv/kaos/secrets/kaosgdd-brain.env`:
-
-```text
-FAX_NOTIFY_ENABLED=true
-NTFY_URL=http://ntfy-host-or-ip
-NTFY_TOPIC=kaosgdd-fax
-FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
-```
-
-If ntfy requires auth, also set:
-
-```text
-NTFY_TOKEN=replace-with-ntfy-access-token
-```
-
-`FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true` prevents old received faxes from
-creating a notification storm the first time Brain starts. To test against an
-existing receive file, temporarily set it to `false` and delete:
-
-```text
-/srv/kaos/data/kaosgdd/brain/faxmail/notified-recvq.json
-```
-
-## Outgoing Fax Worker
-
-Brain should accept only messages matching:
-
-```text
-To: fax-send@kaosgdd.net
-Subject: fax:0548209762
-Attachment: exactly one PDF
-```
-
-Reject before calling HylaFAX when:
-
-- sender is unauthorized
-- subject has no parseable fax number
-- no PDF is attached
-- more than one PDF is attached
-- attachment is not a valid PDF
-
-Rejected messages should move to `Rejected` and get a short reason. Silent
-ignore is allowed only for clearly unauthorized/spam messages.
-
-## Cutover Test
-
-1. Inventory host.
-2. Confirm hosted mailbox and Roundcube access.
-3. Confirm SMTP submission from host to mailbox.
-4. Send one test incoming fax and confirm PDF arrival.
-5. Send one authorized outgoing PDF request.
-6. Confirm Brain submits TIFF to HylaFAX.
-7. Confirm `faxstat -s` and `faxstat -d`.
-8. Confirm folder move and notification.
-
-## Rollback
-
-Before changing `FaxDispatch`, back up:
-
-```text
-/var/spool/hylafax/etc/FaxDispatch
-/var/spool/hylafax/bin/faxrcvd
-/var/spool/hylafax/etc/config
-/var/spool/hylafax/etc/config.ttyACM0
-/etc/systemd/system/kaos-hylafax-daemons.service
-```
-
-Rollback should restore the previous `FaxDispatch`. Restart services only if
-HylaFAX behaves unexpectedly:
+Run immediately:
 
 ```bash
-sudo systemctl restart kaos-hylafax-daemons.service
-sudo systemctl restart faxgetty@ttyACM0.service
+sudo systemctl start kaos-hylafax-backup.service
+sudo cat /srv/kaos/backups/faxmail/current/status.txt
 ```
+
+This is local staging, not disaster recovery. Sync this directory to encrypted
+Synology storage when the backup target is ready. The script never deletes or
+moves production TIFFs and never copies `/etc/kaosgdd/faxmail.env`.
+
+The hook log rotates daily for 30 days. HylaFAX rotates `xferfaxlog` separately.
+
+## Inventory
+
+```bash
+sudo ./ops/faxmail/inventory-hylafax-host.sh \
+  /srv/kaos/backups/hylafax/inventory-$(date +%Y%m%d-%H%M%S)
+```
+
+Inventory output is mode `0600`. It captures secret file metadata and variable
+names, not credential values or `hosts.hfaxd` contents.
+
+## Package Upgrade And Rollback
+
+The dpkg diversion keeps package upgrades from overwriting the custom receive
+hook. Verify after a HylaFAX upgrade with the standard verifier.
+
+To intentionally return to package `faxrcvd`:
+
+```bash
+sudo ./ops/faxmail/restore-mailbox-faxrcvd.sh --restore-package
+```
+
+Do not restart `faxgetty` for a hook-only update. Restart it only for modem or
+device configuration changes.
+
+## Outgoing Fax
+
+Outgoing fax automation is not enabled yet. Before implementing it, confirm the
+actual international dialing prefix and full local fax identity. Convert PDFs
+to fax-ready TIFF before submitting to HylaFAX.

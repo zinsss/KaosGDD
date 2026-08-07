@@ -1,0 +1,9 @@
+/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 uucp uucp
+}

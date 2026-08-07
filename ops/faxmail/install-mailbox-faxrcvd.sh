@@ -8,6 +8,7 @@ SOURCE_SCRIPT="${SOURCE_SCRIPT:-/srv/projects/KaosGDD/ops/faxmail/send-incoming-
 INSTALLED_SCRIPT="${INSTALLED_SCRIPT:-/usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py}"
 LOG_PATH="${LOG_PATH:-/var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log}"
 ENV_FILE="${ENV_FILE:-/etc/kaosgdd/faxmail.env}"
+STATE_DIR="${STATE_DIR:-/var/spool/hylafax/status/kaosgdd-faxmail}"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ "$MODE" != "--install" ]; then
@@ -51,6 +52,13 @@ if [ ! -f "$SOURCE_SCRIPT" ]; then
   exit 1
 fi
 
+if command -v dpkg-divert >/dev/null 2>&1; then
+  if ! dpkg-divert --list "$FAXRCVD_PATH" | grep -Fq "$FAXRCVD_PATH"; then
+    dpkg-divert --quiet --local --add --no-rename \
+      --divert "$FAXRCVD_PATH.distrib" "$FAXRCVD_PATH"
+  fi
+fi
+
 mkdir -p "$(dirname "$INSTALLED_SCRIPT")"
 install -o root -g uucp -m 0755 "$SOURCE_SCRIPT" "$INSTALLED_SCRIPT"
 
@@ -59,6 +67,11 @@ if [ -f "$FAXRCVD_PATH" ]; then
 fi
 
 install -o uucp -g uucp -m 0755 "$TEMPLATE_PATH" "$FAXRCVD_PATH"
+
+install -d -o uucp -g uucp -m 0750 \
+  "$STATE_DIR" \
+  "$STATE_DIR/sent" \
+  "$STATE_DIR/failed"
 
 mkdir -p "$(dirname "$LOG_PATH")"
 touch "$LOG_PATH"

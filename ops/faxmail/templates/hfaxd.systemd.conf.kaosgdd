@@ -1,0 +1,4 @@
+# KaosGDD HylaFAX is host-local. Remote clients use higher-level services.
+BINDTO="-l 127.0.0.1"
+NEWPROT="-i 4559"
+SNPP=""

@@ -175,11 +175,11 @@ sudo ./ops/faxmail/apply-ttyacm0-known-good-baseline.sh
 Start and enable the daemons:
 
 ```bash
-sudo systemctl start faxq.service
-sudo systemctl start hfaxd.service
-sudo systemctl enable faxq.service hfaxd.service faxgetty@ttyACM0.service
-sudo systemctl start faxgetty@ttyACM0.service
+sudo systemctl enable --now hylafax.service faxgetty@ttyACM0.service
 ```
+
+`faxq.service` and `hfaxd.service` are children of `hylafax.service`; enabling
+only the child units does not attach the parent to the boot target.
 
 Check service state:
 
@@ -305,8 +305,10 @@ sudo ./ops/faxmail/install-mailbox-faxrcvd.sh --install
 The installer:
 
 - backs up the existing `faxrcvd`
+- installs a dpkg diversion so package upgrades cannot overwrite the hook
 - installs `ops/faxmail/templates/faxrcvd.mailbox`
 - copies the Python sender into `/usr/local/lib/kaosgdd/faxmail`
+- prepares durable `sent` and `failed` delivery state
 - prepares hook log permissions
 - prepares `/etc/kaosgdd/faxmail.env` permissions when the file exists
 
@@ -317,6 +319,7 @@ Runtime paths after install:
 /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py
 /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 /etc/kaosgdd/faxmail.env
+/var/spool/hylafax/status/kaosgdd-faxmail/{sent,failed}
 ```
 
 Expected permissions:
@@ -347,7 +350,9 @@ sudo -u uucp test -x /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py &
 
 ## Hook Tests
 
-Process an already received fax:
+Process an already received fax. Delivery is idempotent by communication ID,
+so an already delivered fax is skipped unless `--force` is explicitly used on
+the Python sender:
 
 ```bash
 sudo -u uucp /bin/sh /var/spool/hylafax/bin/faxrcvd \
@@ -387,14 +392,15 @@ A successful modem receive looks like:
 
 ```text
 ANSWER: FAX CONNECTION DEVICE '/dev/ttyACM0'
-RECV FAX (...): recvq/fax000000001.tif from 07079664986
+RECV FAX (...): recvq/fax000000001.tif from example-sender
 RECV FAX: bin/faxrcvd "recvq/fax000000001.tif" "ttyACM0" "000000001" ""
 ```
 
 ## Brain ntfy Notifications
 
-Brain does not send the fax email. The HylaFAX hook sends the email. Brain only
-polls the HylaFAX receive queue and sends push notifications through ntfy.
+Brain does not send the fax email. The HylaFAX hook sends the email. Brain
+polls stable receive files and durable mailbox-delivery failures, then sends
+push notifications through ntfy.
 
 Brain environment:
 
@@ -404,6 +410,8 @@ FAX_NOTIFY_RECVQ=/integrations/hylafax/recvq
 FAX_NOTIFY_XFERFAXLOG=/integrations/hylafax/log/xferfaxlog
 FAX_NOTIFY_STATE_PATH=/data/faxmail/notified-recvq.json
 FAX_NOTIFY_POLL_SECONDS=20
+FAX_NOTIFY_MIN_FILE_AGE_SECONDS=60
+FAX_NOTIFY_DELIVERY_FAILURE_ROOT=/integrations/hylafax/status/kaosgdd-faxmail/failed
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 FAX_NOTIFY_TITLE=Incoming fax
 FAX_NOTIFY_PRIORITY=high
@@ -463,11 +471,12 @@ On a new system:
 3. Plug modem into direct USB 2.0.
 4. Confirm `/dev/ttyACM0` and USB ID `0572:1340`.
 5. Install the known-good ttyACM0 config.
-6. Start `faxq.service`, `hfaxd.service`, and `faxgetty@ttyACM0.service`.
+6. Enable and start `hylafax.service` and `faxgetty@ttyACM0.service`.
 7. Confirm `faxstat -s` reports scheduler running and modem idle.
 8. Create `/etc/kaosgdd/faxmail.env`.
 9. Confirm Cloudflare routes `fax-in@kaosgdd.net` to the destination mailbox.
-10. Install the mailbox `faxrcvd` hook.
+10. Run `install-host-maintenance.sh --install` to install the mailbox hook,
+    retry timer, local-only hfaxd binding, log rotation, and backup timer.
 11. Test an existing TIFF through `sudo -u uucp /bin/sh ... faxrcvd`.
 12. Send one live fax and confirm PDF email arrives.
 13. Enable Brain ntfy env.
@@ -482,7 +491,6 @@ Back these up before package upgrades, migration, or host rebuild:
 /etc/kaosgdd/faxmail.env
 /var/spool/hylafax/etc/config.ttyACM0
 /var/spool/hylafax/bin/faxrcvd
-/var/spool/hylafax/etc/FaxDispatch
 /var/spool/hylafax/recvq
 /var/spool/hylafax/log/xferfaxlog
 /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
@@ -518,7 +526,7 @@ Can not reach service hylafax at host "localhost".
 Start:
 
 ```bash
-sudo systemctl start faxq.service hfaxd.service
+sudo systemctl start hylafax.service
 ss -tulpn | grep 4559 || true
 faxstat -s
 ```
@@ -561,7 +569,7 @@ Email script says sent, but no mailbox message:
 Direct test:
 
 ```bash
-sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; FAXMAIL_TO=destination@gmail.com; /usr/bin/python3 /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py /var/spool/hylafax/recvq/fax000000001.tif --remote-number direct-test --device ttyACM0 --commid 000000001'
+sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; FAXMAIL_TO=destination@gmail.com; /usr/bin/python3 /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py /var/spool/hylafax/recvq/fax000000001.tif --remote-number direct-test --device ttyACM0 --commid 000000001 --force'
 ```
 
 Brain ntfy does not notify:
@@ -576,13 +584,10 @@ Brain ntfy does not notify:
 
 ## Rollback
 
-Restore latest `faxrcvd` backup:
+Restore the package `faxrcvd` and remove the diversion:
 
 ```bash
-sudo ls -lah /var/spool/hylafax/bin/faxrcvd.pre-kaosgdd-faxmail-mailbox.*
-sudo cp -a "$(ls -1 /var/spool/hylafax/bin/faxrcvd.pre-kaosgdd-faxmail-mailbox.* | sort | tail -1)" /var/spool/hylafax/bin/faxrcvd
-sudo chown uucp:uucp /var/spool/hylafax/bin/faxrcvd
-sudo chmod 0755 /var/spool/hylafax/bin/faxrcvd
+sudo ./ops/faxmail/restore-mailbox-faxrcvd.sh --restore-package
 ```
 
 Restart receive service only if needed:

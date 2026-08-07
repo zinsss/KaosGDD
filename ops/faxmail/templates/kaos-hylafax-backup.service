@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up HylaFAX received faxes and non-secret configuration
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kaos-hylafax-backup
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/kaos/backups/faxmail

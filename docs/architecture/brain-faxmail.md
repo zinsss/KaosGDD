@@ -47,7 +47,7 @@ validation rules. It must not trust only the visible `From:` header.
 
 ```text
 HylaFAX receives TIFF
-  -> FaxDispatch resolves TIFF path
+  -> bin/faxrcvd resolves TIFF path
   -> incoming-mail script converts TIFF to PDF
   -> SMTP submission sends PDF to fax@kaosgdd.net
   -> Roundcube shows it
@@ -93,8 +93,8 @@ The current host snapshot from `kaos`:
 - modem device: `ttyACM0`
 - USB modem: Conexant/Rockwell `0572:1340`
 - HylaFAX version: `6.0.7`
-- custom service: `kaos-hylafax-daemons.service`
-- active receive hook: `/var/spool/hylafax/etc/FaxDispatch`
+- package services: `hylafax`, `faxq`, `hfaxd`, and `faxgetty@ttyACM0`
+- active receive hook: `/var/spool/hylafax/bin/faxrcvd`
 - active modem config: `/var/spool/hylafax/etc/config.ttyACM0`
 - ECM disabled in modem config
 
@@ -142,11 +142,9 @@ Preserve these legacy decisions in the Brain worker:
   `PASS`.
 - Back up HylaFAX hooks and config before edits.
 
-The live `kaos` host currently uses `FaxDispatch` for incoming integration,
-while older legacy docs also describe wrapper scripts under
-`/var/spool/hylafax/bin`. Treat the live host inventory as the immediate
-cutover source of truth, and the legacy repo as the explanation of why the
-customizations exist.
+The live `kaos` host invokes `/var/spool/hylafax/bin/faxrcvd` directly. Older
+`FaxDispatch` and custom-daemon instructions are archived legacy behavior and
+must not be applied to production.
 
 ## Brain Module Boundary
 

@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+umask 077
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 OUT_DIR="${1:-/tmp/kaosgdd-faxmail-hylafax-inventory-$STAMP}"
 
@@ -41,48 +43,40 @@ copy_unit_if_exists() {
 run_capture uname uname -a
 run_capture os_release sh -c 'cat /etc/os-release'
 run_capture date date -Is
-run_capture systemctl_hylafax systemctl status hylafax-core.service faxgetty@ttyACM0.service
+run_capture systemctl_hylafax systemctl status hylafax.service faxq.service hfaxd.service faxgetty@ttyACM0.service
+run_capture systemctl_hylafax_enabled sh -c 'for unit in hylafax.service faxq.service hfaxd.service faxgetty@ttyACM0.service; do printf "%s: " "$unit"; systemctl is-enabled "$unit" 2>&1 || true; done'
 run_capture systemctl_fax_units sh -c 'systemctl list-unit-files "*fax*" "*hyla*" "*kaos*"'
 run_capture faxstat_host faxstat -h localhost
 run_capture faxstat_send faxstat -s
 run_capture faxstat_done faxstat -d
-run_capture hfaxd_listener sh -c 'ss -tulpn | grep 4559'
+run_capture hfaxd_listener sh -c 'ss -tulpn | grep -E ":4559|:444"'
 run_capture usb_devices sh -c 'lsusb; echo; dmesg | grep -iE "ttyACM|ttyUSB|modem|fax" | tail -100'
 run_capture hylafax_paths sh -c 'find /etc /var/spool -name hosts.hfaxd -o -name FaxDispatch -o -name "config*" 2>/dev/null | sort'
 run_capture hylafax_bin_listing sh -c 'ls -lah /var/spool/hylafax/bin 2>/dev/null'
 run_capture hylafax_queue_listing sh -c 'for d in recvq doneq sendq docq info etc; do echo "== $d =="; ls -lah "/var/spool/hylafax/$d" 2>/dev/null || true; done'
 run_capture command_versions sh -c 'for c in faxstat sendfax faxq hfaxd faxgetty gs tiff2pdf; do printf "%s: " "$c"; command -v "$c" || true; done'
-run_capture docker_fax_files sh -c 'find /docker /projects -maxdepth 5 \( -iname "*fax*" -o -iname "*hyla*" -o -iname "docker-compose*.yml" -o -iname ".env" -o -iname "*.service" \) 2>/dev/null | sort'
+run_capture kaos_fax_files sh -c 'find /srv/kaos /srv/projects -maxdepth 6 \( -iname "*fax*" -o -iname "*hyla*" -o -iname "compose.y*ml" -o -iname "*.service" -o -iname "*.timer" \) 2>/dev/null | sort'
+run_capture secret_file_metadata sh -c 'for path in /etc/kaosgdd/faxmail.env /srv/kaos/secrets/kaosgdd-brain.env; do if [ -e "$path" ]; then stat -c "%A %U:%G %s %n" "$path"; sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1=REDACTED/p" "$path"; fi; done'
 
 for p in \
-  /etc/hosts.hfaxd \
-  /etc/hylafax/hosts.hfaxd \
-  /var/spool/hylafax/etc/hosts.hfaxd \
   /var/spool/hylafax/etc/config \
   /var/spool/hylafax/etc/config.ttyACM0 \
-  /var/spool/hylafax/etc/FaxDispatch \
   /var/spool/hylafax/bin/faxrcvd \
-  /var/spool/hylafax/bin/kaosgdd-faxrcvd \
-  /var/spool/hylafax/bin/kaosfaxmail-faxrcvd \
-  /srv/KaosGdd-web/backend/scripts/hylafax_recv_hook.py \
-  /srv/kaos-stack/kaosgdd/repo/backend/scripts/hylafax_recv_hook.py \
-  /projects/KaosGdd-web/backend/scripts/hylafax_recv_hook.py \
   /srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py \
-  /srv/projects/KaosGDD/ops/faxmail/templates/FaxDispatch.mailbox \
-  /etc/kaosgdd/faxmail.env \
-  /docker/kaosgdd/.env \
-  /docker/kaosgdd/docker-compose.yml \
-  /docker/kaosgdd/faxmail/faxmail.env
+  /etc/hylafax/hfaxd.systemd.conf
 do
   copy_if_exists "$p"
 done
 
 for unit in \
-  hylafax-core.service \
+  hylafax.service \
+  faxq.service \
+  hfaxd.service \
   faxgetty@ttyACM0.service \
-  kaos-hylafax-daemons.service \
-  kaosgdd-backend.service \
-  kaosgdd-frontend.service
+  kaos-faxmail-retry.service \
+  kaos-faxmail-retry.timer \
+  kaos-hylafax-backup.service \
+  kaos-hylafax-backup.timer
 do
   copy_unit_if_exists "$unit"
 done
@@ -94,6 +88,7 @@ fi
 
 ARCHIVE="$OUT_DIR.tar.gz"
 tar -C "$(dirname "$OUT_DIR")" -czf "$ARCHIVE" "$(basename "$OUT_DIR")"
+chmod 0600 "$ARCHIVE"
 
 echo "Inventory written to:"
 echo "$OUT_DIR"

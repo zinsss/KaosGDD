@@ -1,0 +1,7 @@
+ARG BASE_IMAGE=kaosgdd-brain:0.7.0-fax1
+FROM ${BASE_IMAGE}
+
+USER root
+COPY apps/brain/services/faxmail/notifier.py /app/services/faxmail/notifier.py
+RUN chown brain:brain /app/services/faxmail/notifier.py
+USER brain
