@@ -558,9 +558,13 @@ h3 {
 
   .ledgerCustomRange .ledgerRangeDateText {
     display: inline;
-    color: var(--text);
+    color: var(--nord8);
     font-size: 16px;
     font-weight: 700;
+  }
+
+  .app[data-profile="family"] .ledgerCustomRange .ledgerRangeDateText {
+    color: #9b5f8f;
   }
 
   .ledgerCustomRange .ledgerRangeLabel {
