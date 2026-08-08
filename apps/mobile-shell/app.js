@@ -2179,6 +2179,10 @@ function normalizeTask(task) {
   };
 }
 
+function isRecurringTask(task) {
+  return String(task?.id || task?.uid || "").toUpperCase().startsWith("KAOSGDD-REPEAT-");
+}
+
 function sortByDateTime(a, b) {
   return `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`);
 }
@@ -3233,7 +3237,9 @@ function renderToday() {
     .filter((event) => event.date >= today && event.date <= endDate)
     .sort(sortByDateTime);
   const tasks = mockAdapter.getTasks()
-    .filter((task) => !task.done && task.due && task.due >= today && task.due <= endDate)
+    .filter((task) => !task.done && task.due && (
+      (task.due >= today && task.due <= endDate) || isRecurringTask(task)
+    ))
     .sort(compareTasksByDue);
   const weather = weatherForDate(today);
   const weatherSummary = [weather?.cityName || weatherLocationLabel(), tempRange(weather)]
@@ -3274,7 +3280,7 @@ function renderToday() {
         <div class="panelHeader">
           <div>
             <p class="label">Tasks</p>
-            <h2>Next 7 days</h2>
+            <h2>Next 7 days + repeating</h2>
           </div>
           <a class="openButton" href="#/tasks">Open</a>
         </div>
