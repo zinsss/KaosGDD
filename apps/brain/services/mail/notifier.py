@@ -47,7 +47,15 @@ class AccountConfig:
 
     @property
     def configured(self):
-        return bool(self.host and self.username and self.password and self.folder_root)
+        return bool(self.host and self.username and self.password and self.folder_roots)
+
+    @property
+    def folder_roots(self):
+        return tuple(
+            value.strip()
+            for value in self.folder_root.split(",")
+            if value.strip()
+        )
 
 
 @dataclass(frozen=True)
@@ -93,7 +101,10 @@ def account_configs():
             port=int(os.environ.get("MAIL_NOTIFY_NAVER_PORT", "993")),
             username=os.environ.get("MAIL_NOTIFY_NAVER_USERNAME", "").strip(),
             password=os.environ.get("MAIL_NOTIFY_NAVER_PASSWORD", ""),
-            folder_root=os.environ.get("MAIL_NOTIFY_NAVER_FOLDER", "각종공문").strip(),
+            folder_root=os.environ.get(
+                "MAIL_NOTIFY_NAVER_FOLDERS",
+                os.environ.get("MAIL_NOTIFY_NAVER_FOLDER", "각종공문"),
+            ).strip(),
             include_descendants=True,
             match_addresses=(),
         ),
@@ -212,7 +223,10 @@ def parse_list_line(line):
 
 def discover_mailboxes(client, config):
     if not config.include_descendants:
-        return [Mailbox(encode_modified_utf7(config.folder_root), config.folder_root)]
+        return [
+            Mailbox(encode_modified_utf7(folder), folder)
+            for folder in config.folder_roots
+        ]
     status, rows = client.list()
     if status != "OK":
         raise RuntimeError("imap_list_failed")
@@ -222,9 +236,11 @@ def discover_mailboxes(client, config):
         if not parsed:
             continue
         delimiter, mailbox = parsed
-        if mailbox.display_name == config.folder_root:
-            mailboxes.append(mailbox)
-        elif delimiter and mailbox.display_name.startswith(f"{config.folder_root}{delimiter}"):
+        if any(
+            mailbox.display_name == root
+            or (delimiter and mailbox.display_name.startswith(f"{root}{delimiter}"))
+            for root in config.folder_roots
+        ):
             mailboxes.append(mailbox)
     return sorted(mailboxes, key=lambda mailbox: mailbox.display_name)
 
@@ -414,6 +430,7 @@ def status():
             "configured": config.configured,
             "host": config.host,
             "folder": config.folder_root,
+            "folders": list(config.folder_roots),
             "includeDescendants": config.include_descendants,
             "mailboxCount": int(runtime.get("mailboxCount") or 0),
             "lastError": str(runtime.get("lastError") or ""),

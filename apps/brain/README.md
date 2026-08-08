@@ -128,7 +128,7 @@ system topic. Future calendar and task reminders are desktop-only.
 
 Brain can poll two read-only IMAP sources without storing message bodies:
 
-- Naver: `각종공문` and every descendant folder
+- Naver: `각종공문`, `세무사`, and every descendant folder under either root
 - Gmail: `INBOX`, filtered to the configured KaosGDD fax aliases
 
 The worker records only UIDVALIDITY, last processed UID, folder display name,

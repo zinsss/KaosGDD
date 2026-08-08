@@ -27,9 +27,13 @@ class FakeMailboxServer:
     def __init__(self):
         root = notifier.encode_modified_utf7("각종공문")
         child = notifier.encode_modified_utf7("각종공문/보건소")
+        tax = notifier.encode_modified_utf7("세무사")
+        tax_child = notifier.encode_modified_utf7("세무사/부가세")
         self.mailboxes = {
             root: {"uidvalidity": "10", "messages": {1: self.header("Existing")}},
             child: {"uidvalidity": "11", "messages": {}},
+            tax: {"uidvalidity": "12", "messages": {}},
+            tax_child: {"uidvalidity": "13", "messages": {}},
         }
 
     @staticmethod
@@ -110,7 +114,7 @@ class MailNotifierTests(unittest.TestCase):
             port=993,
             username="user",
             password="password",
-            folder_root="각종공문",
+            folder_root="각종공문,세무사",
             include_descendants=True,
             match_addresses=(),
         )
@@ -119,7 +123,7 @@ class MailNotifierTests(unittest.TestCase):
 
         self.assertEqual(
             [mailbox.display_name for mailbox in mailboxes],
-            ["각종공문", "각종공문/보건소"],
+            ["각종공문", "각종공문/보건소", "세무사", "세무사/부가세"],
         )
 
     def test_gmail_filter_accepts_only_configured_fax_aliases(self):

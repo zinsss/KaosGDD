@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.10.2-mail1
+    image: kaosgdd-brain:0.10.3-mail2
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:

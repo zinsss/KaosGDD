@@ -13,7 +13,8 @@ mailbox UIDVALIDITY values and the last processed UID only.
 
 ## Rules
 
-Naver watches `각종공문` and all descendant folders. Gmail watches `INBOX` and
+Naver watches `각종공문`, `세무사`, and all descendant folders under either
+root. Gmail watches `INBOX` and
 notifies only when the From, To, Cc, or Reply-To headers contain one of:
 
 ```text
@@ -36,6 +37,7 @@ passwords where the provider supports them.
 ```text
 MAIL_NOTIFY_NAVER_USERNAME=
 MAIL_NOTIFY_NAVER_PASSWORD=
+MAIL_NOTIFY_NAVER_FOLDERS=각종공문,세무사
 MAIL_NOTIFY_NAVER_ENABLED=true
 
 MAIL_NOTIFY_GMAIL_USERNAME=yhshfm@gmail.com
