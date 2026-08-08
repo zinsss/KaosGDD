@@ -18,7 +18,14 @@ declare global {
 
 const browserWindow = typeof window === "undefined" ? undefined : window;
 const hostIsFamily = browserWindow?.location.hostname === "family.kaosgdd.net";
-export const usesTrustedAccess = Boolean(browserWindow && browserWindow.self !== browserWindow.top);
+
+export function isTrustedAccessHost(hostname: string): boolean {
+  return hostname === "kaosgdd.net" || hostname === "family.kaosgdd.net";
+}
+
+export const usesTrustedAccess = Boolean(
+  browserWindow && isTrustedAccessHost(browserWindow.location.hostname),
+);
 
 export const config: RuntimeConfig = {
   appName: hostIsFamily ? "가족 메모" : "Kaos Memos",
