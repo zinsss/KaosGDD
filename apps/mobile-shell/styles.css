@@ -732,12 +732,108 @@ h3 {
   padding-bottom: 4px;
 }
 
-.familyAgendaTimeline li {
-  grid-template-columns: 108px minmax(0, 1fr);
+.familyAgendaUpcomingGrid {
+  display: grid;
 }
 
-.familyAgendaTimeline time {
+.familyAgendaUpcomingSection + .familyAgendaUpcomingSection {
+  border-top: 1px solid var(--line);
+}
+
+.familyAgendaDateGroup {
+  padding: 8px 0;
+}
+
+.familyAgendaDateGroup + .familyAgendaDateGroup {
+  border-top: 1px solid var(--line);
+}
+
+.familyAgendaDateGroup h3 {
+  margin: 0 0 5px;
+  color: #7f6aa6;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.familyAgendaItemList {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.familyAgendaItemLink,
+.familyAgendaTaskTitle {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.familyAgendaItemLink {
+  padding: 6px 0;
+}
+
+.familyAgendaItemTime {
+  min-height: 22px;
+  color: var(--dim);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 22px;
   white-space: nowrap;
+}
+
+.familyAgendaItemTime.isAllDay {
+  width: fit-content;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid rgba(180, 142, 173, 0.45);
+  border-radius: 999px;
+  color: #9b5f8f;
+  line-height: 20px;
+}
+
+.familyAgendaItemContent {
+  display: grid;
+  min-width: 0;
+}
+
+.familyAgendaItemContent strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.familyAgendaItemContent > span:not(.timelineTitleRow) {
+  color: var(--dim);
+  font-size: 0.76rem;
+}
+
+.familyAgendaTaskList .taskRow:first-child {
+  border-top: 0;
+}
+
+.familyAgendaTaskRow {
+  min-height: 44px;
+  padding: 6px 0;
+}
+
+.familyAgendaTaskRow .taskRowMain {
+  align-items: center;
+}
+
+.familyAgendaTaskRow .checkButton {
+  margin-top: 0;
+}
+
+.familyAgendaTaskRow .taskBadge {
+  align-self: center;
 }
 
 .familyAgendaRouny .panelHeader time {
@@ -3895,6 +3991,51 @@ h3 {
 
   .ledgerDeleteButton {
     color: #bf616a;
+  }
+
+  .app[data-route="service"] .view {
+    display: block;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  .desktopServiceWorkspace {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .desktopServiceToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 64px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .desktopServiceActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .desktopServiceFrame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: var(--surface);
+  }
+
+  .desktopServiceFallback {
+    width: min(100%, 760px);
   }
 
   .collectionRail {
