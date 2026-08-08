@@ -407,9 +407,14 @@ h3 {
   white-space: nowrap;
 }
 
-.ledgerViewFilters {
+.ledgerFilterStack {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ledgerViewFilters,
+.ledgerRangeFilters {
+  display: grid;
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -417,9 +422,26 @@ h3 {
   background: var(--panel);
 }
 
-.ledgerViewFilters button {
+.ledgerViewFilters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ledgerRangeFilters {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.ledgerRangeFilters button {
+  height: 36px;
+  font-size: 0.74rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ledgerViewFilters button,
+.ledgerRangeFilters button {
   min-height: 36px;
-  padding: 6px 10px;
+  min-width: 0;
+  padding: 6px 5px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
@@ -427,10 +449,49 @@ h3 {
   font-weight: 700;
 }
 
-.ledgerViewFilters button.isActive {
+.ledgerViewFilters button.isActive,
+.ledgerRangeFilters button.isActive {
   border-color: rgba(180, 116, 166, 0.34);
   background: #ead5e9;
   color: #713f6a;
+}
+
+.ledgerCustomRange {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.ledgerCustomRange > span {
+  align-self: center;
+  color: var(--dim);
+}
+
+.ledgerCustomRange label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.ledgerCustomRange input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
 }
 
 .ledgerDetailsScroller {

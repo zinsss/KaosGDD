@@ -40,6 +40,7 @@ const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
 const DESKTOP_MEDIA_QUERY = "(min-width: 1180px)";
 const LEDGER_VIEWS = new Set(["all", "expense", "income"]);
+const LEDGER_RANGES = new Set(["all", "year", "month", "week", "custom"]);
 const LEDGER_EXPENSE_CATEGORIES = new Set(["계좌 지출", "현금 지출", "상품권 사용"]);
 const LEDGER_INCOME_CATEGORIES = new Set(["계좌 수입", "현금 수입"]);
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
@@ -240,6 +241,9 @@ const state = {
     editingId: "",
     adding: false,
     view: "all",
+    range: "all",
+    rangeStart: "",
+    rangeEnd: "",
   },
   desktopUtilsExpanded: null,
 };
@@ -4820,13 +4824,28 @@ function renderLedgerBalances() {
 }
 
 function ledgerEntriesForView() {
+  let entries = state.ledger.entries;
   if (state.ledger.view === "expense") {
-    return state.ledger.entries.filter((entry) => LEDGER_EXPENSE_CATEGORIES.has(entry.category));
+    entries = entries.filter((entry) => LEDGER_EXPENSE_CATEGORIES.has(entry.category));
+  } else if (state.ledger.view === "income") {
+    entries = entries.filter((entry) => LEDGER_INCOME_CATEGORIES.has(entry.category));
   }
-  if (state.ledger.view === "income") {
-    return state.ledger.entries.filter((entry) => LEDGER_INCOME_CATEGORIES.has(entry.category));
+  const today = ymd(new Date());
+  let start = "";
+  let end = today;
+  if (state.ledger.range === "year") start = addDaysToDateValue(today, -365);
+  if (state.ledger.range === "month") {
+    const date = new Date(`${today}T00:00:00`);
+    date.setMonth(date.getMonth() - 1);
+    start = ymd(date);
   }
-  return state.ledger.entries;
+  if (state.ledger.range === "week") start = addDaysToDateValue(today, -7);
+  if (state.ledger.range === "custom") {
+    start = state.ledger.rangeStart;
+    end = state.ledger.rangeEnd;
+  }
+  if (!start && state.ledger.range === "all") return entries;
+  return entries.filter((entry) => (!start || entry.date >= start) && (!end || entry.date <= end));
 }
 
 function renderLedgerViewFilters() {
@@ -4835,8 +4854,16 @@ function renderLedgerViewFilters() {
     ["expense", uiText("ledger.viewExpense", "Expenses")],
     ["income", uiText("ledger.viewIncome", "Income")],
   ];
+  const ranges = [
+    ["all", uiText("ledger.rangeAll", "All")],
+    ["year", uiText("ledger.rangeYear", "1 Year")],
+    ["month", uiText("ledger.rangeMonth", "1 Month")],
+    ["week", uiText("ledger.rangeWeek", "1 Week")],
+    ["custom", uiText("ledger.rangeCustom", "Custom")],
+  ];
   return `
-    <div class="ledgerViewFilters" aria-label="${escapeHtml(uiText("ledger.view", "View"))}">
+    <div class="ledgerFilterStack">
+      <div class="ledgerViewFilters" aria-label="${escapeHtml(uiText("ledger.view", "View"))}">
       ${views.map(([value, label]) => `
         <button
           type="button"
@@ -4845,6 +4872,30 @@ function renderLedgerViewFilters() {
           aria-pressed="${state.ledger.view === value ? "true" : "false"}"
         >${escapeHtml(label)}</button>
       `).join("")}
+      </div>
+      <div class="ledgerRangeFilters" aria-label="${escapeHtml(uiText("ledger.range", "Duration"))}">
+        ${ranges.map(([value, label]) => `
+          <button
+            type="button"
+            class="${state.ledger.range === value ? "isActive" : ""}"
+            data-ledger-range="${value}"
+            aria-pressed="${state.ledger.range === value ? "true" : "false"}"
+          >${escapeHtml(label)}</button>
+        `).join("")}
+      </div>
+      ${state.ledger.range === "custom" ? `
+        <div class="ledgerCustomRange">
+          <label>
+            <span>${escapeHtml(uiText("ledger.rangeStart", "Start"))}</span>
+            <input type="date" value="${escapeHtml(state.ledger.rangeStart)}" data-ledger-range-start />
+          </label>
+          <span aria-hidden="true">~</span>
+          <label>
+            <span>${escapeHtml(uiText("ledger.rangeEnd", "End"))}</span>
+            <input type="date" value="${escapeHtml(state.ledger.rangeEnd)}" data-ledger-range-end />
+          </label>
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -5503,6 +5554,22 @@ document.addEventListener("click", async (event) => {
     const view = ledgerView.dataset.ledgerView || "all";
     if (!LEDGER_VIEWS.has(view) || state.ledger.view === view) return;
     state.ledger.view = view;
+    render();
+    return;
+  }
+
+  const ledgerRange = event.target.closest("[data-ledger-range]");
+  if (ledgerRange) {
+    const range = ledgerRange.dataset.ledgerRange || "all";
+    if (!LEDGER_RANGES.has(range) || state.ledger.range === range) return;
+    state.ledger.range = range;
+    if (range === "custom" && (!state.ledger.rangeStart || !state.ledger.rangeEnd)) {
+      const today = ymd(new Date());
+      const start = new Date(`${today}T00:00:00`);
+      start.setMonth(start.getMonth() - 1);
+      state.ledger.rangeStart = ymd(start);
+      state.ledger.rangeEnd = today;
+    }
     render();
     return;
   }
@@ -6561,6 +6628,26 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const ledgerRangeStart = event.target.closest("[data-ledger-range-start]");
+  if (ledgerRangeStart) {
+    state.ledger.rangeStart = ledgerRangeStart.value;
+    if (state.ledger.rangeEnd && state.ledger.rangeStart > state.ledger.rangeEnd) {
+      state.ledger.rangeEnd = state.ledger.rangeStart;
+    }
+    render();
+    return;
+  }
+
+  const ledgerRangeEnd = event.target.closest("[data-ledger-range-end]");
+  if (ledgerRangeEnd) {
+    state.ledger.rangeEnd = ledgerRangeEnd.value;
+    if (state.ledger.rangeStart && state.ledger.rangeEnd < state.ledger.rangeStart) {
+      state.ledger.rangeStart = state.ledger.rangeEnd;
+    }
+    render();
+    return;
+  }
+
   const caregiverForm = event.target.closest("[data-caregiver-day-form]");
   if (caregiverForm) updateCaregiverDayFormTotals(caregiverForm);
 
