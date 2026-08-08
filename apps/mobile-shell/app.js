@@ -4863,25 +4863,26 @@ function renderLedgerViewFilters() {
   ];
   return `
     <div class="ledgerFilterStack">
-      <div class="ledgerViewFilters" aria-label="${escapeHtml(uiText("ledger.view", "View"))}">
-      ${views.map(([value, label]) => `
-        <button
-          type="button"
-          class="${state.ledger.view === value ? "isActive" : ""}"
-          data-ledger-view="${value}"
-          aria-pressed="${state.ledger.view === value ? "true" : "false"}"
-        >${escapeHtml(label)}</button>
-      `).join("")}
-      </div>
-      <div class="ledgerRangeFilters" aria-label="${escapeHtml(uiText("ledger.range", "Duration"))}">
-        ${ranges.map(([value, label]) => `
+      <div class="ledgerFilterToolbar">
+        <div class="ledgerViewFilters" aria-label="${escapeHtml(uiText("ledger.view", "View"))}">
+        ${views.map(([value, label]) => `
           <button
             type="button"
-            class="${state.ledger.range === value ? "isActive" : ""}"
-            data-ledger-range="${value}"
-            aria-pressed="${state.ledger.range === value ? "true" : "false"}"
+            class="${state.ledger.view === value ? "isActive" : ""}"
+            data-ledger-view="${value}"
+            aria-pressed="${state.ledger.view === value ? "true" : "false"}"
           >${escapeHtml(label)}</button>
         `).join("")}
+        </div>
+        <select
+          class="ledgerRangeSelect"
+          data-ledger-range-select
+          aria-label="${escapeHtml(uiText("ledger.range", "Duration"))}"
+        >
+          ${ranges.map(([value, label]) => `
+            <option value="${value}" ${state.ledger.range === value ? "selected" : ""}>${escapeHtml(label)}</option>
+          `).join("")}
+        </select>
       </div>
       ${state.ledger.range === "custom" ? `
         <div class="ledgerCustomRange">
@@ -5555,22 +5556,6 @@ document.addEventListener("click", async (event) => {
     const view = ledgerView.dataset.ledgerView || "all";
     if (!LEDGER_VIEWS.has(view) || state.ledger.view === view) return;
     state.ledger.view = view;
-    render();
-    return;
-  }
-
-  const ledgerRange = event.target.closest("[data-ledger-range]");
-  if (ledgerRange) {
-    const range = ledgerRange.dataset.ledgerRange || "all";
-    if (!LEDGER_RANGES.has(range) || state.ledger.range === range) return;
-    state.ledger.range = range;
-    if (range === "custom" && (!state.ledger.rangeStart || !state.ledger.rangeEnd)) {
-      const today = ymd(new Date());
-      const start = new Date(`${today}T00:00:00`);
-      start.setMonth(start.getMonth() - 1);
-      state.ledger.rangeStart = ymd(start);
-      state.ledger.rangeEnd = today;
-    }
     render();
     return;
   }
@@ -6629,6 +6614,22 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const ledgerRange = event.target.closest("[data-ledger-range-select]");
+  if (ledgerRange) {
+    const range = ledgerRange.value || "all";
+    if (!LEDGER_RANGES.has(range) || state.ledger.range === range) return;
+    state.ledger.range = range;
+    if (range === "custom" && (!state.ledger.rangeStart || !state.ledger.rangeEnd)) {
+      const today = ymd(new Date());
+      const start = new Date(`${today}T00:00:00`);
+      start.setMonth(start.getMonth() - 1);
+      state.ledger.rangeStart = ymd(start);
+      state.ledger.rangeEnd = today;
+    }
+    render();
+    return;
+  }
+
   const ledgerRangeStart = event.target.closest("[data-ledger-range-start]");
   if (ledgerRangeStart) {
     state.ledger.rangeStart = ledgerRangeStart.value;

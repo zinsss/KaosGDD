@@ -412,9 +412,10 @@ h3 {
   gap: 6px;
 }
 
-.ledgerViewFilters,
-.ledgerRangeFilters {
+.ledgerFilterToolbar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -423,22 +424,27 @@ h3 {
 }
 
 .ledgerViewFilters {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
 }
 
-.ledgerRangeFilters {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.ledgerRangeFilters button {
+.ledgerRangeSelect {
+  width: auto;
+  min-width: 104px;
   height: 36px;
-  font-size: 0.74rem;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background-color: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1;
-  white-space: nowrap;
 }
 
-.ledgerViewFilters button,
-.ledgerRangeFilters button {
+.ledgerViewFilters button {
   min-height: 36px;
   min-width: 0;
   padding: 6px 5px;
@@ -446,11 +452,11 @@ h3 {
   border-radius: 5px;
   background: transparent;
   color: var(--dim);
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
-.ledgerViewFilters button.isActive,
-.ledgerRangeFilters button.isActive {
+.ledgerViewFilters button.isActive {
   border-color: rgba(180, 116, 166, 0.34);
   background: #ead5e9;
   color: #713f6a;
@@ -459,9 +465,9 @@ h3 {
 .ledgerCustomRange {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: end;
-  gap: 8px;
-  padding: 10px 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);
@@ -474,18 +480,20 @@ h3 {
 
 .ledgerCustomRange label {
   display: grid;
-  gap: 5px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
   min-width: 0;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
 }
 
 .ledgerCustomRange input {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
-  padding: 7px 8px;
+  min-height: 36px;
+  padding: 5px 6px;
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--surface);
