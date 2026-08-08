@@ -96,6 +96,40 @@ class RequestProxyTests(unittest.TestCase):
         request_body.assert_not_called()
 
 
+class MemosRelayRequestTests(unittest.TestCase):
+    @mock.patch.object(server.memos_relay, "relay")
+    def test_get_memos_is_sent_through_trusted_relay(self, relay):
+        relay.return_value = (200, "application/json", b'{"memos":[]}')
+        handler = mock.Mock()
+        handler.path = "/api/memos/api/v1/memos?pageSize=50"
+        handler.headers = {"Host": "kaosgdd.net", "Cf-Access-Jwt-Assertion": "jwt"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        relay.assert_called_once_with("GET", handler.path, handler.headers, body=None)
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.memos_relay, "bootstrap")
+    def test_bootstrap_uses_portal_headers(self, bootstrap):
+        bootstrap.return_value = {"user": {"name": "users/zin"}}
+        body = b"{}"
+        handler = mock.Mock()
+        handler.path = "/api/memos/bootstrap"
+        handler.headers = {
+            "Host": "kaosgdd.net",
+            "Content-Length": str(len(body)),
+            "Cf-Access-Jwt-Assertion": "jwt",
+        }
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        bootstrap.assert_called_once_with(handler.headers, {})
+        handler.send_response.assert_called_once_with(200)
+
+
 class RounyRequestTests(unittest.TestCase):
     @mock.patch.object(server, "get_rouny_document")
     def test_get_rouny_document_is_family_only(self, get_rouny_document):

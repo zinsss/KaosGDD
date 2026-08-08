@@ -18,6 +18,7 @@ declare global {
 
 const browserWindow = typeof window === "undefined" ? undefined : window;
 const hostIsFamily = browserWindow?.location.hostname === "family.kaosgdd.net";
+export const usesTrustedAccess = Boolean(browserWindow && browserWindow.self !== browserWindow.top);
 
 export const config: RuntimeConfig = {
   appName: hostIsFamily ? "가족 메모" : "Kaos Memos",
@@ -31,6 +32,6 @@ export const config: RuntimeConfig = {
 };
 
 export function apiUrl(path: string): string {
-  const base = config.memosBaseUrl.replace(/\/$/, "");
+  const base = (usesTrustedAccess ? "/api/memos" : config.memosBaseUrl).replace(/\/$/, "");
   return `${base}${path}`;
 }

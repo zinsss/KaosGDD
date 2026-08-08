@@ -1,2 +1,4 @@
 psycopg[binary]==3.3.4
 openpyxl==3.1.5
+cryptography==46.0.5
+PyJWT==2.11.0

@@ -21,6 +21,7 @@ from services.calendar.upstream import adapter_status, portal_host, request_upst
 from services.event_presets import service as event_preset_service
 from services.faxmail import notifier as faxmail_notifier
 from services.ledger import service as ledger_service
+from services.memos import relay as memos_relay
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -69,6 +70,7 @@ def brain_status(headers):
             "calendarAdapter": calendar_adapter,
             "faxmailNotifications": faxmail_notifier.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
+            "memosRelay": memos_relay.status(),
         },
     }
 
@@ -186,9 +188,45 @@ def proxy_request(handler, method):
     handler.wfile.write(response_body)
 
 
+def memos_relay_response(handler, status, content_type, body):
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Cache-Control", "private, no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def memos_relay_error(handler, exc):
+    json_response(
+        handler,
+        exc.status,
+        {"ok": False, "error": exc.code, "message": exc.message},
+    )
+
+
+def proxy_memos(handler, method):
+    body = request_body(handler) if method in {"POST", "PATCH"} else None
+    status, content_type, response_body = memos_relay.relay(
+        method,
+        handler.path,
+        handler.headers,
+        body=body,
+    )
+    memos_relay_response(handler, status, content_type, response_body)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path.startswith("/api/memos/"):
+            try:
+                proxy_memos(self, "GET")
+            except memos_relay.MemosRelayError as exc:
+                memos_relay_error(self, exc)
+            return
+
         if parsed.path == "/api/ledger":
             try:
                 require_family_profile(self.headers)
@@ -303,6 +341,25 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/memos/bootstrap":
+            try:
+                json_response(self, 200, memos_relay.bootstrap(self.headers, json_request(self)))
+            except memos_relay.MemosRelayError as exc:
+                memos_relay_error(self, exc)
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            return
+
+        if path.startswith("/api/memos/"):
+            try:
+                proxy_memos(self, "POST")
+            except (ValueError, memos_relay.MemosRelayError) as exc:
+                if isinstance(exc, memos_relay.MemosRelayError):
+                    memos_relay_error(self, exc)
+                else:
+                    json_response(self, 400, {"ok": False, "error": str(exc)})
+            return
+
         if path == "/api/ledger/entries":
             try:
                 require_family_profile(self.headers)
@@ -520,6 +577,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path.startswith("/api/memos/"):
+            try:
+                proxy_memos(self, "DELETE")
+            except memos_relay.MemosRelayError as exc:
+                memos_relay_error(self, exc)
+            return
+
         ledger_entry_id = re_match_ledger_entry(path)
         if ledger_entry_id:
             try:
@@ -594,6 +658,19 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return
         self._proxy_write("DELETE")
+
+    def do_PATCH(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if path.startswith("/api/memos/"):
+            try:
+                proxy_memos(self, "PATCH")
+            except (ValueError, memos_relay.MemosRelayError) as exc:
+                if isinstance(exc, memos_relay.MemosRelayError):
+                    memos_relay_error(self, exc)
+                else:
+                    json_response(self, 400, {"ok": False, "error": str(exc)})
+            return
+        json_response(self, 404, {"error": "not_found"})
 
     def _proxy_write(self, method):
         try:
