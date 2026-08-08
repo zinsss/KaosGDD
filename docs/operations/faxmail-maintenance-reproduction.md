@@ -418,7 +418,8 @@ FAX_NOTIFY_PRIORITY=high
 FAX_NOTIFY_TAGS=fax,inbox
 FAX_NOTIFY_CLICK_URL=https://roundcube.kaosgdd.net/
 NTFY_URL=http://ntfy-host-or-ip
-NTFY_TOPIC=kaosgdd-system
+NTFY_TOPIC_NORMAL=kaosgdd
+NTFY_TOPIC_SYSTEM=kaosgdd-system
 NTFY_TOKEN=
 ```
 

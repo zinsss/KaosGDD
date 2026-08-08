@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.10.1-ntfy1
+    image: kaosgdd-brain:0.10.1-ntfy2
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -48,6 +48,7 @@ services:
       LEDGER_BACKUP_MINUTE: "20"
       LEDGER_DAILY_RETENTION_DAYS: "90"
     group_add:
+      - "10"
       - "1000"
     volumes:
       - /srv/kaos/data/kaosgdd/brain/faxmail:/data/faxmail

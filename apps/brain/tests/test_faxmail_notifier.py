@@ -63,7 +63,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC": "kaosgdd-fax",
+                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
             ):
@@ -112,7 +113,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_STATE_PATH": str(state),
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC": "kaosgdd-fax",
+                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                 },
@@ -124,7 +126,7 @@ class FaxmailNotifierTests(unittest.TestCase):
 
         self.assertEqual(sent, 1)
         self.assertEqual(len(payload["known"]), 1)
-        self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd-fax")
+        self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd")
         self.assertIn(b"fax000000002.tif", requests[0][0].data)
 
     def test_recent_fax_waits_until_stable_age(self):
@@ -187,7 +189,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(failures),
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC": "kaosgdd-fax",
+                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
             ):
@@ -199,13 +202,34 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(sent, 1)
         self.assertEqual(sent_again, 0)
         self.assertEqual(payload["knownFailures"], ["000000010"])
+        self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd-system")
         self.assertEqual(requests[0][0].get_header("Priority"), "urgent")
+
+    def test_single_topic_variable_remains_a_compatibility_fallback(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "NTFY_URL": "http://ntfy",
+                "NTFY_TOPIC": "legacy-topic",
+                "NTFY_TOPIC_NORMAL": "",
+                "NTFY_TOPIC_SYSTEM": "",
+            },
+            clear=False,
+        ):
+            self.assertEqual(notifier.ntfy_url("normal"), "http://ntfy/legacy-topic")
+            self.assertEqual(notifier.ntfy_url("system"), "http://ntfy/legacy-topic")
 
     def test_unreadable_delivery_failure_directory_does_not_stop_scan(self):
         with mock.patch.object(pathlib.Path, "is_dir", return_value=True), mock.patch.object(
             pathlib.Path, "glob", side_effect=PermissionError
         ):
             failures = notifier.scan_delivery_failures("/unreadable")
+
+        self.assertEqual(failures, [])
+
+    def test_inaccessible_delivery_failure_directory_does_not_stop_scan(self):
+        with mock.patch.object(pathlib.Path, "is_dir", side_effect=PermissionError):
+            failures = notifier.scan_delivery_failures("/inaccessible")
 
         self.assertEqual(failures, [])
 

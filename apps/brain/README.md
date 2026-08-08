@@ -113,12 +113,15 @@ The worker is controlled by:
 ```text
 FAX_NOTIFY_ENABLED=true
 NTFY_URL=http://ntfy
-NTFY_TOPIC=kaosgdd-system
+NTFY_TOPIC_NORMAL=kaosgdd
+NTFY_TOPIC_SYSTEM=kaosgdd-system
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
 The first run marks existing receive-queue files as already seen by default, so
-deploying the worker does not spam notifications for old faxes.
+deploying the worker does not spam notifications for old faxes. Successful fax
+receipt notices use the normal topic. Mailbox-delivery failures use the system
+topic.
 ## Supplies
 
 Supplies should move into KaosGDD as a dedicated buy-list UI backed by Brain.

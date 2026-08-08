@@ -85,9 +85,11 @@ def mark_existing_on_first_run():
     }
 
 
-def ntfy_url():
+def ntfy_url(channel="normal"):
     raw_url = os.environ.get("NTFY_URL", "").strip().rstrip("/")
-    topic = os.environ.get("NTFY_TOPIC", "").strip().strip("/")
+    fallback_topic = os.environ.get("NTFY_TOPIC", "").strip()
+    topic_variable = "NTFY_TOPIC_SYSTEM" if channel == "system" else "NTFY_TOPIC_NORMAL"
+    topic = (os.environ.get(topic_variable, "").strip() or fallback_topic).strip("/")
     if not raw_url:
         return ""
     if topic:
@@ -191,13 +193,13 @@ def scan_received_faxes(recvq=None, xferlog=None, *, minimum_age=None, now=None)
 
 def scan_delivery_failures(root=None):
     root = Path(root or delivery_failure_root())
-    if not root.is_dir():
-        return []
-    failures = []
     try:
+        if not root.is_dir():
+            return []
         paths = sorted(root.glob("*.json"))
     except OSError:
         return []
+    failures = []
     for path in paths:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -220,7 +222,7 @@ def scan_delivery_failures(root=None):
 
 
 def notify_ntfy(event, opener=None):
-    url = ntfy_url()
+    url = ntfy_url("normal")
     if not url:
         raise RuntimeError("ntfy_not_configured")
     title = os.environ.get("FAX_NOTIFY_TITLE", "Incoming fax").strip() or "Incoming fax"
@@ -256,7 +258,7 @@ def notify_ntfy(event, opener=None):
 
 
 def notify_delivery_failure(failure, opener=None):
-    url = ntfy_url()
+    url = ntfy_url("system")
     if not url:
         raise RuntimeError("ntfy_not_configured")
     body = "\n".join(
@@ -353,9 +355,14 @@ def status():
     with STATE_LOCK:
         worker = dict(WORKER_STATE)
     return {
-        "ok": (not enabled()) or (bool(ntfy_url()) and int(worker["failureCount"]) == 0),
+        "ok": (not enabled())
+        or (
+            bool(ntfy_url("normal"))
+            and bool(ntfy_url("system"))
+            and int(worker["failureCount"]) == 0
+        ),
         "enabled": enabled(),
-        "configured": bool(ntfy_url()),
+        "configured": bool(ntfy_url("normal")) and bool(ntfy_url("system")),
         "recvq": str(recvq_root()),
         "xferfaxlog": str(xferfaxlog_path()),
         "statePath": str(state_path()),
