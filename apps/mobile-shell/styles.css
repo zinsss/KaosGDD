@@ -765,6 +765,16 @@ h3 {
   min-height: max-content;
 }
 
+.app[data-route="add-event"] .view,
+.app[data-route="edit-event"] .view {
+  grid-auto-rows: max-content;
+}
+
+.app[data-route="add-event"] .view > .panel,
+.app[data-route="edit-event"] .view > .panel {
+  min-height: max-content;
+}
+
 .collectionRail {
   display: flex;
   flex-wrap: wrap;
