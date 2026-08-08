@@ -428,14 +428,16 @@ h3 {
 }
 
 .ledgerDetailsScroller {
-  display: grid;
-  align-content: start;
-  gap: 12px;
+  display: block;
   min-height: 0;
   padding-bottom: 40px;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+.ledgerDetailsScroller > * + * {
+  margin-top: 12px;
 }
 
 .ledgerEditor {
