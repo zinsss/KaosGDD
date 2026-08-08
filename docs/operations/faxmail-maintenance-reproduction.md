@@ -585,7 +585,7 @@ Brain ntfy does not notify:
 - Confirm Brain has `/var/spool/hylafax` mounted read-only at
   `/integrations/hylafax`.
 - Confirm `/data/faxmail` is writable.
-- Confirm `NTFY_URL` and `NTFY_TOPIC`.
+- Confirm `NTFY_URL`, `NTFY_TOPIC_NORMAL`, and `NTFY_TOPIC_SYSTEM`.
 - Check `/api/brain/status`.
 - If first-run marking is enabled, old faxes will not notify.
 
