@@ -1626,12 +1626,12 @@ h3 {
   color: var(--nord11);
 }
 
-.day.isPublicHoliday .dayNumber {
-  color: var(--nord11);
-}
-
 .day.isSaturday .dayNumber {
   color: var(--nord8);
+}
+
+.day.isPublicHoliday .dayNumber {
+  color: var(--nord11);
 }
 
 .dayWeatherGlyph {
