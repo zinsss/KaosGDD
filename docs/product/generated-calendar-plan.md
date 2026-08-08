@@ -64,21 +64,24 @@ Generate one Claim Day per week.
 Rules, preserved from KaosGDD legacy:
 
 1. Claim Day normally falls on Friday.
-2. If the following Saturday is a Market Saturday, move that week's Claim Day
-   from Friday to Saturday.
-3. If the resulting date is a checked public holiday, move Claim Day backward
-   one day at a time until it reaches a date that is not a checked public
-   holiday.
-4. Informational observances do not move Claim Day.
-5. Recalculate immediately after a holiday classification changes.
+2. If the following Saturday is a Market Saturday and is not a checked public
+   holiday, move that week's Claim Day from Friday to Saturday.
+3. A checked public holiday takes precedence over the Market Saturday rule. If
+   Market Saturday is also a public holiday, do not place Claim Day on Saturday.
+4. If the Friday or selected Claim Day is a checked public holiday, move Claim
+   Day backward one day at a time until it reaches a date that is not a checked
+   public holiday.
+5. Informational observances do not move Claim Day.
+6. Recalculate immediately after a holiday classification changes.
 
 Examples:
 
 ```text
 Friday 2026-01-02                         -> Claim Day 2026-01-02
 Friday 2026-01-09 + Market Sat 01-10     -> Claim Day 2026-01-10
+Market Sat 01-10 is a public holiday      -> Claim Day 2026-01-09
+Market Sat and Friday are public holidays -> move backward to Thursday
 Friday marked as public holiday           -> move backward to Thursday
-Saturday Market Day marked public holiday -> move backward until non-holiday
 ```
 
 Suggested CalDAV categories:
@@ -188,6 +191,7 @@ Date calculation:
 
 - all `5/10/15/20/25/30` dates are Market Days regardless of weekday
 - only Saturday Market Days trigger the Saturday Claim Day override
+- a public holiday on Market Saturday suppresses the Saturday override
 - ordinary Friday remains Claim Day
 - public holiday shifts Claim Day backward
 - consecutive public holidays shift repeatedly
