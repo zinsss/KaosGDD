@@ -377,7 +377,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 0 8px 18px var(--shadow);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -495,12 +495,36 @@ h3 {
 }
 
 .ledgerDetailsScroller {
+  position: relative;
   display: block;
   min-height: 0;
   padding-bottom: 40px;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+.ledgerDetailsScroller::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: block;
+  height: 1px;
+  margin-bottom: -1px;
+  box-shadow: 0 7px 12px 3px rgba(96, 75, 107, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.ledgerDetailsScroller.hasScrolled::before {
+  opacity: 1;
+}
+
+.app[data-route="ledger"] .appTop.hasScrolled,
+.app[data-profile="family"][data-route="ledger"] .appTop.hasScrolled {
+  box-shadow: none;
 }
 
 .ledgerDetailsScroller > * + * {

@@ -241,7 +241,7 @@ const state = {
     editingId: "",
     adding: false,
     view: "all",
-    range: "all",
+    range: "month",
     rangeStart: "",
     rangeEnd: "",
   },
@@ -5532,7 +5532,8 @@ function updateTopBarShadow() {
   const view = document.getElementById("view");
   const ledgerScroller = document.querySelector(".ledgerDetailsScroller");
   const scrollTop = ledgerScroller?.scrollTop || view?.scrollTop || 0;
-  document.querySelector(".appTop")?.classList.toggle("hasScrolled", scrollTop > 4);
+  document.querySelector(".appTop")?.classList.toggle("hasScrolled", !ledgerScroller && scrollTop > 4);
+  ledgerScroller?.classList.toggle("hasScrolled", scrollTop > 4);
 }
 
 document.addEventListener("click", async (event) => {
