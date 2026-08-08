@@ -527,6 +527,37 @@ h3 {
   font-size: 18px;
 }
 
+@media (max-width: 560px) {
+  .ledgerCustomRange {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .ledgerCustomRange label {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 3px;
+  }
+
+  .ledgerCustomRange label span {
+    padding-left: 2px;
+  }
+
+  .ledgerCustomRange > span {
+    align-self: end;
+    padding-bottom: 9px;
+  }
+
+  .ledgerCustomRange input {
+    box-sizing: border-box;
+    max-width: 100%;
+    font-size: 16px;
+    text-align: center;
+  }
+}
+
 .ledgerDetailsScroller {
   position: relative;
   display: block;
