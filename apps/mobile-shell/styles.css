@@ -266,7 +266,13 @@ svg {
 
 @media (max-width: 560px) {
   .app[data-profile="main"] .topNav {
-    grid-template-columns: repeat(3, auto);
+    grid-template-columns: repeat(6, auto);
+    gap: 4px;
+  }
+
+  .app[data-profile="main"] .topNav a {
+    padding-inline: 0;
+    font-size: 0.72rem;
   }
 }
 
