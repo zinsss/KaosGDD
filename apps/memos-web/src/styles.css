@@ -1,0 +1,191 @@
+:root {
+  font-family: Pretendard, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #2e3440;
+  background: #f7f4f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: #f7f4f8;
+  --panel: #fffafd;
+  --surface: #f2eaf3;
+  --line: #d9ccd9;
+  --text: #2e2833;
+  --muted: #786d7d;
+  --accent: #9f5d92;
+  --accent-soft: #ead5e9;
+  --danger: #b94f64;
+  --shadow: rgba(70, 52, 73, 0.12);
+}
+
+:root[data-theme="nord"] {
+  color-scheme: dark;
+  --bg: #2e3440;
+  --panel: #3b4252;
+  --surface: #434c5e;
+  --line: #596478;
+  --text: #eceff4;
+  --muted: #b8c0cf;
+  --accent: #88c0d0;
+  --accent-soft: #46566a;
+  --danger: #bf616a;
+  --shadow: rgba(12, 16, 24, 0.24);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { min-height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: 0.55; }
+
+.loadingState {
+  width: 30px;
+  height: 30px;
+  margin: 30vh auto;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loginPage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.loginPanel {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+
+.loginPanel h1, .appHeader h1 { margin: 0; font-size: 1.65rem; }
+.eyebrow { margin: 0; color: var(--accent); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+.loginPanel label, .editorContent, .editorFooter label { display: grid; gap: 6px; color: var(--muted); font-size: 0.8rem; font-weight: 700; }
+
+input, textarea, select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  outline: none;
+}
+
+input, select { min-height: 44px; padding: 8px 10px; }
+textarea { min-height: 220px; padding: 12px; line-height: 1.55; resize: vertical; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+.primaryButton, .loadMore {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 750;
+}
+
+.primaryButton svg { width: 18px; height: 18px; }
+.iconButton { width: 40px; height: 40px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+.iconButton svg { width: 19px; height: 19px; }
+.errorText, .errorBanner { margin: 0; color: var(--danger); }
+.errorBanner { padding: 12px; border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line)); border-radius: 6px; background: var(--panel); }
+
+.memoApp { min-height: 100vh; }
+.appHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: max(14px, env(safe-area-inset-top)) 18px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.headerActions { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; }
+.appBody { width: min(100%, 920px); margin: 0 auto; padding: 16px 16px 48px; }
+.controlBar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.searchBox { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 0 7px 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+.searchBox > svg { width: 19px; color: var(--muted); }
+.searchBox input { min-height: 46px; padding: 7px 0; border: 0; background: transparent; box-shadow: none; }
+.searchBox .iconButton { width: 34px; height: 34px; border: 0; background: transparent; }
+
+.tagFilters { display: flex; gap: 7px; padding: 12px 0; overflow-x: auto; scrollbar-width: none; }
+.tagFilters::-webkit-scrollbar { display: none; }
+.tagFilters button { flex: 0 0 auto; min-height: 34px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); }
+.tagFilters button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+
+.editorPanel { display: grid; gap: 12px; margin-bottom: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 8px 20px var(--shadow); }
+.editorHeader, .editorFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.editorHeader h2 { margin: 0; font-size: 1.05rem; }
+.editorFooter label { grid-template-columns: auto minmax(130px, 190px); align-items: center; }
+
+.memoFeed { display: grid; gap: 12px; }
+.memoCard { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 6px 16px var(--shadow); }
+.memoContent { padding: 16px; overflow-wrap: anywhere; line-height: 1.58; }
+.memoContent > :first-child { margin-top: 0; }
+.memoContent > :last-child { margin-bottom: 0; }
+.memoContent h1 { font-size: 1.55rem; }
+.memoContent h2 { font-size: 1.35rem; }
+.memoContent h3 { font-size: 1.18rem; }
+.memoContent h4 { font-size: 1.05rem; }
+.memoContent pre { overflow-x: auto; padding: 12px; border-radius: 6px; background: var(--bg); white-space: pre-wrap; }
+.memoContent code { font-family: "Sarasa Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+.memoContent blockquote { margin-left: 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--muted); }
+.memoContent a { color: var(--accent); }
+.memoContent input[type="checkbox"] { width: 18px; min-height: 18px; margin-right: 7px; accent-color: var(--accent); }
+
+.tagRow { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.tagRow button { padding: 3px 7px; border: 0; background: transparent; color: var(--accent); }
+.memoFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.78rem; }
+.memoActions { display: flex; align-items: center; gap: 4px; }
+.memoActions button { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 0; background: transparent; color: var(--muted); }
+.memoActions svg { width: 17px; height: 17px; }
+.memoActions .dangerAction { color: var(--danger); }
+.emptyState { padding: 40px 16px; text-align: center; color: var(--muted); }
+.loadMore { justify-self: center; margin-top: 6px; }
+
+@media (max-width: 560px) {
+  .appHeader { padding-left: 14px; padding-right: 14px; }
+  .appBody { padding: 12px 10px 40px; }
+  .headerActions > span { display: none; }
+  .controlBar { grid-template-columns: minmax(0, 1fr) 44px; }
+  .addButton { width: 44px; padding: 0; }
+  .addButton span { display: none; }
+  .editorFooter { align-items: end; }
+  .editorFooter label { grid-template-columns: 1fr; }
+  .memoFooter { align-items: flex-end; }
+  .memoActions button span { display: none; }
+  .memoActions button { width: 34px; justify-content: center; padding: 0; }
+}
+
+@media print {
+  .appHeader, .controlBar, .tagFilters, .memoFooter { display: none !important; }
+  body, .memoCard { background: #fff; color: #000; box-shadow: none; }
+}

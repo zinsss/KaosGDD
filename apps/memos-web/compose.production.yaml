@@ -1,0 +1,32 @@
+name: kaosgdd-memos-web
+
+services:
+  personal:
+    image: kaosgdd-memos-web:0.1.0
+    container_name: kaosgdd-memos-personal
+    restart: unless-stopped
+    environment:
+      APP_NAME: Kaos Memos
+      APP_MODE: personal
+      MEMOS_BASE_URL: ""
+      KAOSPRINT_URL: ""
+      DEFAULT_EDITOR_MODE: markdown
+      ALLOW_MARKDOWN_MODE: "true"
+      THEME: nord
+    ports:
+      - "100.94.208.16:8093:80/tcp"
+
+  family:
+    image: kaosgdd-memos-web:0.1.0
+    container_name: kaosgdd-memos-family
+    restart: unless-stopped
+    environment:
+      APP_NAME: 가족 메모
+      APP_MODE: family
+      MEMOS_BASE_URL: ""
+      KAOSPRINT_URL: ""
+      DEFAULT_EDITOR_MODE: wysiwyg
+      ALLOW_MARKDOWN_MODE: "false"
+      THEME: family
+    ports:
+      - "100.94.208.16:8094:80/tcp"
