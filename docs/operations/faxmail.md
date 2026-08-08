@@ -164,7 +164,7 @@ FAX_NOTIFY_DELIVERY_FAILURE_ROOT=/integrations/hylafax/status/kaosgdd-faxmail/fa
 FAX_NOTIFY_MIN_FILE_AGE_SECONDS=60
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 NTFY_URL=
-NTFY_TOPIC=kaosgdd-fax
+NTFY_TOPIC=kaosgdd-system
 ```
 
 The minimum file age prevents notification while HylaFAX may still be writing

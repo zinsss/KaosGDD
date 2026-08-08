@@ -113,7 +113,7 @@ The worker is controlled by:
 ```text
 FAX_NOTIFY_ENABLED=true
 NTFY_URL=http://ntfy
-NTFY_TOPIC=kaosgdd-fax
+NTFY_TOPIC=kaosgdd-system
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
