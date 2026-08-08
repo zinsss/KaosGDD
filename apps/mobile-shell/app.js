@@ -4893,11 +4893,10 @@ function renderLedgerViewFilters() {
       ${state.ledger.range === "custom" ? `
         <div class="ledgerCustomRange">
           <label class="ledgerRangeDate">
-            <span class="ledgerRangeLabel">${escapeHtml(uiText("ledger.rangeStart", "Start"))}</span>
             <span class="ledgerRangeDateText" aria-hidden="true">${escapeHtml(formatLedgerRangeDate(state.ledger.rangeStart))}</span>
+            <span class="ledgerRangeLabel">${escapeHtml(uiText("ledger.rangeStart", "Start"))}</span>
             <input type="date" value="${escapeHtml(state.ledger.rangeStart)}" data-ledger-range-start />
           </label>
-          <span aria-hidden="true">~</span>
           <label class="ledgerRangeDate ledgerRangeDateEnd">
             <span class="ledgerRangeDateText" aria-hidden="true">${escapeHtml(formatLedgerRangeDate(state.ledger.rangeEnd))}</span>
             <span class="ledgerRangeLabel">${escapeHtml(uiText("ledger.rangeEnd", "End"))}</span>
