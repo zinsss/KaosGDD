@@ -4730,7 +4730,7 @@ function renderLedger() {
           <h2>${escapeHtml(uiText("ledger.title", "Medical association ledger"))}</h2>
         </div>
         <div class="ledgerToolbarActions">
-          <a class="openButton" href="/api/ledger/export.xlsx" download>${escapeHtml(uiText("ledger.export", "XLSX"))}</a>
+          <a class="openButton" href="/api/ledger/export.xlsx" download data-ledger-export>${escapeHtml(uiText("ledger.export", "XLSX"))}</a>
           <button class="openButton" type="button" data-ledger-backup>${escapeHtml(uiText("ledger.backup", "Backup"))}</button>
           <button class="primaryButton" type="button" data-ledger-add>${escapeHtml(uiText("common.add", "Add"))}</button>
         </div>
@@ -5248,6 +5248,19 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  const exportLedger = event.target.closest("[data-ledger-export]");
+  if (exportLedger) {
+    event.preventDefault();
+    if (!window.confirm(uiText("dialog.ledgerExportConfirm", "Download the Excel file to this device?"))) return;
+    const link = document.createElement("a");
+    link.href = exportLedger.href;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return;
+  }
+
   if (event.target.closest("[data-ledger-add]")) {
     state.ledger.adding = true;
     state.ledger.editingId = "";
@@ -5308,6 +5321,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (event.target.closest("[data-ledger-backup]")) {
+    if (!window.confirm(uiText("dialog.ledgerBackupConfirm", "Create an XLSX backup in Brain storage?"))) return;
     try {
       await createLedgerBackup();
       window.alert(uiText("dialog.ledgerBackupComplete", "XLSX backup created."));

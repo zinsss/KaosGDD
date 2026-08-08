@@ -333,6 +333,8 @@ window.KAOS_TRANSLATIONS = {
     "dialog.deleteLedgerEntry": "이 거래를 삭제할까요? 이후 잔액이 다시 계산됩니다.",
     "dialog.ledgerDeleteError": "거래를 삭제하지 못했습니다: {error}",
     "dialog.ledgerBackupComplete": "엑셀 백업을 만들었습니다.",
+    "dialog.ledgerExportConfirm": "엑셀 파일을 이 기기에 저장할까요?",
+    "dialog.ledgerBackupConfirm": "Brain에 엑셀 백업을 만들까요?",
     "dialog.ledgerBackupError": "백업을 만들지 못했습니다: {error}",
     "dialog.createPastDue": "마감 시간이 이미 지났습니다. 그래도 추가할까요?",
     "dialog.savePastDue": "마감 시간이 이미 지났습니다. 그래도 저장할까요?",

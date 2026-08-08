@@ -359,6 +359,12 @@ h3 {
   gap: 8px;
 }
 
+.app[data-profile="family"] .ledgerToolbar [data-ledger-add] {
+  border-color: #9b5f8f;
+  background: #9b5f8f;
+  color: #ffffff;
+}
+
 .ledgerBalances {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
