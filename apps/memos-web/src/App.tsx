@@ -5,6 +5,7 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { memosClient } from "./api";
 import { config } from "./config";
+import { contentWithoutTagOnlyLines } from "./content";
 import { t } from "./i18n";
 import type { Memo, MemosUser, MemoVisibility } from "./types";
 
@@ -122,12 +123,13 @@ function MemoCard({ memo, onEdit, onDelete, onPin, onTag }: {
   onTag: (tag: string) => void;
 }) {
   const tags = memo.tags ?? [];
+  const displayContent = contentWithoutTagOnlyLines(memo.content, tags);
   return (
     <article className="memoCard">
       <div className="memoContent">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={{
           a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
-        }}>{memo.content}</ReactMarkdown>
+        }}>{displayContent}</ReactMarkdown>
       </div>
       {tags.length > 0 && (
         <div className="tagRow">
