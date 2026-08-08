@@ -25,6 +25,7 @@ from services.memos import relay as memos_relay
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
+from services.system_calendar import holidays as holiday_service
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
@@ -71,6 +72,7 @@ def brain_status(headers):
             "faxmailNotifications": faxmail_notifier.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
+            "holidaySync": holiday_service.status(),
         },
     }
 
@@ -122,6 +124,11 @@ def ledger_status_for_error(exc):
     if message == "family_profile_required":
         return 404
     return 400
+
+
+def re_match_holiday(path):
+    match = re.fullmatch(r"/api/holidays/(KAOS-HOLIDAY-[A-Fa-f0-9]{24})", path)
+    return match.group(1).upper() if match else ""
 
 
 def caregiver_month_payload(month):
@@ -220,6 +227,13 @@ def proxy_memos(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/holidays":
+            try:
+                json_response(self, 200, holiday_service.list_holidays())
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            return
+
         if parsed.path.startswith("/api/memos/"):
             try:
                 proxy_memos(self, "GET")
@@ -341,6 +355,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/holidays/sync":
+            try:
+                json_response(self, 200, holiday_service.sync_holidays())
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            return
+
         if path == "/api/memos/bootstrap":
             try:
                 json_response(self, 200, memos_relay.bootstrap(self.headers, json_request(self)))
@@ -455,6 +476,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        holiday_uid = re_match_holiday(path)
+        if holiday_uid:
+            try:
+                payload = json_request(self)
+                if not isinstance(payload.get("publicHoliday"), bool):
+                    raise ValueError("public_holiday_boolean_required")
+                json_response(
+                    self,
+                    200,
+                    holiday_service.set_public_holiday(holiday_uid, payload["publicHoliday"]),
+                )
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "holiday_not_found" else 400, {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            return
+
         ledger_entry_id = re_match_ledger_entry(path)
         if ledger_entry_id:
             try:
@@ -690,6 +728,7 @@ def main():
     ledger_service.start_backup_scheduler()
     recurring_task_service.start_scheduler()
     faxmail_notifier.start_scheduler()
+    holiday_service.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"KaosGDD Brain {VERSION} listening on {PORT} in shadow mode", flush=True)
     server.serve_forever()

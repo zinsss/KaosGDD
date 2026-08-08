@@ -70,6 +70,7 @@ Brain `0.5.1` is the side-by-side runtime:
 - supplies API backed by Radicale `Kaos_Supplies`
 - repeating-task CRUD and scheduler APIs backed by standard Radicale VTODOs
 - event preset CRUD shared by the main and Family portal UIs
+- Google Korea calendar sync into the existing Family CalDAV collection, with manual public-holiday classification
 - Caddy routes for `/api/caregiver/*` and `/api/rouny/*` on `family.kaosgdd.net`
 - Caddy route for `/api/supplies*` on `kaosgdd.net`
 
@@ -86,6 +87,12 @@ Event presets also live in Brain PostgreSQL. Main personal presets belong to
 ZiN. The Family portal creates and sees only shared Family presets, which remain
 visible from both portals. Presets only store template fields; events created
 from them remain normal Radicale VEVENTs.
+
+Google Korea holiday and observance entries remain normal all-day VEVENTs in
+the Family collection. Brain adds standard `CATEGORIES` markers so the portal
+can distinguish red public holidays from dim informational observances. Manual
+classification survives later source syncs, and generated entries are read-only
+through normal event editing routes.
 
 
 ## Fax Notifications

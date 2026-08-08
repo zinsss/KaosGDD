@@ -223,6 +223,14 @@ const state = {
     expanded: false,
     error: "",
   },
+  holidays: {
+    checked: false,
+    loading: false,
+    syncing: false,
+    expanded: false,
+    error: "",
+    items: [],
+  },
   supplies: {
     checked: false,
     loading: false,
@@ -958,6 +966,80 @@ async function deleteRecurringTask(id) {
   state.recurringTasks.checked = false;
   state.recurringTasks.editingId = "";
   await loadRecurringTasks({ force: true });
+}
+
+function normalizeHoliday(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    uid: String(item.uid || ""),
+    title: String(item.title || ""),
+    startDate: String(item.startDate || ""),
+    endDate: String(item.endDate || item.startDate || ""),
+    publicHoliday: Boolean(item.publicHoliday),
+    categories: Array.isArray(item.categories) ? item.categories.map(String) : [],
+  };
+}
+
+async function loadHolidays({ force = false } = {}) {
+  if (state.holidays.loading) return;
+  if (state.holidays.checked && !force) return;
+  state.holidays.loading = true;
+  try {
+    const response = await fetch("/api/holidays", { headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.holidays = {
+      ...state.holidays,
+      checked: true,
+      loading: false,
+      error: "",
+      items: Array.isArray(payload.items) ? payload.items.map(normalizeHoliday).filter(Boolean) : [],
+    };
+  } catch (error) {
+    state.holidays = {
+      ...state.holidays,
+      checked: true,
+      loading: false,
+      error: error.message || uiText("holidays.unavailable", "Korean calendar unavailable"),
+    };
+  }
+  if (getRoute() === "settings") render();
+}
+
+async function syncHolidays() {
+  if (state.holidays.syncing) return;
+  state.holidays.syncing = true;
+  render();
+  try {
+    const response = await fetch("/api/holidays/sync", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.holidays.checked = false;
+    await loadHolidays({ force: true });
+    await loadRemoteCalendar();
+  } finally {
+    state.holidays.syncing = false;
+    if (getRoute() === "settings") render();
+  }
+}
+
+async function setHolidayClassification(uid, publicHoliday) {
+  const response = await fetch(`/api/holidays/${encodeURIComponent(uid)}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ publicHoliday: Boolean(publicHoliday) }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  const item = state.holidays.items.find((holiday) => holiday.uid === uid);
+  if (item) item.publicHoliday = Boolean(publicHoliday);
+  await loadRemoteCalendar();
 }
 
 function writableTaskCollectionId() {
@@ -1824,6 +1906,7 @@ function formatDateTimeLabel(value) {
 }
 
 function normalizeEvent(event) {
+  const categories = Array.isArray(event.categories) ? event.categories.map((value) => String(value).toUpperCase()) : [];
   if (event.date) {
     return {
       id: event.id || event.uid,
@@ -1844,6 +1927,10 @@ function normalizeEvent(event) {
       preserveAlarm: Boolean(event.preserveAlarm),
       editable: event.editable !== false,
       editReason: event.editReason || "",
+      categories,
+      systemManaged: Boolean(event.systemManaged || categories.includes("KAOS-SYSTEM")),
+      publicHoliday: Boolean(event.publicHoliday || categories.includes("KAOS-PUBLIC-HOLIDAY")),
+      observance: Boolean(event.observance || categories.includes("KAOS-OBSERVANCE")),
     };
   }
   const start = parseDateTime(event.startDate || event.dtstart);
@@ -1868,7 +1955,23 @@ function normalizeEvent(event) {
     preserveAlarm: Boolean(event.preserveAlarm),
     editable: event.editable !== false,
     editReason: event.editReason || "",
+    categories,
+    systemManaged: Boolean(event.systemManaged || categories.includes("KAOS-SYSTEM")),
+    publicHoliday: Boolean(event.publicHoliday || categories.includes("KAOS-PUBLIC-HOLIDAY")),
+    observance: Boolean(event.observance || categories.includes("KAOS-OBSERVANCE")),
   };
+}
+
+function isGoogleHolidayEvent(event) {
+  return Boolean(event?.categories?.includes("KAOS-GOOGLE-HOLIDAY"));
+}
+
+function isPublicHolidayEvent(event) {
+  return isGoogleHolidayEvent(event) && Boolean(event.publicHoliday);
+}
+
+function isObservanceEvent(event) {
+  return isGoogleHolidayEvent(event) && !event.publicHoliday;
 }
 
 function parseLegacyDescription(description) {
@@ -2389,16 +2492,20 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
         ${events
           .map((event) => {
             const timeLabel = event.allDay ? uiText("event.allDayPill", "All Day") : event.time;
+            const holidayClass = isPublicHolidayEvent(event) ? "isPublicHoliday" : isObservanceEvent(event) ? "isObservance" : "";
+            const content = `
+              <span class="timelineTitleRow">
+                <strong>${escapeHtml(event.title)}</strong>
+                ${renderCollectionPill(event)}
+              </span>
+              ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+            `;
             return `
-              <li>
+              <li class="${holidayClass}">
                 <time class="${event.allDay ? "timelineAllDayPill" : ""}">${escapeHtml(timeLabel)}</time>
-                <a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
-                  <span class="timelineTitleRow">
-                    <strong>${escapeHtml(event.title)}</strong>
-                    ${renderCollectionPill(event)}
-                  </span>
-                  ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
-                </a>
+                ${event.systemManaged
+                  ? `<span class="timelineLink isReadOnly">${content}</span>`
+                  : `<a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">${content}</a>`}
               </li>
             `;
           })
@@ -2888,14 +2995,18 @@ function renderFamilyAgendaMixedRow(item) {
     const event = item.event;
     const eventLabel = uiText("agenda.eventMarker", "Event");
     const timeLabel = event.allDay ? "" : familyAgendaEventTime(event);
+    const holidayClass = isPublicHolidayEvent(event) ? "isPublicHoliday" : isObservanceEvent(event) ? "isObservance" : "";
+    const content = `
+      <strong>${escapeHtml(event.title)}</strong>
+      ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+    `;
     return `
-      <li class="familyAgendaMixedRow isEvent ${timeLabel ? "hasTime" : "isTimeless"}">
+      <li class="familyAgendaMixedRow isEvent ${timeLabel ? "hasTime" : "isTimeless"} ${holidayClass}">
         <span class="familyAgendaEntryControl familyAgendaEventMarker" role="img" aria-label="${escapeHtml(eventLabel)}" title="${escapeHtml(eventLabel)}">&#xEAB0;</span>
         ${timeLabel ? `<time class="familyAgendaMixedTime">${escapeHtml(timeLabel)}</time>` : ""}
-        <a class="familyAgendaMixedLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
-          <strong>${escapeHtml(event.title)}</strong>
-          ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
-        </a>
+        ${event.systemManaged
+          ? `<span class="familyAgendaMixedLink isReadOnly">${content}</span>`
+          : `<a class="familyAgendaMixedLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">${content}</a>`}
         <span class="familyAgendaMixedBadge"></span>
       </li>
     `;
@@ -3108,10 +3219,14 @@ function renderToday() {
 function renderCalendarMonthPanel() {
   const month = state.selectedDate.slice(0, 7);
   const events = mockAdapter.getEvents();
+  const regularEvents = events.filter((event) => !isGoogleHolidayEvent(event));
+  const publicHolidayDates = new Set(
+    activeCalendarData().events.map(normalizeEvent).filter(isPublicHolidayEvent).map((event) => event.date),
+  );
   const datedTasks = mockAdapter.getTasks().filter((task) => task.due);
-  const eventCounts = countByDate(events, "date");
+  const eventCounts = countByDate(regularEvents, "date");
   const taskCounts = countByDate(datedTasks, "due");
-  const dutyDates = new Set(events.filter(hasDutyEvent).map((event) => event.date));
+  const dutyDates = new Set(regularEvents.filter(hasDutyEvent).map((event) => event.date));
   const caregiverDays = new Set(
     portalProfile() === "family" && state.caregiver.key === month
       ? (state.caregiver.data?.daily || [])
@@ -3149,6 +3264,7 @@ function renderCalendarMonthPanel() {
               cell.value === ymd(new Date()) ? "isToday" : "",
               cell.value === state.selectedDate ? "isSelected" : "",
               hasDuty ? "isDuty" : "",
+              publicHolidayDates.has(cell.value) ? "isPublicHoliday" : "",
               dateTone(cell.value),
             ]
               .filter(Boolean)
@@ -5134,10 +5250,71 @@ function renderSettings() {
               `
           }
         </dl>
+        ${renderHolidaySettings()}
         ${renderEventPresetSettings()}
         ${renderRecurringTaskSettings()}
       </div>
     </section>
+  `;
+}
+
+function renderHolidaySettings() {
+  const holidays = state.holidays;
+  const publicCount = holidays.items.filter((item) => item.publicHoliday).length;
+  const groups = holidays.items.reduce((result, item) => {
+    const year = item.startDate.slice(0, 4) || uiText("holidays.unknownYear", "Other");
+    if (!result[year]) result[year] = [];
+    result[year].push(item);
+    return result;
+  }, {});
+  const body = holidays.loading && !holidays.checked
+    ? `<p class="taskMeta">${uiText("holidays.loading", "Loading Korean calendar...")}</p>`
+    : holidays.error
+      ? `<div class="caregiverError"><span>${escapeHtml(holidays.error)}</span><button class="openButton" type="button" data-holidays-retry>${uiText("common.retry", "Retry")}</button></div>`
+      : holidays.items.length
+        ? Object.keys(groups).sort().map((year) => `
+            <section class="holidayYearGroup">
+              <h3>${escapeHtml(year)}</h3>
+              <div class="holidaySettingList">
+                ${groups[year].map((item) => `
+                  <label class="holidaySettingRow">
+                    <span>
+                      <time>${escapeHtml(item.startDate.slice(5))}</time>
+                      <strong>${escapeHtml(item.title)}</strong>
+                    </span>
+                    <input
+                      type="checkbox"
+                      data-holiday-classification="${escapeHtml(item.uid)}"
+                      aria-label="${escapeHtml(uiText("holidays.publicHolidayAria", "Mark {title} as a public holiday", { title: item.title }))}"
+                      ${item.publicHoliday ? "checked" : ""}
+                    />
+                  </label>
+                `).join("")}
+              </div>
+            </section>
+          `).join("")
+        : `<p class="taskMeta">${uiText("holidays.none", "No Korean calendar entries imported yet.")}</p>`;
+  return `
+    <details class="settingsDisclosure" data-holidays ${holidays.expanded ? "open" : ""}>
+      <summary>
+        <span>
+          <strong>${uiText("holidays.title", "Korean calendar")}</strong>
+          <small>${uiText("holidays.summary", "{publicCount} public holidays · {total} entries", {
+            publicCount,
+            total: holidays.items.length,
+          })}</small>
+        </span>
+      </summary>
+      <div class="settingsDisclosureBody">
+        <div class="holidaySettingsIntro">
+          <p>${uiText("holidays.help", "Checked dates are red public holidays. Unchecked entries remain dim calendar information.")}</p>
+          <button class="openButton" type="button" data-holidays-sync ${holidays.syncing ? "disabled" : ""}>
+            ${holidays.syncing ? uiText("holidays.syncing", "Syncing...") : uiText("holidays.sync", "Sync Google calendar")}
+          </button>
+        </div>
+        ${body}
+      </div>
+    </details>
   `;
 }
 
@@ -5513,7 +5690,10 @@ function render() {
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   if (route === "supplies") loadSupplies();
   if (route === "ledger") loadLedger();
-  if (route === "settings") loadRecurringTasks();
+  if (route === "settings") {
+    loadHolidays();
+    loadRecurringTasks();
+  }
   document.querySelector(".ledgerDetailsScroller")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
   updateTopBarShadow();
 }
@@ -5848,6 +6028,25 @@ document.addEventListener("click", async (event) => {
     state.recurringTasks.checked = false;
     state.recurringTasks.error = "";
     loadRecurringTasks({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-holidays-retry]")) {
+    state.holidays.checked = false;
+    state.holidays.error = "";
+    loadHolidays({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-holidays-sync]")) {
+    if (!window.confirm(uiText("dialog.syncHolidays", "Sync Korean calendar entries from Google now?"))) return;
+    try {
+      await syncHolidays();
+    } catch (error) {
+      window.alert(uiText("dialog.holidayError", "Could not update Korean calendar: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
     return;
   }
 
@@ -6582,6 +6781,7 @@ document.addEventListener(
     if (!(disclosure instanceof HTMLDetailsElement)) return;
     if (disclosure.matches("[data-event-presets]")) state.eventPresets.expanded = disclosure.open;
     if (disclosure.matches("[data-recurring-tasks]")) state.recurringTasks.expanded = disclosure.open;
+    if (disclosure.matches("[data-holidays]")) state.holidays.expanded = disclosure.open;
   },
   true,
 );
@@ -6610,6 +6810,25 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const holidayToggle = event.target.closest("[data-holiday-classification]");
+  if (holidayToggle) {
+    const uid = holidayToggle.dataset.holidayClassification || "";
+    const checked = holidayToggle.checked;
+    holidayToggle.disabled = true;
+    setHolidayClassification(uid, checked)
+      .catch((error) => {
+        holidayToggle.checked = !checked;
+        window.alert(uiText("dialog.holidayError", "Could not update Korean calendar: {error}", {
+          error: error.message || uiText("dialog.unknownError", "unknown error"),
+        }));
+      })
+      .finally(() => {
+        holidayToggle.disabled = false;
+        if (getRoute() === "settings") render();
+      });
+    return;
+  }
+
   const ledgerRange = event.target.closest("[data-ledger-range-select]");
   if (ledgerRange) {
     const range = ledgerRange.value || "all";

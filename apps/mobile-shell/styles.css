@@ -1454,6 +1454,21 @@ h3 {
   font-size: 0.74rem;
 }
 
+.timeline li.isObservance,
+.familyAgendaMixedRow.isObservance {
+  opacity: 0.58;
+}
+
+.timeline li.isPublicHoliday strong,
+.familyAgendaMixedRow.isPublicHoliday strong {
+  color: var(--nord11);
+}
+
+.timelineLink.isReadOnly,
+.familyAgendaMixedLink.isReadOnly {
+  cursor: default;
+}
+
 .calendarPill {
   flex: 0 0 auto;
   margin-top: 0;
@@ -1575,6 +1590,10 @@ h3 {
 }
 
 .day.isSunday .dayNumber {
+  color: var(--nord11);
+}
+
+.day.isPublicHoliday .dayNumber {
   color: var(--nord11);
 }
 
@@ -2477,6 +2496,80 @@ h3 {
   display: grid;
   gap: 10px;
   padding-top: 8px;
+}
+
+.holidaySettingsIntro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.holidaySettingsIntro p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.holidayYearGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.holidayYearGroup h3 {
+  margin: 5px 0 0;
+  color: var(--nord7);
+  font-size: 0.74rem;
+}
+
+.holidaySettingList {
+  display: grid;
+}
+
+.holidaySettingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.holidaySettingRow:last-child {
+  border-bottom: 0;
+}
+
+.holidaySettingRow > span {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.holidaySettingRow time {
+  color: var(--dim);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.holidaySettingRow strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holidaySettingRow:has(input:checked) strong,
+.holidaySettingRow:has(input:checked) time {
+  color: var(--nord11);
+}
+
+.holidaySettingRow input {
+  flex: 0 0 auto;
 }
 
 .presetInlineActions {

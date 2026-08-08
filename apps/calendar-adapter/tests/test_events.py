@@ -84,8 +84,88 @@ END:VCALENDAR
         self.assertEqual(normalized["repeat"], "custom")
         self.assertTrue(normalized["preserveRepeat"])
 
+    def test_normalizes_google_holiday_categories_as_read_only(self):
+        body = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:KAOS-HOLIDAY-1234567890ABCDEF12345678
+SUMMARY:Information day
+DTSTART;VALUE=DATE:20260815
+DTEND;VALUE=DATE:20260816
+CATEGORIES:KAOS-SYSTEM,KAOS-GOOGLE-HOLIDAY,KAOS-OBSERVANCE
+END:VEVENT
+END:VCALENDAR
+"""
+        item = SERVER.parse_ics(body, "/family/calendar/HOLIDAY.ics")[0]
+        normalized = SERVER.normalize_event(item, {"id": "family:calendar"})
+
+        self.assertFalse(normalized["editable"])
+        self.assertTrue(normalized["systemManaged"])
+        self.assertFalse(normalized["publicHoliday"])
+        self.assertTrue(normalized["observance"])
+        self.assertEqual(normalized["editReason"], "system_event_readonly")
+
 
 class EventWritingTests(unittest.TestCase):
+    def test_builds_standard_categories_for_system_event(self):
+        _, body = SERVER.build_vevent(
+            {
+                "uid": "KAOS-HOLIDAY-1234567890ABCDEF12345678",
+                "title": "Holiday",
+                "startDate": "2026-08-15",
+                "endDate": "2026-08-15",
+                "allDay": True,
+                "categories": ["KAOS-SYSTEM", "KAOS-GOOGLE-HOLIDAY", "KAOS-PUBLIC-HOLIDAY"],
+            }
+        )
+
+        self.assertIn("CATEGORIES:KAOS-GOOGLE-HOLIDAY,KAOS-PUBLIC-HOLIDAY,KAOS-SYSTEM", body)
+
+    @mock.patch.object(SERVER, "configured", return_value=True)
+    @mock.patch.object(SERVER, "collections_for_profile")
+    @mock.patch.object(SERVER, "account_for_collection", return_value={"username": "family"})
+    @mock.patch.object(SERVER, "report_collection")
+    def test_public_event_update_rejects_system_holiday(
+        self,
+        report_collection,
+        _account_for_collection,
+        collections_for_profile,
+        _configured,
+    ):
+        collection = {
+            "id": "family:calendar",
+            "owner": "family",
+            "href": "/family/calendar/",
+            "components": ["VEVENT"],
+        }
+        holiday = SERVER.parse_ics(
+            """BEGIN:VCALENDAR\r
+VERSION:2.0\r
+BEGIN:VEVENT\r
+UID:KAOS-HOLIDAY-1234567890ABCDEF12345678\r
+DTSTART;VALUE=DATE:20260815\r
+DTEND;VALUE=DATE:20260816\r
+SUMMARY:광복절\r
+CATEGORIES:KAOS-SYSTEM,KAOS-GOOGLE-HOLIDAY,KAOS-PUBLIC-HOLIDAY\r
+END:VEVENT\r
+END:VCALENDAR\r
+""",
+            "/family/calendar/holiday.ics",
+        )[0]
+        collections_for_profile.return_value = [collection]
+        report_collection.return_value = [holiday]
+
+        with self.assertRaisesRegex(ValueError, "system_event_readonly"):
+            SERVER.update_event(
+                {
+                    "uid": "KAOS-HOLIDAY-1234567890ABCDEF12345678",
+                    "collectionId": "family:calendar",
+                    "title": "Changed",
+                    "startDate": "2026-08-15",
+                    "endDate": "2026-08-15",
+                    "allDay": True,
+                }
+            )
+
     def test_update_preserves_standard_properties_and_increments_sequence(self):
         existing = SERVER.parse_ics(TIMED_EVENT, "/zin/calendar/EVENT-1.ics", '"etag-1"')[0]
         _, body = SERVER.build_vevent(

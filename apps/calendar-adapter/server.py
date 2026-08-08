@@ -25,6 +25,7 @@ RADICALE_SYSTEM_PASSWORD = os.environ.get("RADICALE_SYSTEM_PASSWORD", "")
 RADICALE_SYSTEM_WEATHER_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_WEATHER_JOURNAL_NAME", "Kaos_Weather")
 RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_CAREGIVER_JOURNAL_NAME", "Kaos_Caregiver")
 RADICALE_SYSTEM_LOGS_JOURNAL_NAME = os.environ.get("RADICALE_SYSTEM_LOGS_JOURNAL_NAME", "Kaos_Logs")
+RADICALE_FAMILY_CALENDAR_NAME = os.environ.get("RADICALE_FAMILY_CALENDAR_NAME", "Family")
 TIMEOUT = float(os.environ.get("KAOSGDD_ADAPTER_TIMEOUT_SECONDS", "30"))
 LOCAL_TIMEZONE = timezone(timedelta(hours=int(os.environ.get("KAOSGDD_LOCAL_UTC_OFFSET_HOURS", "9"))))
 LOCAL_TZID = os.environ.get("KAOSGDD_LOCAL_TZID", "Asia/Seoul")
@@ -77,6 +78,10 @@ WEATHER_GLYPHS = {
     "unknown": "·",
 }
 OPEN_METEO_FORECAST_MAX_DAYS = 16
+GOOGLE_HOLIDAY_CATEGORY = "KAOS-GOOGLE-HOLIDAY"
+SYSTEM_EVENT_CATEGORY = "KAOS-SYSTEM"
+PUBLIC_HOLIDAY_CATEGORY = "KAOS-PUBLIC-HOLIDAY"
+OBSERVANCE_CATEGORY = "KAOS-OBSERVANCE"
 
 SEOUL_VTIMEZONE = """BEGIN:VTIMEZONE
 TZID:Asia/Seoul
@@ -376,6 +381,8 @@ def normalize_event(item, collection):
     start_timezone = property_parameter(item, "DTSTART", "TZID")
     editable_timezone = all_day or not start_timezone or start_timezone == LOCAL_TZID
     unsupported_duration = bool(item.get("DURATION") and not item.get("DTEND"))
+    categories = [part.strip() for part in item.get("CATEGORIES", "").split(",") if part.strip()]
+    system_managed = SYSTEM_EVENT_CATEGORY in categories or GOOGLE_HOLIDAY_CATEGORY in categories
     editable = (
         bool(parsed["date"])
         and not item.get("_unsafe_multiple")
@@ -383,6 +390,7 @@ def normalize_event(item, collection):
         and not has_recurrence_exceptions
         and not unsupported_duration
         and editable_timezone
+        and not system_managed
     )
     return {
         "uid": item.get("UID") or item.get("href"),
@@ -401,11 +409,15 @@ def normalize_event(item, collection):
         "alarmTime": alarm_time,
         "preserveAlarm": preserve_alarm,
         "editable": editable,
-        "editReason": "" if editable else "event_requires_native_client",
+        "editReason": "" if editable else ("system_event_readonly" if system_managed else "event_requires_native_client"),
         "location": item.get("LOCATION", ""),
         "status": item.get("STATUS", ""),
         "created": parse_ics_datetime(item.get("CREATED", ""))["iso"],
         "lastModified": parse_ics_datetime(item.get("LAST-MODIFIED", ""))["iso"],
+        "categories": categories,
+        "systemManaged": system_managed,
+        "publicHoliday": PUBLIC_HOLIDAY_CATEGORY in categories,
+        "observance": OBSERVANCE_CATEGORY in categories,
     }
 
 
@@ -1485,6 +1497,20 @@ def build_vevent(payload, existing=None):
     preserve_alarm = bool(payload.get("preserveAlarm")) and bool(existing)
     repeat = "" if preserve_repeat else validate_repeat(payload.get("repeat") or "")
     description = str(payload.get("memo") or "").strip()
+    categories_provided = "categories" in payload
+    categories = []
+    if categories_provided:
+        if not isinstance(payload.get("categories"), list):
+            raise ValueError("invalid_categories")
+        categories = sorted(
+            {
+                str(value or "").strip().upper()
+                for value in payload.get("categories", [])
+                if str(value or "").strip()
+            }
+        )
+        if any(not re.fullmatch(r"[A-Z0-9_-]{1,64}", value) for value in categories):
+            raise ValueError("invalid_categories")
 
     uid = str(payload.get("uid") or existing.get("UID") or uuid.uuid4()).upper()
     alarm_uid = str(uuid.uuid4()).upper()
@@ -1511,6 +1537,8 @@ def build_vevent(payload, existing=None):
         "EXDATE",
         "RECURRENCE-ID",
     }
+    if categories_provided:
+        rebuilt_properties.add("CATEGORIES")
     preserved_properties = [
         line
         for line in existing.get("_raw_properties", [])
@@ -1534,6 +1562,8 @@ def build_vevent(payload, existing=None):
     ]
     if description:
         lines.append(f"DESCRIPTION:{escape_ics(description)}")
+    if categories:
+        lines.append(f"CATEGORIES:{','.join(escape_ics(value) for value in categories)}")
 
     if all_day:
         start_compact = compact_date(start_date)
@@ -1664,6 +1694,8 @@ def update_event(payload, profile="main"):
         raise
     if existing.get("_unsafe_multiple") or existing.get("RECURRENCE-ID"):
         raise ValueError("event_requires_native_client")
+    if SYSTEM_EVENT_CATEGORY in item_categories(existing) or GOOGLE_HOLIDAY_CATEGORY in item_categories(existing):
+        raise ValueError("system_event_readonly")
     item_account = account_for_collection(collection)
     _, body = build_vevent(payload, existing)
     headers = {"Content-Type": "text/calendar; charset=utf-8"}
@@ -1680,6 +1712,11 @@ def delete_component(payload, profile, component):
     collection_id = str(payload.get("collectionId") or "").strip()
     collections = collections_for_profile(profile)
     collection, existing = find_component(collections, uid, component, collection_id)
+    if component == "VEVENT" and (
+        SYSTEM_EVENT_CATEGORY in item_categories(existing)
+        or GOOGLE_HOLIDAY_CATEGORY in item_categories(existing)
+    ):
+        raise ValueError("system_event_readonly")
     item_account = account_for_collection(collection)
     headers = {}
     if existing.get("etag"):
@@ -1704,6 +1741,94 @@ def delete_task(payload, profile="main"):
         if str(exc) == "vtodo_not_found":
             raise ValueError("task_not_found") from exc
         raise
+
+
+def item_categories(item):
+    return {part.strip().upper() for part in item.get("CATEGORIES", "").split(",") if part.strip()}
+
+
+def family_holiday_collection():
+    family_account = ACCOUNTS["family"]
+    if not family_account["configured"]:
+        raise ValueError("family_calendar_not_configured")
+    collections = [
+        collection
+        for collection in propfind_collections(family_account)
+        if not collection.get("components") or "VEVENT" in collection.get("components", [])
+    ]
+    for collection in collections:
+        if collection.get("name", "").casefold() == RADICALE_FAMILY_CALENDAR_NAME.casefold():
+            return collection
+    if len(collections) == 1:
+        return collections[0]
+    raise ValueError("family_holiday_calendar_not_found")
+
+
+def list_family_holidays():
+    collection = family_holiday_collection()
+    events = []
+    for item in report_collection(ACCOUNTS["family"], collection["href"]):
+        if item.get("component") != "VEVENT" or GOOGLE_HOLIDAY_CATEGORY not in item_categories(item):
+            continue
+        events.append(normalize_event(item, collection))
+    events.sort(key=lambda item: (item.get("startDate", ""), item.get("summary", ""), item.get("uid", "")))
+    return {"ok": True, "collection": collection, "items": events}
+
+
+def put_family_holiday(payload):
+    collection = family_holiday_collection()
+    uid = str(payload.get("uid") or "").strip().upper()
+    if not re.fullmatch(r"KAOS-HOLIDAY-[A-F0-9]{24}", uid):
+        raise ValueError("invalid_holiday_uid")
+    categories = {
+        str(value or "").strip().upper()
+        for value in payload.get("categories", [])
+        if str(value or "").strip()
+    }
+    if not {SYSTEM_EVENT_CATEGORY, GOOGLE_HOLIDAY_CATEGORY}.issubset(categories):
+        raise ValueError("invalid_holiday_categories")
+    if bool(PUBLIC_HOLIDAY_CATEGORY in categories) == bool(OBSERVANCE_CATEGORY in categories):
+        raise ValueError("invalid_holiday_classification")
+
+    existing = None
+    for item in report_collection(ACCOUNTS["family"], collection["href"]):
+        if item.get("component") == "VEVENT" and str(item.get("UID") or "").upper() == uid:
+            existing = item
+            break
+    event_payload = {
+        "uid": uid,
+        "title": payload.get("title"),
+        "memo": payload.get("memo") or "Google Korea Holidays",
+        "startDate": payload.get("startDate"),
+        "endDate": payload.get("endDate") or payload.get("startDate"),
+        "allDay": True,
+        "categories": sorted(categories),
+    }
+    _, body = build_vevent(event_payload, existing)
+    href = existing.get("href") if existing else urllib.parse.urljoin(collection["href"], f"{uid}.ics")
+    headers = {"Content-Type": "text/calendar; charset=utf-8"}
+    if existing and existing.get("etag"):
+        headers["If-Match"] = existing["etag"]
+    else:
+        headers["If-None-Match"] = "*"
+    radicale_request(ACCOUNTS["family"], "PUT", href, body, headers)
+    return {"ok": True, "uid": uid, "collection": collection["id"], "created": existing is None}
+
+
+def delete_family_holiday(payload):
+    collection = family_holiday_collection()
+    uid = str(payload.get("uid") or "").strip().upper()
+    if not uid:
+        raise ValueError("uid_required")
+    for item in report_collection(ACCOUNTS["family"], collection["href"]):
+        if item.get("component") != "VEVENT" or str(item.get("UID") or "").upper() != uid:
+            continue
+        if GOOGLE_HOLIDAY_CATEGORY not in item_categories(item):
+            raise ValueError("system_event_required")
+        headers = {"If-Match": item["etag"]} if item.get("etag") else {}
+        radicale_request(ACCOUNTS["family"], "DELETE", item["href"], "", headers)
+        return {"ok": True, "uid": uid, "deleted": True}
+    return {"ok": True, "uid": uid, "deleted": False}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1744,6 +1869,14 @@ class Handler(BaseHTTPRequestHandler):
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
             return
+        if path == "/internal/family/holidays":
+            try:
+                json_response(self, 200, list_family_holidays())
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         if path == "/api/weather/month":
             try:
                 json_response(self, 200, month_weather_payload(query))
@@ -1773,6 +1906,14 @@ class Handler(BaseHTTPRequestHandler):
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
             return
+        if path == "/internal/family/holidays":
+            try:
+                json_response(self, 200, put_family_holiday(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
+            return
         if path == "/api/calendar/events":
             try:
                 json_response(self, 200, update_event(read_json_request(self), profile))
@@ -1801,6 +1942,14 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 400, {"error": str(exc)})
             except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 json_response(self, 502, {"configured": system_configured(), "live": False, "error": type(exc).__name__})
+            return
+        if path == "/internal/family/holidays":
+            try:
+                json_response(self, 200, delete_family_holiday(read_json_request(self)))
+            except ValueError as exc:
+                json_response(self, 400, {"ok": False, "error": str(exc)})
+            except (ET.ParseError, urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                json_response(self, 502, {"ok": False, "error": type(exc).__name__})
             return
         if path == "/api/calendar/events":
             try:

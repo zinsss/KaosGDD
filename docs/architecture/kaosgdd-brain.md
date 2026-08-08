@@ -26,6 +26,7 @@ Brain owns those joins and calculations. It should not become a generic applicat
 | weather daily history | Kaos-owned Radicale `VJOURNAL` collection |
 | caregiver day records | Kaos-owned Radicale `VJOURNAL` collection |
 | caregiver monthly wage settings | Kaos-owned Radicale `VJOURNAL` collection |
+| Korean holidays and observances | Existing Family Radicale calendar, synchronized by Brain |
 | generated market/claim overlays | Brain-calculated, optionally written to Kaos-owned calendar collection |
 | documents | Paperless |
 | notes/knowledge | Wiki.js |
@@ -153,6 +154,17 @@ Task ordering rule:
 Brain should not depend on duplicate Apple order behavior. iOS may preserve client cache order for ties.
 
 ## Generated System Calendar
+
+Brain imports the current and next year from Google's public Korean calendar
+into the existing Family calendar. Imported VEVENTs use `KAOS-SYSTEM` and
+`KAOS-GOOGLE-HOLIDAY` categories plus exactly one classification category:
+
+- `KAOS-PUBLIC-HOLIDAY`: red day number, like Sunday
+- `KAOS-OBSERVANCE`: dim informational calendar entry
+
+Settings exposes the classification as a checkbox. A later source sync keeps
+the user's existing classification. These generated entries are not editable
+through the normal event form.
 
 Port the legacy rules:
 

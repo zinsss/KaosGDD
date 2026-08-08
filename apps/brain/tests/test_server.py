@@ -43,6 +43,37 @@ class BrainStatusTests(unittest.TestCase):
             server.require_family_profile({"Host": "kaosgdd.net"})
 
 
+class HolidayRequestTests(unittest.TestCase):
+    @mock.patch.object(server.holiday_service, "list_holidays")
+    def test_lists_holidays(self, list_holidays):
+        list_holidays.return_value = {"ok": True, "items": []}
+        handler = mock.Mock()
+        handler.path = "/api/holidays"
+        handler.headers = {"Host": "family.kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        list_holidays.assert_called_once_with()
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.holiday_service, "set_public_holiday")
+    def test_updates_public_holiday_classification(self, set_public_holiday):
+        uid = "KAOS-HOLIDAY-1234567890ABCDEF12345678"
+        set_public_holiday.return_value = {"ok": True, "item": {"uid": uid, "publicHoliday": True}}
+        body = json.dumps({"publicHoliday": True}).encode("utf-8")
+        handler = mock.Mock()
+        handler.path = f"/api/holidays/{uid}"
+        handler.headers = {"Host": "family.kaosgdd.net", "Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_PUT(handler)
+
+        set_public_holiday.assert_called_once_with(uid, True)
+        handler.send_response.assert_called_once_with(200)
+
+
 class RequestProxyTests(unittest.TestCase):
     def test_request_body_enforces_adapter_size_limit(self):
         valid = mock.Mock()

@@ -25,9 +25,9 @@ Brain:      http://100.94.208.16:8092
 PostgreSQL: private compose network only
 ```
 
-Brain remains mostly shadowed. Caddy routes only
-`family.kaosgdd.net/api/caregiver/*` to Brain; calendar and weather stay on the
-calendar adapter.
+Brain remains mostly shadowed. Caddy routes selected APIs, including
+`/api/caregiver/*` and `/api/holidays*`, to Brain; calendar and weather stay on
+the calendar adapter.
 
 ## Current Routes
 
@@ -48,7 +48,21 @@ GET /api/caregiver/month
 PUT /api/caregiver/day
 DELETE /api/caregiver/day
 PUT /api/caregiver/settings
+GET /api/holidays
+POST /api/holidays/sync
+PUT /api/holidays/{uid}
 ```
+
+Holiday sync is enabled with:
+
+```text
+HOLIDAY_SYNC_ENABLED=true
+HOLIDAY_SYNC_INTERVAL_SECONDS=86400
+GOOGLE_KOREA_HOLIDAY_ICAL_URL=https://calendar.google.com/calendar/ical/ko.south_korea%23holiday%40group.v.calendar.google.com/public/basic.ics
+```
+
+The calendar adapter must have `RADICALE_FAMILY_CALENDAR_NAME=Family`. The
+first sync writes current- and next-year entries into that existing collection.
 
 Later routes may include:
 
