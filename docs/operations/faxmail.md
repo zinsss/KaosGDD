@@ -164,13 +164,15 @@ FAX_NOTIFY_DELIVERY_FAILURE_ROOT=/integrations/hylafax/status/kaosgdd-faxmail/fa
 FAX_NOTIFY_MIN_FILE_AGE_SECONDS=60
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 NTFY_URL=
-NTFY_TOPIC_NORMAL=kaosgdd
+NTFY_TOPIC_IOS=kaosgdd-ios
+NTFY_TOPIC_DESKTOP=kaosgdd-desktop
 NTFY_TOPIC_SYSTEM=kaosgdd-system
 ```
 
 The minimum file age prevents notification while HylaFAX may still be writing
-the TIFF. Routine incoming-fax notices use `kaosgdd`; mailbox-delivery failures
-use `kaosgdd-system`. Check `/api/brain/status` under `faxmailNotifications` for enabled,
+the TIFF. Routine incoming-fax notices use both audience topics;
+mailbox-delivery failures use `kaosgdd-system`. Check `/api/brain/status` under
+`faxmailNotifications` for enabled,
 configured, lastError, failureCount, and minimumFileAgeSeconds.
 
 ## Verification

@@ -418,7 +418,8 @@ FAX_NOTIFY_PRIORITY=high
 FAX_NOTIFY_TAGS=fax,inbox
 FAX_NOTIFY_CLICK_URL=https://roundcube.kaosgdd.net/
 NTFY_URL=http://ntfy-host-or-ip
-NTFY_TOPIC_NORMAL=kaosgdd
+NTFY_TOPIC_IOS=kaosgdd-ios
+NTFY_TOPIC_DESKTOP=kaosgdd-desktop
 NTFY_TOPIC_SYSTEM=kaosgdd-system
 NTFY_TOKEN=
 ```
@@ -585,7 +586,8 @@ Brain ntfy does not notify:
 - Confirm Brain has `/var/spool/hylafax` mounted read-only at
   `/integrations/hylafax`.
 - Confirm `/data/faxmail` is writable.
-- Confirm `NTFY_URL`, `NTFY_TOPIC_NORMAL`, and `NTFY_TOPIC_SYSTEM`.
+- Confirm `NTFY_URL`, `NTFY_TOPIC_IOS`, `NTFY_TOPIC_DESKTOP`, and
+  `NTFY_TOPIC_SYSTEM`.
 - Check `/api/brain/status`.
 - If first-run marking is enabled, old faxes will not notify.
 

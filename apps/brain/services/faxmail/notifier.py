@@ -85,16 +85,38 @@ def mark_existing_on_first_run():
     }
 
 
-def ntfy_url(channel="normal"):
+def ntfy_urls(channel="normal"):
     raw_url = os.environ.get("NTFY_URL", "").strip().rstrip("/")
     fallback_topic = os.environ.get("NTFY_TOPIC", "").strip()
-    topic_variable = "NTFY_TOPIC_SYSTEM" if channel == "system" else "NTFY_TOPIC_NORMAL"
-    topic = (os.environ.get(topic_variable, "").strip() or fallback_topic).strip("/")
     if not raw_url:
-        return ""
-    if topic:
-        return f"{raw_url}/{urllib.parse.quote(topic)}"
-    return raw_url
+        return []
+
+    if channel == "system":
+        topics = [os.environ.get("NTFY_TOPIC_SYSTEM", "").strip()]
+    elif channel == "ios":
+        topics = [os.environ.get("NTFY_TOPIC_IOS", "").strip()]
+    elif channel == "desktop":
+        topics = [os.environ.get("NTFY_TOPIC_DESKTOP", "").strip()]
+    else:
+        topics = [
+            os.environ.get("NTFY_TOPIC_IOS", "").strip(),
+            os.environ.get("NTFY_TOPIC_DESKTOP", "").strip(),
+        ]
+        if not any(topics):
+            topics = [os.environ.get("NTFY_TOPIC_NORMAL", "").strip()]
+
+    topics = [topic.strip("/") for topic in topics if topic.strip("/")]
+    if not topics and fallback_topic:
+        topics = [fallback_topic.strip("/")]
+    return [
+        f"{raw_url}/{urllib.parse.quote(topic)}"
+        for topic in dict.fromkeys(topics)
+    ]
+
+
+def ntfy_url(channel="normal"):
+    urls = ntfy_urls(channel)
+    return urls[0] if urls else ""
 
 
 def load_state(path=None):
@@ -222,8 +244,8 @@ def scan_delivery_failures(root=None):
 
 
 def notify_ntfy(event, opener=None):
-    url = ntfy_url("normal")
-    if not url:
+    urls = ntfy_urls("normal")
+    if not urls:
         raise RuntimeError("ntfy_not_configured")
     title = os.environ.get("FAX_NOTIFY_TITLE", "Incoming fax").strip() or "Incoming fax"
     topic_click = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
@@ -235,26 +257,27 @@ def notify_ntfy(event, opener=None):
         body_lines.append(f"Pages: {event.pages}")
     if event.commid:
         body_lines.append(f"CommID: {event.commid}")
-    request = urllib.request.Request(
-        url,
-        data="\n".join(body_lines).encode("utf-8"),
-        method="POST",
-        headers={
-            "Title": title,
-            "Priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
-            "Tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
-            "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
-        },
-    )
-    if topic_click:
-        request.add_header("Click", topic_click)
     token = os.environ.get("NTFY_TOKEN", "").strip()
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
     timeout = float(os.environ.get("NTFY_TIMEOUT_SECONDS", "10"))
     opener = opener or urllib.request.urlopen
-    with opener(request, timeout=timeout) as response:
-        response.read()
+    for url in urls:
+        request = urllib.request.Request(
+            url,
+            data="\n".join(body_lines).encode("utf-8"),
+            method="POST",
+            headers={
+                "Title": title,
+                "Priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
+                "Tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
+                "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
+            },
+        )
+        if topic_click:
+            request.add_header("Click", topic_click)
+        if token:
+            request.add_header("Authorization", f"Bearer {token}")
+        with opener(request, timeout=timeout) as response:
+            response.read()
 
 
 def notify_delivery_failure(failure, opener=None):
@@ -357,12 +380,12 @@ def status():
     return {
         "ok": (not enabled())
         or (
-            bool(ntfy_url("normal"))
+            bool(ntfy_urls("normal"))
             and bool(ntfy_url("system"))
             and int(worker["failureCount"]) == 0
         ),
         "enabled": enabled(),
-        "configured": bool(ntfy_url("normal")) and bool(ntfy_url("system")),
+        "configured": bool(ntfy_urls("normal")) and bool(ntfy_url("system")),
         "recvq": str(recvq_root()),
         "xferfaxlog": str(xferfaxlog_path()),
         "statePath": str(state_path()),

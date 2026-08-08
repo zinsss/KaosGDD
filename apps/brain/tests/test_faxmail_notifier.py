@@ -63,7 +63,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
+                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                     "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
@@ -113,7 +114,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_STATE_PATH": str(state),
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
+                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                     "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
@@ -126,7 +128,10 @@ class FaxmailNotifierTests(unittest.TestCase):
 
         self.assertEqual(sent, 1)
         self.assertEqual(len(payload["known"]), 1)
-        self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd")
+        self.assertEqual(
+            [request.full_url for request, _timeout in requests],
+            ["http://ntfy/kaosgdd-ios", "http://ntfy/kaosgdd-desktop"],
+        )
         self.assertIn(b"fax000000002.tif", requests[0][0].data)
 
     def test_recent_fax_waits_until_stable_age(self):
@@ -189,7 +194,8 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(failures),
                     "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_NORMAL": "kaosgdd",
+                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
+                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                     "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
@@ -211,6 +217,8 @@ class FaxmailNotifierTests(unittest.TestCase):
             {
                 "NTFY_URL": "http://ntfy",
                 "NTFY_TOPIC": "legacy-topic",
+                "NTFY_TOPIC_IOS": "",
+                "NTFY_TOPIC_DESKTOP": "",
                 "NTFY_TOPIC_NORMAL": "",
                 "NTFY_TOPIC_SYSTEM": "",
             },
@@ -218,6 +226,18 @@ class FaxmailNotifierTests(unittest.TestCase):
         ):
             self.assertEqual(notifier.ntfy_url("normal"), "http://ntfy/legacy-topic")
             self.assertEqual(notifier.ntfy_url("system"), "http://ntfy/legacy-topic")
+
+    def test_duplicate_audience_topic_is_published_once(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "NTFY_URL": "http://ntfy",
+                "NTFY_TOPIC_IOS": "kaosgdd-shared",
+                "NTFY_TOPIC_DESKTOP": "kaosgdd-shared",
+            },
+            clear=False,
+        ):
+            self.assertEqual(notifier.ntfy_urls("normal"), ["http://ntfy/kaosgdd-shared"])
 
     def test_unreadable_delivery_failure_directory_does_not_stop_scan(self):
         with mock.patch.object(pathlib.Path, "is_dir", return_value=True), mock.patch.object(
