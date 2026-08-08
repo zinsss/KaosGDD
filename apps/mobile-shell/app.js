@@ -2860,7 +2860,7 @@ function familyAgendaDateLabel(dateValue) {
 }
 
 function familyAgendaEventTime(event) {
-  if (event.allDay) return uiText("event.allDayPill", "All Day");
+  if (event.allDay) return "";
   const start = event.startTime || event.time || "";
   return start && event.endTime ? `${start} - ${event.endTime}` : start;
 }
@@ -2883,10 +2883,11 @@ function renderFamilyAgendaMixedRow(item) {
   if (item.kind === "event") {
     const event = item.event;
     const eventLabel = uiText("agenda.eventMarker", "Event");
+    const timeLabel = event.allDay ? "" : familyAgendaEventTime(event);
     return `
-      <li class="familyAgendaMixedRow isEvent">
+      <li class="familyAgendaMixedRow isEvent ${timeLabel ? "hasTime" : "isTimeless"}">
         <span class="familyAgendaEntryControl familyAgendaEventMarker" role="img" aria-label="${escapeHtml(eventLabel)}" title="${escapeHtml(eventLabel)}">&#xEAB0;</span>
-        <time class="familyAgendaMixedTime ${event.allDay ? "isAllDay" : ""}">${escapeHtml(familyAgendaEventTime(event))}</time>
+        ${timeLabel ? `<time class="familyAgendaMixedTime">${escapeHtml(timeLabel)}</time>` : ""}
         <a class="familyAgendaMixedLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
           <strong>${escapeHtml(event.title)}</strong>
           ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
@@ -2897,9 +2898,9 @@ function renderFamilyAgendaMixedRow(item) {
   }
   const task = item.task;
   return `
-    <li class="familyAgendaMixedRow isTask ${task.priorityLabel ? `priority${task.priorityLabel}` : ""}" data-task-id="${escapeHtml(task.id)}">
+    <li class="familyAgendaMixedRow isTask ${task.dueTime ? "hasTime" : "isTimeless"} ${task.priorityLabel ? `priority${task.priorityLabel}` : ""}" data-task-id="${escapeHtml(task.id)}">
       <button class="checkButton familyAgendaEntryControl" type="button" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(task.title)}"></button>
-      <time class="familyAgendaMixedTime">${escapeHtml(task.dueTime || "")}</time>
+      ${task.dueTime ? `<time class="familyAgendaMixedTime">${escapeHtml(task.dueTime)}</time>` : ""}
       <a class="familyAgendaMixedLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
         <span class="taskTitleRow">
           <strong>${escapeHtml(task.title)}</strong>

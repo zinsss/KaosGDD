@@ -778,13 +778,17 @@ h3 {
 
 .familyAgendaMixedRow {
   display: grid;
-  grid-template-columns: 22px 102px minmax(0, 1fr) 28px;
+  grid-template-columns: 22px minmax(0, 1fr) 28px;
   align-items: center;
   gap: 7px;
   min-height: 42px;
   padding: 6px 0;
   border-bottom: 1px dotted var(--line);
   min-width: 0;
+}
+
+.familyAgendaMixedRow.hasTime {
+  grid-template-columns: 22px 102px minmax(0, 1fr) 28px;
 }
 
 .familyAgendaMixedRow:last-child {
@@ -801,9 +805,6 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(180, 142, 173, 0.45);
-  border-radius: 5px;
-  background: rgba(180, 142, 173, 0.1);
   color: #9b5f8f;
   font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
   font-size: 0.78rem;
@@ -815,16 +816,6 @@ h3 {
   font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.familyAgendaMixedTime.isAllDay {
-  width: fit-content;
-  padding: 2px 7px;
-  border: 1px solid rgba(180, 142, 173, 0.45);
-  border-radius: 999px;
-  color: #9b5f8f;
-  font-size: 0.68rem;
-  line-height: 1.15;
 }
 
 .familyAgendaMixedLink {
