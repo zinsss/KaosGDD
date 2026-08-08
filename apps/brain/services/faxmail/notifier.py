@@ -241,6 +241,7 @@ def notify_ntfy(event, opener=None):
             "Title": title,
             "Priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
             "Tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
+            "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
         },
     )
     if topic_click:
@@ -274,6 +275,7 @@ def notify_delivery_failure(failure, opener=None):
             "Title": os.environ.get("FAX_NOTIFY_FAILURE_TITLE", "Fax mailbox delivery failed"),
             "Priority": "urgent",
             "Tags": "warning,fax,inbox",
+            "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
         },
     )
     click_url = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
