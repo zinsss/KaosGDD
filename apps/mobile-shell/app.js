@@ -3268,21 +3268,13 @@ function renderToday() {
       </section>
       <section class="panel">
         <div class="panelHeader">
-          <div>
-            <p class="label">Agenda</p>
-            <h2>Next 7 days</h2>
-          </div>
-          <a class="openButton" href="#/calendar">Open</a>
+          <h2>Agenda</h2>
         </div>
         <div class="panelBody">${renderFamilyAgendaMixedList(events, [])}</div>
       </section>
       <section class="panel">
         <div class="panelHeader">
-          <div>
-            <p class="label">Tasks</p>
-            <h2>Next 7 days + repeating</h2>
-          </div>
-          <a class="openButton" href="#/tasks">Open</a>
+          <h2>Tasks</h2>
         </div>
         <div class="panelBody">${renderTaskRows(tasks)}</div>
       </section>
