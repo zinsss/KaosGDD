@@ -2882,9 +2882,10 @@ function familyAgendaMixedItems(events, tasks) {
 function renderFamilyAgendaMixedRow(item) {
   if (item.kind === "event") {
     const event = item.event;
+    const eventLabel = uiText("agenda.eventMarker", "Event");
     return `
       <li class="familyAgendaMixedRow isEvent">
-        <span class="familyAgendaEntryControl" aria-hidden="true"></span>
+        <span class="familyAgendaEntryControl familyAgendaEventMarker" role="img" aria-label="${escapeHtml(eventLabel)}" title="${escapeHtml(eventLabel)}">&#xEAB0;</span>
         <time class="familyAgendaMixedTime ${event.allDay ? "isAllDay" : ""}">${escapeHtml(familyAgendaEventTime(event))}</time>
         <a class="familyAgendaMixedLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
           <strong>${escapeHtml(event.title)}</strong>
@@ -2911,6 +2912,12 @@ function renderFamilyAgendaMixedRow(item) {
   `;
 }
 
+function renderFamilyAgendaDateWeather(date) {
+  const weather = weatherForDate(date);
+  if (!weather) return "";
+  return `<span class="familyAgendaDateWeather"><b>${escapeHtml(weatherGlyph(weather))}</b> ${escapeHtml(tempRange(weather))}</span>`;
+}
+
 function renderFamilyAgendaMixedList(events, tasks) {
   const items = familyAgendaMixedItems(events, tasks);
   if (!items.length) return `<p class="taskMeta">${uiText("agenda.noUpcomingItems", "No upcoming items")}</p>`;
@@ -2921,7 +2928,10 @@ function renderFamilyAgendaMixedList(events, tasks) {
   }, {});
   return Object.keys(groups).sort().map((date) => `
     <section class="familyAgendaDateGroup">
-      <h3>${escapeHtml(`${date} ${familyAgendaDateLabel(date).split(" ").slice(-1)[0]}`)}</h3>
+      <h3>
+        <span>${escapeHtml(`${date} ${familyAgendaDateLabel(date).split(" ").slice(-1)[0]}`)}</span>
+        ${renderFamilyAgendaDateWeather(date)}
+      </h3>
       <ul class="familyAgendaMixedList">
         ${groups[date].map(renderFamilyAgendaMixedRow).join("")}
       </ul>
@@ -2971,12 +2981,11 @@ function renderFamilyAgendaRouny(now = new Date()) {
   `;
 }
 
-function renderFamilyAgendaSection(title, href, body) {
+function renderFamilyAgendaSection(title, body) {
   return `
     <section class="panel familyAgendaSection">
       <div class="panelHeader">
         <h2>${escapeHtml(title)}</h2>
-        <a class="openButton" href="${escapeHtml(href)}">${uiText("common.open", "Open")}</a>
       </div>
       <div class="panelBody">${body}</div>
     </section>
@@ -3025,7 +3034,7 @@ function renderFamilyAgenda() {
         </div>
       </section>
       ${renderFamilyAgendaUpcoming(events, upcomingTasks)}
-      ${renderFamilyAgendaSection(uiText("agenda.otherTasks", "Other tasks"), "#/tasks", renderTaskRows(otherTasks))}
+      ${renderFamilyAgendaSection(uiText("agenda.otherTasks", "Other tasks"), renderTaskRows(otherTasks))}
       ${renderFamilyAgendaRouny()}
     </div>
   `;

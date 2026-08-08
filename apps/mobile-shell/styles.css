@@ -741,11 +741,32 @@ h3 {
 }
 
 .familyAgendaDateGroup h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 4px;
   color: #7f6aa6;
   font-size: 0.8rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.familyAgendaDateWeather {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dim);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.familyAgendaDateWeather b {
+  color: var(--text);
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 .familyAgendaMixedList {
@@ -774,6 +795,19 @@ h3 {
   width: 22px;
   height: 22px;
   margin: 0;
+}
+
+.familyAgendaEventMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(180, 142, 173, 0.45);
+  border-radius: 5px;
+  background: rgba(180, 142, 173, 0.1);
+  color: #9b5f8f;
+  font-family: "Kaos Weather Icons", "Symbols Nerd Font", "Nerd Font Symbols", monospace;
+  font-size: 0.78rem;
+  line-height: 1;
 }
 
 .familyAgendaMixedTime {
