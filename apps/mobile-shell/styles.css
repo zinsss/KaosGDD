@@ -419,6 +419,10 @@ h3 {
   font-weight: 720;
 }
 
+.ledgerEditorFields > label:first-child {
+  width: min(100%, 220px);
+}
+
 .ledgerEditorFields input,
 .ledgerEditorFields select,
 .ledgerTable input,
