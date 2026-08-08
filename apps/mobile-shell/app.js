@@ -3047,12 +3047,16 @@ function renderFamilyAgenda() {
 
 function renderToday() {
   if (portalProfile() === "family") return renderFamilyAgenda();
-  const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
-  const tasks = mockAdapter
-    .getTasks()
-    .filter((task) => task.mode === "inbox" || task.due === state.selectedDate)
-    .slice(0, 4);
-  const weather = weatherForDate(state.selectedDate);
+  const today = ymd(new Date());
+  state.selectedDate = today;
+  const endDate = addDaysToDateValue(today, 6);
+  const events = mockAdapter.getEvents()
+    .filter((event) => event.date >= today && event.date <= endDate)
+    .sort(sortByDateTime);
+  const tasks = mockAdapter.getTasks()
+    .filter((task) => !task.done && task.due && task.due >= today && task.due <= endDate)
+    .sort(compareTasksByDue);
+  const weather = weatherForDate(today);
   const weatherSummary = [weather?.cityName || weatherLocationLabel(), tempRange(weather)]
     .filter(Boolean)
     .join(" ");
@@ -3064,7 +3068,7 @@ function renderToday() {
           <div>
             <p class="label">Overview</p>
             <h2>
-              ${escapeHtml(compactDateLabel(state.selectedDate))} · ${escapeHtml(weatherSummary)}
+              ${escapeHtml(compactDateLabel(today))} · ${escapeHtml(weatherSummary)}
               ${weather ? `<span class="overviewWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
             </h2>
           </div>
@@ -3081,17 +3085,17 @@ function renderToday() {
         <div class="panelHeader">
           <div>
             <p class="label">Agenda</p>
-            <h2>Selected day</h2>
+            <h2>Next 7 days</h2>
           </div>
           <a class="openButton" href="#/calendar">Open</a>
         </div>
-        ${renderTimeline(events)}
+        <div class="panelBody">${renderFamilyAgendaMixedList(events, [])}</div>
       </section>
       <section class="panel">
         <div class="panelHeader">
           <div>
             <p class="label">Tasks</p>
-            <h2>Work queue</h2>
+            <h2>Next 7 days</h2>
           </div>
           <a class="openButton" href="#/tasks">Open</a>
         </div>
