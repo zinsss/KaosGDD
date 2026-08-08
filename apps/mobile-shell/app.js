@@ -108,6 +108,7 @@ const profileConfigs = {
       { route: "today", label: "Today" },
       { route: "calendar", label: "Calendar" },
       { route: "tasks", label: "Tasks" },
+      { route: "memos", label: "Memos" },
       { route: "services", label: "Utils" },
       { route: "settings", label: "Settings" },
     ],
@@ -469,7 +470,6 @@ const mockAdapter = {
     return [
       { name: "Paperless", type: "Documents", href: "https://paperless.kaosgdd.net", meta: "Authoritative document archive" },
       { name: "Wiki.js", type: "Knowledge", href: "https://wiki.kaosgdd.net", meta: "Notes and clinic knowledge" },
-      { name: "Memos", type: "Capture", href: "https://memos.kaosgdd.net", meta: "Lightweight memo capture" },
       { name: "SFTPGo", type: "Files", href: "https://files.kaosgdd.net", meta: "Managed file access" },
       { name: "Radicale", type: "Calendar", href: "https://calendar.kaosgdd.net", meta: "Calendar backend candidate" },
       { name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault" },
@@ -2063,7 +2063,7 @@ function getRoute() {
   if (!routes[route]) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && route === "services") return profileConfig().defaultRoute;
   if (portalProfile() === "family" && route === "supplies") return profileConfig().defaultRoute;
-  if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver" || route === "ledger")) return profileConfig().defaultRoute;
+  if (portalProfile() === "main" && (route === "rouny" || route === "caregiver" || route === "ledger")) return profileConfig().defaultRoute;
   return route;
 }
 
@@ -5031,31 +5031,15 @@ function renderLedger() {
   `;
 }
 
-  if (portalProfile() === "family") {
-    return `
-      <section class="familyMemosWorkspace">
-        <iframe
-          class="familyMemosFrame"
-          src="/memos-app/"
-          title="${escapeHtml(uiText("memos.label", "Memos"))}"
-          allow="clipboard-read; clipboard-write"
-          referrerpolicy="strict-origin-when-cross-origin"
-        ></iframe>
-      </section>
-    `;
-  }
   return `
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <p class="label">${uiText("memos.label", "Memos")}</p>
-          <h2>${uiText("memos.label", "Notes")}</h2>
-        </div>
-        <a class="openButton" href="${escapeHtml(MEMOS_URL)}">${uiText("common.open", "Open")}</a>
-      </div>
-      <div class="panelBody">
-        <p class="taskMeta">${uiText("memos.description", "Memos opens as its own service with its own login.")}</p>
-      </div>
+    <section class="memosWorkspace">
+      <iframe
+        class="memosFrame"
+        src="/memos-app/"
+        title="${escapeHtml(uiText("memos.label", "Memos"))}"
+        allow="clipboard-read; clipboard-write"
+        referrerpolicy="strict-origin-when-cross-origin"
+      ></iframe>
     </section>
   `;
 }

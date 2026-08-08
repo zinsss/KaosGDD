@@ -39,6 +39,7 @@ One `kaosgdd-memos-web` image runs twice:
 
 ```text
 memos.kaosgdd.net/app/          -> personal frontend -> Memos API
+kaosgdd.net/memos-app/          -> embedded personal frontend -> Memos API
 family.kaosgdd.net/memos-app/   -> family frontend   -> Memos API
 ```
 
@@ -51,6 +52,10 @@ Both hosts proxy `/api/v1/*` to the same Memos service. Memos sets
 no `Domain`. Browser cookie scoping therefore isolates personal and Family
 sessions. The custom frontend holds the 15-minute access token in memory only.
 No password, personal access token, or refresh token is stored in JavaScript.
+
+The embedded personal frontend uses the main host's `/memos-app/` and
+`/api/v1/*` routes so Cloudflare Access is not nested inside an iframe. Its
+host-only Memos session is separate from a direct `memos.kaosgdd.net` session.
 
 Cloudflare Access remains the outer user gate. Memos authentication remains the
 inner account boundary and selects the canonical personal or Family account.
