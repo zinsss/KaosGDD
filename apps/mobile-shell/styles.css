@@ -359,6 +359,12 @@ h3 {
   gap: 8px;
 }
 
+.ledgerToolbarActions .openButton,
+.ledgerToolbarActions .primaryButton {
+  height: 38px;
+  min-height: 38px;
+}
+
 .app[data-profile="family"] .ledgerToolbar [data-ledger-add] {
   border-color: #9b5f8f;
   background: #9b5f8f;
