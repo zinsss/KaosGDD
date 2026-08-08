@@ -152,9 +152,12 @@
 
 html,
 body {
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -162,7 +165,6 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.4;
-  width: 100%;
 }
 
 body:has(.app[data-profile="family"]) {
@@ -204,15 +206,15 @@ svg {
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   max-width: 560px;
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
   padding: 0 12px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .appTop {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 10;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -309,7 +311,10 @@ h3 {
   max-width: 100%;
   min-height: 0;
   padding: 14px 0 40px;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
   outline: none;
 }
 
@@ -529,25 +534,25 @@ h3 {
 
 @media (max-width: 560px) {
   .ledgerCustomRange {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: end;
-    gap: 5px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 6px;
     padding: 7px;
   }
 
   .ledgerCustomRange label {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 3px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
   }
 
   .ledgerCustomRange label span {
-    padding-left: 2px;
+    padding: 0;
+    text-align: left;
   }
 
   .ledgerCustomRange > span {
-    align-self: end;
-    padding-bottom: 9px;
+    display: none;
   }
 
   .ledgerCustomRange input {
