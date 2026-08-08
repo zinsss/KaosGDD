@@ -572,6 +572,14 @@ function renderCollectionPill(item) {
   return `<span class="calendarPill is-${escapeHtml(pill.ownerClass)}">${escapeHtml(pill.label)}</span>`;
 }
 
+function renderAutomationPill(kind) {
+  const labels = {
+    brain: uiText("badge.brain", "Brain"),
+    repeating: uiText("badge.repeating", "Repeating"),
+  };
+  return `<span class="calendarPill is-${escapeHtml(kind)}">${escapeHtml(labels[kind] || kind)}</span>`;
+}
+
 function filterByCollectionView(items, viewId) {
   const view = collectionViews().find((collection) => collection.id === viewId) || collectionViews()[0];
   if (view.id === "all") return items;
@@ -2565,12 +2573,14 @@ function renderTimeline(events, emptyText = uiText("common.noItems", "No items")
           .map((event) => {
             const timeLabel = event.allDay ? uiText("event.allDayPill", "All Day") : event.time;
             const holidayClass = isPublicHolidayEvent(event) ? "isPublicHoliday" : isObservanceEvent(event) ? "isObservance" : "";
+            const generated = isGeneratedCalendarEvent(event);
             const content = `
               <span class="timelineTitleRow">
                 <strong>${escapeHtml(event.title)}</strong>
                 ${renderCollectionPill(event)}
+                ${generated ? renderAutomationPill("brain") : ""}
               </span>
-              ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+              ${!generated && event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
             `;
             return `
               <li class="${holidayClass}">
@@ -2605,6 +2615,7 @@ function renderTaskRows(tasks) {
                   <span class="taskTitleRow">
                     <p class="taskTitle">${escapeHtml(task.title)}</p>
                     ${renderCollectionPill(task)}
+                    ${isRecurringTask(task) ? renderAutomationPill("repeating") : ""}
                   </span>
                   <span class="taskMeta">${escapeHtml(task.meta)}</span>
                 </a>
@@ -3068,9 +3079,13 @@ function renderFamilyAgendaMixedRow(item) {
     const eventLabel = uiText("agenda.eventMarker", "Event");
     const timeLabel = event.allDay ? "" : familyAgendaEventTime(event);
     const holidayClass = isPublicHolidayEvent(event) ? "isPublicHoliday" : isObservanceEvent(event) ? "isObservance" : "";
+    const generated = isGeneratedCalendarEvent(event);
     const content = `
-      <strong>${escapeHtml(event.title)}</strong>
-      ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+      <span class="taskTitleRow">
+        <strong>${escapeHtml(event.title)}</strong>
+        ${generated ? renderAutomationPill("brain") : ""}
+      </span>
+      ${!generated && event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
     `;
     return `
       <li class="familyAgendaMixedRow isEvent ${timeLabel ? "hasTime" : "isTimeless"} ${holidayClass}">

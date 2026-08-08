@@ -1492,6 +1492,18 @@ h3 {
   color: #d98ab6;
 }
 
+.calendarPill.is-brain {
+  border-color: rgba(208, 135, 112, 0.52);
+  background: rgba(208, 135, 112, 0.16);
+  color: var(--nord12);
+}
+
+.calendarPill.is-repeating {
+  border-color: rgba(163, 190, 140, 0.52);
+  background: rgba(163, 190, 140, 0.16);
+  color: var(--nord14);
+}
+
 .calendarGrid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
