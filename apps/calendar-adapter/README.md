@@ -16,6 +16,12 @@ GET /internal/system/caregiver?month=YYYY-MM
 PUT /internal/system/caregiver/day
 DELETE /internal/system/caregiver/day
 PUT /internal/system/caregiver/settings
+GET /internal/family/holidays
+PUT /internal/family/holidays
+DELETE /internal/family/holidays
+GET /internal/zin/generated-events
+PUT /internal/zin/generated-events
+DELETE /internal/zin/generated-events
 ```
 
 The adapter talks to Radicale through CalDAV HTTP. It does not read Radicale files or access databases directly.
@@ -48,6 +54,8 @@ RADICALE_FAMILY_USERNAME=
 RADICALE_FAMILY_PASSWORD=
 RADICALE_WIFE_USERNAME=
 RADICALE_WIFE_PASSWORD=
+RADICALE_FAMILY_CALENDAR_NAME=Family
+RADICALE_GDD_CALENDAR_NAME=Kaos_Calendar
 KAOSGDD_ADAPTER_TIMEOUT_SECONDS=30
 ```
 
@@ -67,6 +75,12 @@ family.kaosgdd.net
 
 The system/brain Radicale account is not exposed through the browser calendar API.
 Human accounts are discovered by account and component type, not fixed collection names.
+
+The two internal system-event contracts use explicit collection names because
+they must never write to an arbitrary human collection. Holiday operations are
+limited to Google holiday events in `Family`. Generated Market Day and Claim
+Day operations are limited to `KAOS-SYSTEM` + `KAOS-GENERATED-CALENDAR` events
+in `Kaos_Calendar`. These internal paths are not routed publicly.
 
 ## System Logs
 

@@ -64,6 +64,17 @@ GOOGLE_KOREA_HOLIDAY_ICAL_URL=https://calendar.google.com/calendar/ical/ko.south
 The calendar adapter must have `RADICALE_FAMILY_CALENDAR_NAME=Family`. The
 first sync writes current- and next-year entries into that existing collection.
 
+Generated Market Day and Claim Day events use:
+
+```text
+GENERATED_CALENDAR_SYNC_ENABLED=true
+GENERATED_CALENDAR_SYNC_INTERVAL_SECONDS=86400
+```
+
+The adapter must also have
+`RADICALE_GDD_CALENDAR_NAME=Kaos_Calendar`. Brain migration `008` stores only
+the two display controls. Generated VEVENT content remains in Radicale.
+
 Later routes may include:
 
 ```text

@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned after the Korean public-holiday sync.
+Implemented and deployed on 2026-08-08.
 
 The public-holiday foundation is already live:
 
@@ -13,6 +13,12 @@ The public-holiday foundation is already live:
 - Manual classification survives later source synchronization.
 
 This document covers the remaining Market Day and Claim Day behavior.
+
+The deployed implementation uses Brain migration `008`, the main-only
+`/api/custom-events` endpoint, and guarded internal adapter operations at
+`/internal/zin/generated-events`. The live personal collection is named
+`Kaos_Calendar` under the `GDD_ZiN` account; the adapter name remains
+configurable with `RADICALE_GDD_CALENDAR_NAME`.
 
 ## Ownership
 
@@ -51,7 +57,7 @@ KAOS-MARKET-DAY
 KAOS-MARKET-SATURDAY    # added only when the date is Saturday
 ```
 
-Use a stable UID derived from the date, for example:
+Use a stable UID derived from the date:
 
 ```text
 KAOS-MARKET-2026-08-10
@@ -84,14 +90,14 @@ Market Sat and Friday are public holidays -> move backward to Thursday
 Friday marked as public holiday           -> move backward to Thursday
 ```
 
-Suggested CalDAV categories:
+CalDAV categories:
 
 ```text
 KAOS-SYSTEM
 KAOS-CLAIM-DAY
 ```
 
-Use a stable UID based on the Friday that owns the weekly calculation, not only
+The stable UID is based on the Friday that owns the weekly calculation, not only
 the final shifted date. This lets Brain move an existing event instead of
 creating a duplicate when holiday classification changes.
 
@@ -197,16 +203,16 @@ If added later, it must be a normal standard `VTODO`, deduplicated by stable UID
 and compatible with iOS Reminders. Its due time and alarm policy require a
 separate explicit decision.
 
-## Implementation Order
+## Implemented Flow
 
-1. Add pure date-calculation functions with legacy parity tests.
-2. Extend the adapter with internal `GDD_ZiN` generated-event CRUD.
-3. Add Brain's idempotent current/next-year synchronization.
-4. Trigger recalculation after holiday sync and classification changes.
-5. Add the main Settings **Custom Events** controls.
-6. Add Market Day blue-dot rendering without changing event counts.
-7. Add read-only selected-day context.
-8. Deploy beside the existing calendar path and verify one full month.
+1. Pure date-calculation functions preserve the legacy rules.
+2. The adapter limits generated-event CRUD to tagged system events in the
+   configured personal VEVENT collection.
+3. Brain synchronizes the current and next year idempotently.
+4. Holiday imports and classification changes trigger immediate recalculation.
+5. Main Settings exposes **Custom Events** controls; Family has no write route.
+6. Market Day uses a blue month-cell dot and is excluded from event counts.
+7. Generated events are standard read-only VEVENT context in selected-day views.
 
 ## Required Tests
 

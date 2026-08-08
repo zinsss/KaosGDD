@@ -74,6 +74,39 @@ class HolidayRequestTests(unittest.TestCase):
         handler.send_response.assert_called_once_with(200)
 
 
+class CustomEventRequestTests(unittest.TestCase):
+    @mock.patch.object(server.generated_calendar_service, "settings_payload")
+    def test_settings_are_main_only(self, settings_payload):
+        settings_payload.return_value = {"ok": True, "settings": {}}
+        handler = mock.Mock()
+        handler.path = "/api/custom-events"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        settings_payload.assert_called_once_with()
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.generated_calendar_service, "sync_generated_calendar")
+    @mock.patch.object(server.generated_calendar_service, "update_settings")
+    def test_update_persists_then_synchronizes(self, update_settings, sync_generated_calendar):
+        update_settings.return_value = {"marketDaysEnabled": False, "claimDayEnabled": True}
+        sync_generated_calendar.return_value = {"ok": True, "total": 52}
+        body = json.dumps({"marketDaysEnabled": False, "claimDayEnabled": True}).encode("utf-8")
+        handler = mock.Mock()
+        handler.path = "/api/custom-events"
+        handler.headers = {"Host": "kaosgdd.net", "Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_PUT(handler)
+
+        update_settings.assert_called_once_with({"marketDaysEnabled": False, "claimDayEnabled": True})
+        sync_generated_calendar.assert_called_once_with()
+        handler.send_response.assert_called_once_with(200)
+
+
 class RequestProxyTests(unittest.TestCase):
     def test_request_body_enforces_adapter_size_limit(self):
         valid = mock.Mock()

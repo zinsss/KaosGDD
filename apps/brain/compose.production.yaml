@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.5.1
+    image: kaosgdd-brain:0.10.0-custom-events1
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -29,12 +29,14 @@ services:
         format: raw
     environment:
       BRAIN_PORT: "8092"
-      BRAIN_VERSION: "0.5.1"
+      BRAIN_VERSION: "0.10.0-custom-events1"
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
       HOLIDAY_SYNC_ENABLED: "true"
       HOLIDAY_SYNC_INTERVAL_SECONDS: "86400"
+      GENERATED_CALENDAR_SYNC_ENABLED: "true"
+      GENERATED_CALENDAR_SYNC_INTERVAL_SECONDS: "86400"
       FAX_NOTIFY_RECVQ: "/integrations/hylafax/recvq"
       FAX_NOTIFY_XFERFAXLOG: "/integrations/hylafax/log/xferfaxlog"
       FAX_NOTIFY_STATE_PATH: "/data/faxmail/notified-recvq.json"

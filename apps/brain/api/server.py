@@ -26,6 +26,7 @@ from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_do
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
 from services.system_calendar import holidays as holiday_service
+from services.system_calendar import generated as generated_calendar_service
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
@@ -73,6 +74,7 @@ def brain_status(headers):
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
             "holidaySync": holiday_service.status(),
+            "generatedCalendar": generated_calendar_service.status(),
         },
     }
 
@@ -100,6 +102,11 @@ def json_request(handler):
 def require_family_profile(headers):
     if portal_host(headers) != "family.kaosgdd.net":
         raise ValueError("family_profile_required")
+
+
+def require_main_profile(headers):
+    if portal_host(headers) != "kaosgdd.net":
+        raise ValueError("main_profile_required")
 
 
 def request_actor(headers):
@@ -227,6 +234,17 @@ def proxy_memos(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/custom-events":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, generated_calendar_service.settings_payload())
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Custom event settings read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "custom_event_settings_unavailable"})
+            return
+
         if parsed.path == "/api/holidays":
             try:
                 json_response(self, 200, holiday_service.list_holidays())
@@ -355,6 +373,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/custom-events/sync":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, generated_calendar_service.sync_generated_calendar())
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            return
+
         if path == "/api/holidays/sync":
             try:
                 json_response(self, 200, holiday_service.sync_holidays())
@@ -476,6 +504,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/custom-events":
+            try:
+                require_main_profile(self.headers)
+                settings = generated_calendar_service.update_settings(json_request(self))
+                sync = generated_calendar_service.sync_generated_calendar()
+                json_response(self, 200, {"ok": True, "settings": settings, "sync": sync})
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc) or type(exc).__name__})
+            except Exception as exc:
+                print(f"Custom event settings update failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "custom_event_settings_unavailable"})
+            return
+
         holiday_uid = re_match_holiday(path)
         if holiday_uid:
             try:
@@ -725,10 +768,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     wait_for_database_and_migrate(MIGRATIONS)
+    holiday_service.set_after_change_callback(generated_calendar_service.sync_generated_calendar)
     ledger_service.start_backup_scheduler()
     recurring_task_service.start_scheduler()
     faxmail_notifier.start_scheduler()
     holiday_service.start_scheduler()
+    generated_calendar_service.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"KaosGDD Brain {VERSION} listening on {PORT} in shadow mode", flush=True)
     server.serve_forever()

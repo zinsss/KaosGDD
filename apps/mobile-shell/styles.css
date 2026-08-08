@@ -1589,6 +1589,39 @@ h3 {
   line-height: 1;
 }
 
+.dayMarketMark {
+  color: var(--nord8);
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
+.customEventSettingList {
+  display: grid;
+}
+
+.customEventSettingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.customEventSettingRow:last-child {
+  border-bottom: 0;
+}
+
+.customEventSettingRow > span {
+  display: grid;
+  gap: 3px;
+}
+
+.customEventSettingRow small {
+  color: var(--muted);
+}
+
 .day.isSunday .dayNumber {
   color: var(--nord11);
 }

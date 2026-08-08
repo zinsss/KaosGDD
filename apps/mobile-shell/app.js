@@ -231,6 +231,15 @@ const state = {
     error: "",
     items: [],
   },
+  customEvents: {
+    checked: false,
+    loading: false,
+    saving: false,
+    expanded: false,
+    error: "",
+    marketDaysEnabled: true,
+    claimDayEnabled: true,
+  },
   supplies: {
     checked: false,
     loading: false,
@@ -1040,6 +1049,57 @@ async function setHolidayClassification(uid, publicHoliday) {
   const item = state.holidays.items.find((holiday) => holiday.uid === uid);
   if (item) item.publicHoliday = Boolean(publicHoliday);
   await loadRemoteCalendar();
+}
+
+async function loadCustomEvents({ force = false } = {}) {
+  if (portalProfile() !== "main" || state.customEvents.loading) return;
+  if (state.customEvents.checked && !force) return;
+  state.customEvents.loading = true;
+  try {
+    const response = await fetch("/api/custom-events", { headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.customEvents = {
+      ...state.customEvents,
+      checked: true,
+      loading: false,
+      error: "",
+      marketDaysEnabled: payload.settings?.marketDaysEnabled !== false,
+      claimDayEnabled: payload.settings?.claimDayEnabled !== false,
+    };
+  } catch (error) {
+    state.customEvents = {
+      ...state.customEvents,
+      checked: true,
+      loading: false,
+      error: error.message || "Custom events unavailable",
+    };
+  }
+  if (getRoute() === "settings") render();
+}
+
+async function saveCustomEvents(changes) {
+  if (state.customEvents.saving) return;
+  state.customEvents.saving = true;
+  try {
+    const response = await fetch("/api/custom-events", {
+      method: "PUT",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        marketDaysEnabled: changes.marketDaysEnabled ?? state.customEvents.marketDaysEnabled,
+        claimDayEnabled: changes.claimDayEnabled ?? state.customEvents.claimDayEnabled,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.customEvents.marketDaysEnabled = payload.settings?.marketDaysEnabled !== false;
+    state.customEvents.claimDayEnabled = payload.settings?.claimDayEnabled !== false;
+    state.customEvents.error = "";
+    await loadRemoteCalendar();
+  } finally {
+    state.customEvents.saving = false;
+    if (getRoute() === "settings") render();
+  }
 }
 
 function writableTaskCollectionId() {
@@ -1964,6 +2024,14 @@ function normalizeEvent(event) {
 
 function isGoogleHolidayEvent(event) {
   return Boolean(event?.categories?.includes("KAOS-GOOGLE-HOLIDAY"));
+}
+
+function isGeneratedCalendarEvent(event) {
+  return Boolean(event?.categories?.includes("KAOS-GENERATED-CALENDAR"));
+}
+
+function isMarketDayEvent(event) {
+  return isGeneratedCalendarEvent(event) && event.categories.includes("KAOS-MARKET-DAY");
 }
 
 function isPublicHolidayEvent(event) {
@@ -3219,7 +3287,7 @@ function renderToday() {
 function renderCalendarMonthPanel() {
   const month = state.selectedDate.slice(0, 7);
   const events = mockAdapter.getEvents();
-  const regularEvents = events.filter((event) => !isGoogleHolidayEvent(event));
+  const regularEvents = events.filter((event) => !isGoogleHolidayEvent(event) && !isGeneratedCalendarEvent(event));
   const publicHolidayDates = new Set(
     activeCalendarData().events.map(normalizeEvent).filter(isPublicHolidayEvent).map((event) => event.date),
   );
@@ -3227,6 +3295,7 @@ function renderCalendarMonthPanel() {
   const eventCounts = countByDate(regularEvents, "date");
   const taskCounts = countByDate(datedTasks, "due");
   const dutyDates = new Set(regularEvents.filter(hasDutyEvent).map((event) => event.date));
+  const marketDates = new Set(events.filter(isMarketDayEvent).map((event) => event.date));
   const caregiverDays = new Set(
     portalProfile() === "family" && state.caregiver.key === month
       ? (state.caregiver.data?.daily || [])
@@ -3258,6 +3327,7 @@ function renderCalendarMonthPanel() {
           .map((cell) => {
             const hasDuty = dutyDates.has(cell.value);
             const hasCaregiver = caregiverDays.has(cell.value);
+            const hasMarket = marketDates.has(cell.value);
             const classes = [
               "day",
               cell.muted ? "isMuted" : "",
@@ -3279,10 +3349,11 @@ function renderCalendarMonthPanel() {
                 </span>
                 ${weatherGlyph(weather) ? `<span class="dayWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
                 ${
-                  hasCaregiver || eventCount || taskCount
+                  hasCaregiver || hasMarket || eventCount || taskCount
                     ? `
                       <span class="dayMarkers">
                         ${hasCaregiver ? `<span class="dayCaregiverMark" aria-label="${uiText("caregiver.dayMarker", "Caregiver record")}">•</span>` : ""}
+                        ${hasMarket ? `<span class="dayMarketMark" aria-label="Market Day">•</span>` : ""}
                         ${eventCount ? `<span class="dayEventCount">${eventCount}</span>` : ""}
                         ${taskCount ? `<span class="dayTaskCount">${taskCount}</span>` : ""}
                       </span>
@@ -5251,10 +5322,43 @@ function renderSettings() {
           }
         </dl>
         ${renderHolidaySettings()}
+        ${portalProfile() === "main" ? renderCustomEventSettings() : ""}
         ${renderEventPresetSettings()}
         ${renderRecurringTaskSettings()}
       </div>
     </section>
+  `;
+}
+
+function renderCustomEventSettings() {
+  const custom = state.customEvents;
+  const summary = [
+    custom.marketDaysEnabled ? "Market Days" : "",
+    custom.claimDayEnabled ? "Claim Day" : "",
+  ].filter(Boolean).join(" + ") || "Disabled";
+  const body = custom.loading && !custom.checked
+    ? `<p class="taskMeta">Loading custom events...</p>`
+    : custom.error
+      ? `<div class="caregiverError"><span>${escapeHtml(custom.error)}</span><button class="openButton" type="button" data-custom-events-retry>Retry</button></div>`
+      : `
+        <div class="customEventSettingList">
+          <label class="customEventSettingRow">
+            <span><strong>Market Days</strong><small>Blue dot on 5, 10, 15, 20, 25, and 30</small></span>
+            <input type="checkbox" data-custom-event-setting="marketDaysEnabled" ${custom.marketDaysEnabled ? "checked" : ""} ${custom.saving ? "disabled" : ""} />
+          </label>
+          <label class="customEventSettingRow">
+            <span><strong>Claim Day</strong><small>Friday, adjusted for Market Saturday and public holidays</small></span>
+            <input type="checkbox" data-custom-event-setting="claimDayEnabled" ${custom.claimDayEnabled ? "checked" : ""} ${custom.saving ? "disabled" : ""} />
+          </label>
+        </div>
+      `;
+  return `
+    <details class="settingsDisclosure" data-custom-events ${custom.expanded ? "open" : ""}>
+      <summary>
+        <span><strong>Custom Events</strong><small>${escapeHtml(summary)}</small></span>
+      </summary>
+      <div class="settingsDisclosureBody">${body}</div>
+    </details>
   `;
 }
 
@@ -5692,6 +5796,7 @@ function render() {
   if (route === "ledger") loadLedger();
   if (route === "settings") {
     loadHolidays();
+    loadCustomEvents();
     loadRecurringTasks();
   }
   document.querySelector(".ledgerDetailsScroller")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
@@ -6035,6 +6140,13 @@ document.addEventListener("click", async (event) => {
     state.holidays.checked = false;
     state.holidays.error = "";
     loadHolidays({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-custom-events-retry]")) {
+    state.customEvents.checked = false;
+    state.customEvents.error = "";
+    loadCustomEvents({ force: true });
     return;
   }
 
@@ -6782,6 +6894,7 @@ document.addEventListener(
     if (disclosure.matches("[data-event-presets]")) state.eventPresets.expanded = disclosure.open;
     if (disclosure.matches("[data-recurring-tasks]")) state.recurringTasks.expanded = disclosure.open;
     if (disclosure.matches("[data-holidays]")) state.holidays.expanded = disclosure.open;
+    if (disclosure.matches("[data-custom-events]")) state.customEvents.expanded = disclosure.open;
   },
   true,
 );
@@ -6810,6 +6923,18 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const customEventToggle = event.target.closest("[data-custom-event-setting]");
+  if (customEventToggle) {
+    const key = customEventToggle.dataset.customEventSetting || "";
+    const checked = customEventToggle.checked;
+    customEventToggle.disabled = true;
+    saveCustomEvents({ [key]: checked }).catch((error) => {
+      customEventToggle.checked = !checked;
+      window.alert(`Could not update custom events: ${error.message || "unknown error"}`);
+    });
+    return;
+  }
+
   const holidayToggle = event.target.closest("[data-holiday-classification]");
   if (holidayToggle) {
     const uid = holidayToggle.dataset.holidayClassification || "";

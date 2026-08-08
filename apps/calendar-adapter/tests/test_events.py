@@ -106,6 +106,53 @@ END:VCALENDAR
 
 
 class EventWritingTests(unittest.TestCase):
+    @mock.patch.object(SERVER, "gdd_generated_collection")
+    @mock.patch.object(SERVER, "report_collection", return_value=[])
+    @mock.patch.object(SERVER, "radicale_request")
+    def test_generated_event_write_is_scoped_and_create_only_guarded(
+        self, radicale_request, _report_collection, generated_collection
+    ):
+        generated_collection.return_value = {
+            "id": "zin:calendar",
+            "href": "/zin/calendar/",
+            "components": ["VEVENT"],
+        }
+        SERVER.ACCOUNTS["zin"] = {"configured": True, "username": "zin", "password": "secret"}
+
+        result = SERVER.put_gdd_generated_event(
+            {
+                "uid": "KAOS-MARKET-2026-08-10",
+                "title": "Market Day",
+                "startDate": "2026-08-10",
+                "endDate": "2026-08-10",
+                "categories": ["KAOS-SYSTEM", "KAOS-GENERATED-CALENDAR", "KAOS-MARKET-DAY"],
+            }
+        )
+
+        self.assertTrue(result["created"])
+        self.assertEqual(radicale_request.call_args.args[4]["If-None-Match"], "*")
+
+    @mock.patch.object(SERVER, "gdd_generated_collection")
+    @mock.patch.object(SERVER, "report_collection")
+    def test_generated_event_cannot_overwrite_ordinary_uid(self, report_collection, generated_collection):
+        generated_collection.return_value = {"id": "zin:calendar", "href": "/zin/calendar/", "components": ["VEVENT"]}
+        report_collection.return_value = [
+            SERVER.parse_ics(
+                """BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:KAOS-MARKET-2026-08-10\nSUMMARY:User event\nDTSTART;VALUE=DATE:20260810\nDTEND;VALUE=DATE:20260811\nEND:VEVENT\nEND:VCALENDAR\n""",
+                "/zin/calendar/user.ics",
+            )[0]
+        ]
+
+        with self.assertRaisesRegex(ValueError, "generated_event_required"):
+            SERVER.put_gdd_generated_event(
+                {
+                    "uid": "KAOS-MARKET-2026-08-10",
+                    "title": "Market Day",
+                    "startDate": "2026-08-10",
+                    "categories": ["KAOS-SYSTEM", "KAOS-GENERATED-CALENDAR", "KAOS-MARKET-DAY"],
+                }
+            )
+
     def test_builds_standard_categories_for_system_event(self):
         _, body = SERVER.build_vevent(
             {

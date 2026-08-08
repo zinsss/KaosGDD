@@ -41,6 +41,7 @@ _state_lock = threading.Lock()
 _sync_lock = threading.Lock()
 _scheduler_thread = None
 _scheduler_wake = threading.Event()
+_after_change_callback = None
 _state = {
     "running": False,
     "lastAttemptAt": "",
@@ -52,6 +53,20 @@ _state = {
 
 def _now_iso():
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def set_after_change_callback(callback):
+    global _after_change_callback
+    _after_change_callback = callback
+
+
+def _notify_after_change():
+    if not _after_change_callback:
+        return
+    try:
+        _after_change_callback()
+    except Exception as exc:
+        print(f"Post-holiday calendar sync failed: {type(exc).__name__}: {exc}", flush=True)
 
 
 def _unfold_ics(data):
@@ -249,6 +264,7 @@ def sync_holidays(today=None):
             with _state_lock:
                 _state["lastSuccessAt"] = _now_iso()
                 _state["lastResult"] = result
+            _notify_after_change()
             return {"ok": True, **result}
         except Exception as exc:
             with _state_lock:
@@ -277,7 +293,9 @@ def set_public_holiday(uid, public_holiday):
                 "categories": _categories(bool(public_holiday)),
             },
         )
-        return {"ok": True, "item": {**_public_item(current), "publicHoliday": bool(public_holiday)}}
+        response = {"ok": True, "item": {**_public_item(current), "publicHoliday": bool(public_holiday)}}
+        _notify_after_change()
+        return response
 
 
 def status():
