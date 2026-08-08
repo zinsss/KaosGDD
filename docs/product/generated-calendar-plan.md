@@ -153,7 +153,29 @@ existing main-profile data boundary, not expanded Family credentials.
 
 ## Settings
 
-The first version needs no Market Day settings because the date rule is fixed.
+Add a collapsed **Custom Events** section to the main KaosGDD Settings page.
+
+```text
+Custom Events
+
+Market Days    [enabled]
+Claim Day      [enabled]
+```
+
+Both controls default to enabled.
+
+- Disabling Market Days removes managed Market Day VEVENTs from the generated
+  range, which also removes the blue month-grid dots.
+- Disabling Claim Day removes managed Claim Day VEVENTs from the generated
+  range.
+- Claim Day calculation still uses deterministic Market Saturday dates when
+  Market Days are hidden or disabled. The display control must not change the
+  underlying business rule.
+- Re-enabling either control runs an idempotent synchronization immediately.
+- These orchestration preferences may live in Brain PostgreSQL; generated event
+  content remains authoritative in Radicale.
+- The Family portal does not receive these write controls because the generated
+  entries belong to `GDD_ZiN`.
 
 Holiday checkboxes remain the only user input affecting Claim Day. Changing a
 checkbox should:
@@ -181,9 +203,10 @@ separate explicit decision.
 2. Extend the adapter with internal `GDD_ZiN` generated-event CRUD.
 3. Add Brain's idempotent current/next-year synchronization.
 4. Trigger recalculation after holiday sync and classification changes.
-5. Add Market Day blue-dot rendering without changing event counts.
-6. Add read-only selected-day context.
-7. Deploy beside the existing calendar path and verify one full month.
+5. Add the main Settings **Custom Events** controls.
+6. Add Market Day blue-dot rendering without changing event counts.
+7. Add read-only selected-day context.
+8. Deploy beside the existing calendar path and verify one full month.
 
 ## Required Tests
 
@@ -201,6 +224,8 @@ Date calculation:
 Synchronization:
 
 - repeated sync creates no duplicates
+- disabling and re-enabling either Custom Events control is idempotent
+- Claim Day still observes Market Saturday when Market Day display is disabled
 - holiday reclassification moves the existing Claim Day event
 - stale generated entries are removed
 - ordinary `GDD_ZiN` events are untouched
