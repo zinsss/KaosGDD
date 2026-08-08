@@ -532,34 +532,53 @@ h3 {
   font-size: 18px;
 }
 
+.ledgerRangeDateText {
+  display: none;
+}
+
 @media (max-width: 560px) {
   .ledgerCustomRange {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 6px;
-    padding: 7px;
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 3px 6px;
+    border: 0;
+    background: transparent;
   }
 
   .ledgerCustomRange label {
-    grid-template-columns: 38px minmax(0, 1fr);
+    position: relative;
+    display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 4px;
+    min-height: 32px;
+    white-space: nowrap;
   }
 
-  .ledgerCustomRange label span {
-    padding: 0;
-    text-align: left;
+  .ledgerCustomRange .ledgerRangeDateText {
+    display: inline;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
   }
 
+  .ledgerCustomRange .ledgerRangeLabel,
   .ledgerCustomRange > span {
-    display: none;
+    color: var(--muted);
+    font-size: 15px;
   }
 
   .ledgerCustomRange input {
-    box-sizing: border-box;
-    max-width: 100%;
-    font-size: 16px;
-    text-align: center;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    cursor: pointer;
   }
 }
 

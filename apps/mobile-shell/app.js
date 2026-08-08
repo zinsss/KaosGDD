@@ -4848,6 +4848,12 @@ function ledgerEntriesForView() {
   return entries.filter((entry) => (!start || entry.date >= start) && (!end || entry.date <= end));
 }
 
+function formatLedgerRangeDate(value) {
+  const [year, month, day] = String(value || "").split("-");
+  if (!year || !month || !day) return "";
+  return `${year}.${Number(month)}.${Number(day)}`;
+}
+
 function renderLedgerViewFilters() {
   const views = [
     ["all", uiText("ledger.viewAll", "All")],
@@ -4886,13 +4892,15 @@ function renderLedgerViewFilters() {
       </div>
       ${state.ledger.range === "custom" ? `
         <div class="ledgerCustomRange">
-          <label>
-            <span>${escapeHtml(uiText("ledger.rangeStart", "Start"))}</span>
+          <label class="ledgerRangeDate">
+            <span class="ledgerRangeLabel">${escapeHtml(uiText("ledger.rangeStart", "Start"))}</span>
+            <span class="ledgerRangeDateText" aria-hidden="true">${escapeHtml(formatLedgerRangeDate(state.ledger.rangeStart))}</span>
             <input type="date" value="${escapeHtml(state.ledger.rangeStart)}" data-ledger-range-start />
           </label>
           <span aria-hidden="true">~</span>
-          <label>
-            <span>${escapeHtml(uiText("ledger.rangeEnd", "End"))}</span>
+          <label class="ledgerRangeDate ledgerRangeDateEnd">
+            <span class="ledgerRangeDateText" aria-hidden="true">${escapeHtml(formatLedgerRangeDate(state.ledger.rangeEnd))}</span>
+            <span class="ledgerRangeLabel">${escapeHtml(uiText("ledger.rangeEnd", "End"))}</span>
             <input type="date" value="${escapeHtml(state.ledger.rangeEnd)}" data-ledger-range-end />
           </label>
         </div>
