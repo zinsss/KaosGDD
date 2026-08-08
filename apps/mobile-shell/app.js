@@ -12,6 +12,7 @@ const routes = {
   services: "Utils",
   rouny: "Rouny",
   memos: "Memos",
+  ledger: "Ledger",
   settings: "Settings",
 };
 
@@ -28,6 +29,7 @@ const familyRoutes = {
   services: uiText("route.services", "Utils"),
   rouny: uiText("route.rouny", "Rouny"),
   memos: uiText("route.memos", "Memos"),
+  ledger: uiText("route.ledger", "Ledger"),
   settings: uiText("route.settings", "Settings"),
 };
 
@@ -114,6 +116,7 @@ const profileConfigs = {
       { route: "tasks", label: uiText("route.tasks", "Tasks") },
       { route: "rouny", label: uiText("route.rouny", "Rouny") },
       { route: "memos", label: uiText("route.memos", "Memos") },
+      { route: "ledger", label: uiText("route.ledger", "Ledger") },
       { route: "settings", label: uiText("route.settings", "Settings") },
     ],
   },
@@ -221,6 +224,17 @@ const state = {
     error: "",
     items: [],
     presets: [],
+  },
+  ledger: {
+    checked: false,
+    loading: false,
+    saving: false,
+    error: "",
+    entries: [],
+    balances: { account: 0, cash: 0, gift: 0 },
+    categories: [],
+    editingId: "",
+    adding: false,
   },
   desktopUtilsExpanded: null,
 };
@@ -1337,6 +1351,100 @@ async function deleteSupply(id) {
 }
 
 async function saveCaregiverSettings(formData) {
+function applyLedgerPayload(payload) {
+  state.ledger = {
+    ...state.ledger,
+    checked: true,
+    loading: false,
+    saving: false,
+    error: "",
+    entries: Array.isArray(payload.entries) ? payload.entries : [],
+    balances: payload.balances || { account: 0, cash: 0, gift: 0 },
+    categories: Array.isArray(payload.categories) ? payload.categories : [],
+  };
+}
+
+async function ledgerRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+  return payload;
+}
+
+async function loadLedger({ force = false } = {}) {
+  if (portalProfile() !== "family" || state.ledger.loading) return;
+  if (state.ledger.checked && !force) return;
+  state.ledger.loading = true;
+  try {
+    applyLedgerPayload(await ledgerRequest("/api/ledger", { cache: "no-store" }));
+  } catch (error) {
+    state.ledger = {
+      ...state.ledger,
+      checked: true,
+      loading: false,
+      error: error.message || uiText("ledger.unavailable", "Ledger unavailable"),
+    };
+  }
+  if (getRoute() === "ledger") render();
+}
+
+function ledgerPayloadFromContainer(container) {
+  const value = (name) => container.querySelector(`[name="${name}"]`)?.value || "";
+  return {
+    date: value("date"),
+    category: value("category"),
+    amount: value("amount").replace(/,/g, ""),
+    details: value("details"),
+    baseRevision: Number(container.dataset.ledgerRevision || 0),
+  };
+}
+
+async function saveLedgerEntry(container) {
+  if (state.ledger.saving) return;
+  const entryId = container.dataset.ledgerId || "";
+  const payload = ledgerPayloadFromContainer(container);
+  state.ledger.saving = true;
+  try {
+    const result = await ledgerRequest(
+      entryId ? `/api/ledger/entries/${encodeURIComponent(entryId)}` : "/api/ledger/entries",
+      { method: entryId ? "PUT" : "POST", body: JSON.stringify(payload) },
+    );
+    applyLedgerPayload(result);
+    state.ledger.editingId = "";
+    state.ledger.adding = false;
+    render();
+  } catch (error) {
+    state.ledger.saving = false;
+    if (error.message === "ledger_revision_conflict") await loadLedger({ force: true });
+    throw error;
+  }
+}
+
+async function removeLedgerEntry(entry) {
+  const payload = await ledgerRequest(`/api/ledger/entries/${encodeURIComponent(entry.id)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ baseRevision: entry.revision }),
+  });
+  applyLedgerPayload(payload);
+  state.ledger.editingId = "";
+  render();
+}
+
+async function createLedgerBackup() {
+  return ledgerRequest("/api/ledger/backups", { method: "POST" });
+}
+
+function formatLedgerMoney(value) {
+  return `${new Intl.NumberFormat("ko-KR").format(Number(value) || 0)}원`;
+}
+
   const month = state.selectedDate.slice(0, 7);
   const numericValue = (name) => Number(String(formData.get(name) || "").replace(/[^\d]/g, "")) || 0;
   const response = await fetch("/api/caregiver/settings", {
@@ -1946,7 +2054,7 @@ function getRoute() {
   if (!routes[route]) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && (route === "today" || route === "services")) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && route === "supplies") return profileConfig().defaultRoute;
-  if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver")) return profileConfig().defaultRoute;
+  if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver" || route === "ledger")) return profileConfig().defaultRoute;
   return route;
 }
 
@@ -4491,6 +4599,152 @@ function updateRounyClassFormValidation(form) {
 }
 
 function renderMemos() {
+function ledgerCategoryOptions(selected) {
+  const categories = state.ledger.categories.length
+    ? state.ledger.categories
+    : ["현금 지출", "현금 수입", "계좌 지출", "계좌 수입", "현금 인출", "계좌 입금", "상품권 구입 - 현금", "상품권 구입 - 계좌", "상품권 사용"];
+  return categories
+    .map((category) => `<option value="${escapeHtml(category)}" ${category === selected ? "selected" : ""}>${escapeHtml(category)}</option>`)
+    .join("");
+}
+
+function renderLedgerBalances() {
+  const balances = state.ledger.balances;
+  return `
+    <div class="ledgerBalances" aria-label="${escapeHtml(uiText("ledger.currentBalances", "Current balances"))}">
+      <div><span>${escapeHtml(uiText("ledger.account", "Account"))}</span><strong>${formatLedgerMoney(balances.account)}</strong></div>
+      <div><span>${escapeHtml(uiText("ledger.cash", "Cash"))}</span><strong>${formatLedgerMoney(balances.cash)}</strong></div>
+      <div><span>${escapeHtml(uiText("ledger.gift", "Gift certificates"))}</span><strong>${formatLedgerMoney(balances.gift)}</strong></div>
+    </div>
+  `;
+}
+
+function renderLedgerEditor(entry = null) {
+  const draft = entry || {
+    id: "",
+    date: ymd(new Date()),
+    category: "현금 지출",
+    amount: "",
+    details: "",
+    revision: 0,
+  };
+  return `
+    <form
+      class="ledgerEditor panel"
+      data-ledger-editor
+      data-ledger-id="${escapeHtml(draft.id || "")}"
+      data-ledger-revision="${Number(draft.revision || 0)}"
+    >
+      <div class="panelHeader">
+        <div>
+          <p class="label">${escapeHtml(uiText("ledger.entry", "Entry"))}</p>
+          <h2>${escapeHtml(entry ? uiText("ledger.edit", "Edit entry") : uiText("ledger.add", "Add entry"))}</h2>
+        </div>
+        <button class="openButton" type="button" data-ledger-cancel>${escapeHtml(uiText("common.close", "Close"))}</button>
+      </div>
+      <div class="ledgerEditorFields">
+        <label><span>${escapeHtml(uiText("ledger.date", "Date"))}</span><input name="date" type="date" value="${escapeHtml(draft.date)}" required /></label>
+        <label><span>${escapeHtml(uiText("ledger.category", "Category"))}</span><select name="category">${ledgerCategoryOptions(draft.category)}</select></label>
+        <label><span>${escapeHtml(uiText("ledger.amount", "Amount"))}</span><input name="amount" type="text" inputmode="numeric" value="${draft.amount ?? ""}" required /></label>
+        <label class="ledgerDetailsField"><span>${escapeHtml(uiText("ledger.details", "Details"))}</span><input name="details" type="text" value="${escapeHtml(draft.details || "")}" /></label>
+      </div>
+      <div class="ledgerEditorActions">
+        ${entry && !entry.locked ? `<button class="dangerButton" type="button" data-ledger-delete="${escapeHtml(entry.id)}">${escapeHtml(uiText("common.delete", "Delete"))}</button>` : ""}
+        <button class="primaryButton" type="submit">${escapeHtml(uiText("common.save", "Save"))}</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderLedgerDesktopTable() {
+  return `
+    <div class="ledgerDesktopTableWrap">
+      <table class="ledgerTable">
+        <thead>
+          <tr>
+            <th>${escapeHtml(uiText("ledger.date", "Date"))}</th>
+            <th>${escapeHtml(uiText("ledger.category", "Category"))}</th>
+            <th>${escapeHtml(uiText("ledger.amount", "Amount"))}</th>
+            <th>${escapeHtml(uiText("ledger.details", "Details"))}</th>
+            <th>${escapeHtml(uiText("ledger.account", "Account"))}</th>
+            <th>${escapeHtml(uiText("ledger.cash", "Cash"))}</th>
+            <th>${escapeHtml(uiText("ledger.gift", "Gift certificates"))}</th>
+            <th><span class="srOnly">${escapeHtml(uiText("ledger.actions", "Actions"))}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${state.ledger.entries.map((entry) => `
+            <tr data-ledger-row data-ledger-id="${escapeHtml(entry.id)}" data-ledger-revision="${entry.revision}" class="${entry.locked ? "isLocked" : ""}">
+              <td><input name="date" type="date" value="${escapeHtml(entry.date)}" ${entry.locked ? "disabled" : ""} /></td>
+              <td>${entry.locked
+                ? `<span class="ledgerLockedValue">${escapeHtml(entry.category)}</span>`
+                : `<select name="category">${ledgerCategoryOptions(entry.category)}</select>`}</td>
+              <td>${entry.locked
+                ? `<span class="ledgerLockedValue">-</span>`
+                : `<input name="amount" type="text" inputmode="numeric" value="${entry.amount ?? ""}" />`}</td>
+              <td>${entry.locked
+                ? `<span class="ledgerLockedValue">${escapeHtml(entry.details || "")}</span>`
+                : `<input name="details" type="text" value="${escapeHtml(entry.details || "")}" />`}</td>
+              <td class="ledgerMoney">${formatLedgerMoney(entry.account)}</td>
+              <td class="ledgerMoney">${formatLedgerMoney(entry.cash)}</td>
+              <td class="ledgerMoney">${formatLedgerMoney(entry.gift)}</td>
+              <td class="ledgerRowActions">${entry.locked ? `<span title="${escapeHtml(uiText("ledger.openingLocked", "Opening balance is locked"))}">${escapeHtml(uiText("ledger.locked", "Locked"))}</span>` : `
+                <button type="button" class="ledgerSaveButton" data-ledger-save-row title="${escapeHtml(uiText("common.save", "Save"))}">✓</button>
+                <button type="button" class="ledgerDeleteButton" data-ledger-delete="${escapeHtml(entry.id)}" title="${escapeHtml(uiText("common.delete", "Delete"))}">×</button>
+              `}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderLedgerMobileList() {
+  return `
+    <div class="ledgerMobileList">
+      ${[...state.ledger.entries].reverse().map((entry) => `
+        <button class="ledgerMobileRow" type="button" data-ledger-edit="${escapeHtml(entry.id)}" ${entry.locked ? "disabled" : ""}>
+          <span class="ledgerMobileDate">${escapeHtml(entry.date)}</span>
+          <span class="ledgerMobileMain"><strong>${escapeHtml(entry.category)}</strong><small>${escapeHtml(entry.details || uiText("ledger.noDetails", "No details"))}</small></span>
+          <span class="ledgerMobileAmount">${entry.amount === null ? "-" : formatLedgerMoney(entry.amount)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderLedger() {
+  if (state.ledger.loading && !state.ledger.checked) {
+    return `<section class="panel emptyState"><p>${escapeHtml(uiText("ledger.loading", "Loading ledger..."))}</p></section>`;
+  }
+  if (state.ledger.error) {
+    return `<section class="panel emptyState"><p>${escapeHtml(state.ledger.error)}</p><button class="openButton" type="button" data-ledger-retry>${escapeHtml(uiText("common.retry", "Retry"))}</button></section>`;
+  }
+  const editingEntry = state.ledger.entries.find((entry) => entry.id === state.ledger.editingId) || null;
+  return `
+    <section class="ledgerPage">
+      <header class="ledgerToolbar panel">
+        <div>
+          <p class="label">${escapeHtml(uiText("ledger.label", "Ledger"))}</p>
+          <h2>${escapeHtml(uiText("ledger.title", "Medical association ledger"))}</h2>
+        </div>
+        <div class="ledgerToolbarActions">
+          <a class="openButton" href="/api/ledger/export.xlsx" download>${escapeHtml(uiText("ledger.export", "XLSX"))}</a>
+          <button class="openButton" type="button" data-ledger-backup>${escapeHtml(uiText("ledger.backup", "Backup"))}</button>
+          <button class="primaryButton" type="button" data-ledger-add>${escapeHtml(uiText("common.add", "Add"))}</button>
+        </div>
+      </header>
+      ${renderLedgerBalances()}
+      ${(state.ledger.adding || editingEntry) ? renderLedgerEditor(editingEntry) : ""}
+      <section class="ledgerSheet panel">
+        ${renderLedgerDesktopTable()}
+        ${renderLedgerMobileList()}
+      </section>
+    </section>
+  `;
+}
+
   if (portalProfile() === "family") {
     return `
       <section class="familyMemosWorkspace">
@@ -4967,6 +5221,7 @@ function render() {
   else if (route === "supplies") view.innerHTML = renderSupplies();
   else if (route === "rouny") view.innerHTML = renderRouny();
   else if (route === "memos") view.innerHTML = renderMemos();
+  else if (route === "ledger") view.innerHTML = renderLedger();
   else if (route === "settings") view.innerHTML = renderSettings();
   else view.innerHTML = renderToday();
   if (overlayRoot) overlayRoot.innerHTML = route === "rouny" ? renderRounyOverlay() : "";
@@ -4976,6 +5231,7 @@ function render() {
   }
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   if (route === "supplies") loadSupplies();
+  if (route === "ledger") loadLedger();
   if (route === "settings") loadRecurringTasks();
   updateTopBarShadow();
 }
@@ -4992,6 +5248,77 @@ function updateTopBarShadow() {
 }
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-ledger-add]")) {
+    state.ledger.adding = true;
+    state.ledger.editingId = "";
+    render();
+    document.querySelector("[data-ledger-editor]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const editLedger = event.target.closest("[data-ledger-edit]");
+  if (editLedger) {
+    state.ledger.editingId = editLedger.dataset.ledgerEdit || "";
+    state.ledger.adding = false;
+    render();
+    document.querySelector("[data-ledger-editor]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (event.target.closest("[data-ledger-cancel]")) {
+    state.ledger.adding = false;
+    state.ledger.editingId = "";
+    render();
+    return;
+  }
+
+  if (event.target.closest("[data-ledger-retry]")) {
+    state.ledger.checked = false;
+    state.ledger.error = "";
+    await loadLedger({ force: true });
+    return;
+  }
+
+  const saveLedgerRow = event.target.closest("[data-ledger-save-row]");
+  if (saveLedgerRow) {
+    const row = saveLedgerRow.closest("[data-ledger-row]");
+    if (!row) return;
+    try {
+      await saveLedgerEntry(row);
+    } catch (error) {
+      window.alert(uiText("dialog.ledgerSaveError", "Could not save ledger entry: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
+  const deleteLedger = event.target.closest("[data-ledger-delete]");
+  if (deleteLedger) {
+    const entry = state.ledger.entries.find((item) => item.id === deleteLedger.dataset.ledgerDelete);
+    if (!entry || !window.confirm(uiText("dialog.deleteLedgerEntry", "Delete this ledger entry?"))) return;
+    try {
+      await removeLedgerEntry(entry);
+    } catch (error) {
+      window.alert(uiText("dialog.ledgerDeleteError", "Could not delete ledger entry: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-ledger-backup]")) {
+    try {
+      await createLedgerBackup();
+      window.alert(uiText("dialog.ledgerBackupComplete", "XLSX backup created."));
+    } catch (error) {
+      window.alert(uiText("dialog.ledgerBackupError", "Could not create backup: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
   const desktopUtilsToggle = event.target.closest("[data-toggle-desktop-utils]");
   if (desktopUtilsToggle) {
     state.desktopUtilsExpanded = desktopUtilsToggle.getAttribute("aria-expanded") !== "true";
@@ -5620,6 +5947,19 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const ledgerEditor = event.target.closest("[data-ledger-editor]");
+  if (ledgerEditor) {
+    event.preventDefault();
+    try {
+      await saveLedgerEntry(ledgerEditor);
+    } catch (error) {
+      window.alert(uiText("dialog.ledgerSaveError", "Could not save ledger entry: {error}", {
+        error: error.message || uiText("dialog.unknownError", "unknown error"),
+      }));
+    }
+    return;
+  }
+
   const supplyForm = event.target.closest("[data-create-supply]");
   if (supplyForm) {
     event.preventDefault();

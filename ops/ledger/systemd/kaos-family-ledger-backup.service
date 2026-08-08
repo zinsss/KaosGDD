@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up the Kaos Family ledger PostgreSQL database
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/kaos/scripts/backup-family-ledger.sh

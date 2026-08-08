@@ -39,8 +39,15 @@ services:
       FAX_NOTIFY_POLL_SECONDS: "20"
       FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
       FAX_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
+      LEDGER_BACKUP_ROOT: "/data/ledger/backups"
+      LEDGER_BACKUP_HOUR: "3"
+      LEDGER_BACKUP_MINUTE: "20"
+      LEDGER_DAILY_RETENTION_DAYS: "90"
+    group_add:
+      - "1000"
     volumes:
       - /srv/kaos/data/kaosgdd/brain/faxmail:/data/faxmail
+      - /srv/kaos/backups/kaosgdd/ledger:/data/ledger/backups
       - /var/spool/hylafax:/integrations/hylafax:ro
     ports:
       - "100.94.208.16:8092:8092/tcp"

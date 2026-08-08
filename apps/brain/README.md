@@ -19,6 +19,7 @@ Brain owns:
 - repeating-task definitions and one-at-a-time VTODO generation
 - cross-device event preset storage with personal and Family scopes
 - incoming fax notification polling over the HylaFAX receive queue
+- audited Family medical association ledger storage and XLSX recovery backups
 - service health/status aggregation
 
 Brain does not own:
@@ -63,6 +64,7 @@ Brain `0.5.1` is the side-by-side runtime:
 - family-only `PUT /api/caregiver/settings`
 - family-only `GET /api/rouny/templates`
 - family-only revision-checked `PUT /api/rouny/templates`
+- family-only ledger CRUD, XLSX export, and manual backup under `/api/ledger`
 - strict Rouny time-range validation while allowing intentional overlaps
 - strict method/path allowlisting
 - supplies API backed by Radicale `Kaos_Supplies`
@@ -71,8 +73,8 @@ Brain `0.5.1` is the side-by-side runtime:
 - Caddy routes for `/api/caregiver/*` and `/api/rouny/*` on `family.kaosgdd.net`
 - Caddy route for `/api/supplies*` on `kaosgdd.net`
 
-PostgreSQL owns Brain configuration, Rouny timetable templates, and supplies
-preset/recent history. Radicale remains authoritative for events, tasks, weather
+PostgreSQL owns Brain configuration, Rouny timetable templates, supplies
+preset/recent history, and the Family medical association ledger. Radicale remains authoritative for events, tasks, weather
 journals, caregiver journals, and the supplies buy-list collection.
 
 Repeating task definitions live in Brain PostgreSQL. Brain generates one normal

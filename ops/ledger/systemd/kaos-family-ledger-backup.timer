@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly Kaos Family ledger database backup
+
+[Timer]
+OnCalendar=*-*-* 03:35:00 Asia/Seoul
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

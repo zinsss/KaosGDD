@@ -4,6 +4,7 @@ import os
 import re
 import urllib.error
 import urllib.parse
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from services.caregiver.upstream import (
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 from services.event_presets import service as event_preset_service
 from services.faxmail import notifier as faxmail_notifier
+from services.ledger import service as ledger_service
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -40,6 +42,18 @@ def json_response(handler, status, payload):
     handler.wfile.write(body)
 
 
+def xlsx_response(handler, data, filename):
+    encoded_name = urllib.parse.quote(filename, safe="")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    handler.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
+    handler.send_header("Cache-Control", "private, no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("Content-Length", str(len(data)))
+    handler.end_headers()
+    handler.wfile.write(data)
+
+
 def brain_status(headers):
     host = portal_host(headers)
     database = database_status()
@@ -54,6 +68,7 @@ def brain_status(headers):
         "upstreams": {
             "calendarAdapter": calendar_adapter,
             "faxmailNotifications": faxmail_notifier.status(),
+            "familyLedgerBackups": ledger_service.backup_status(),
         },
     }
 
@@ -81,6 +96,30 @@ def json_request(handler):
 def require_family_profile(headers):
     if portal_host(headers) != "family.kaosgdd.net":
         raise ValueError("family_profile_required")
+
+
+def request_actor(headers):
+    return ledger_service.actor_name(
+        headers.get("Cf-Access-Authenticated-User-Email")
+        or headers.get("X-Forwarded-Email")
+        or "family"
+    )
+
+
+def re_match_ledger_entry(path):
+    match = re.fullmatch(r"/api/ledger/entries/([0-9a-z-]+)", path)
+    return match.group(1) if match else ""
+
+
+def ledger_status_for_error(exc):
+    message = str(exc)
+    if message == "ledger_entry_not_found":
+        return 404
+    if message == "ledger_revision_conflict":
+        return 409
+    if message == "family_profile_required":
+        return 404
+    return 400
 
 
 def caregiver_month_payload(month):
@@ -150,6 +189,29 @@ def proxy_request(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/ledger":
+            try:
+                require_family_profile(self.headers)
+                json_response(self, 200, ledger_service.list_ledger())
+            except ValueError as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_storage_unavailable"})
+            return
+
+        if parsed.path == "/api/ledger/export.xlsx":
+            try:
+                require_family_profile(self.headers)
+                filename = f"kaos-family-ledger-{datetime.now().date().isoformat()}.xlsx"
+                xlsx_response(self, ledger_service.workbook_bytes(), filename)
+            except ValueError as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger export failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_export_unavailable"})
+            return
+
         if parsed.path == "/api/event-presets":
             try:
                 profile = recurring_task_service.profile_for_host(portal_host(self.headers))
@@ -241,6 +303,28 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/ledger/entries":
+            try:
+                require_family_profile(self.headers)
+                json_response(self, 201, ledger_service.create_entry(json_request(self), request_actor(self.headers)))
+            except (ValueError, ledger_service.LedgerConflict) as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger create failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_storage_unavailable"})
+            return
+
+        if path == "/api/ledger/backups":
+            try:
+                require_family_profile(self.headers)
+                json_response(self, 201, ledger_service.write_backup("manual"))
+            except ValueError as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger backup failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_backup_unavailable"})
+            return
+
         if path == "/api/event-presets":
             try:
                 profile = recurring_task_service.profile_for_host(portal_host(self.headers))
@@ -314,6 +398,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        ledger_entry_id = re_match_ledger_entry(path)
+        if ledger_entry_id:
+            try:
+                require_family_profile(self.headers)
+                json_response(
+                    self,
+                    200,
+                    ledger_service.update_entry(ledger_entry_id, json_request(self), request_actor(self.headers)),
+                )
+            except (ValueError, ledger_service.LedgerConflict) as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger update failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_storage_unavailable"})
+            return
+
         event_preset_id = re_match_event_preset(path)
         if event_preset_id:
             try:
@@ -420,6 +520,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         path = urllib.parse.urlsplit(self.path).path
+        ledger_entry_id = re_match_ledger_entry(path)
+        if ledger_entry_id:
+            try:
+                require_family_profile(self.headers)
+                payload = json_request(self)
+                json_response(
+                    self,
+                    200,
+                    ledger_service.delete_entry(
+                        ledger_entry_id,
+                        payload.get("baseRevision"),
+                        request_actor(self.headers),
+                    ),
+                )
+            except (ValueError, ledger_service.LedgerConflict) as exc:
+                json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Ledger delete failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "ledger_storage_unavailable"})
+            return
+
         event_preset_id = re_match_event_preset(path)
         if event_preset_id:
             try:
@@ -489,6 +610,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     wait_for_database_and_migrate(MIGRATIONS)
+    ledger_service.start_backup_scheduler()
     recurring_task_service.start_scheduler()
     faxmail_notifier.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
