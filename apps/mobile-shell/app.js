@@ -39,6 +39,9 @@ const DEFAULT_EVENT_START_TIME = "09:00";
 const DEFAULT_EVENT_END_TIME = "10:00";
 const MEMOS_URL = "https://memos.kaosgdd.net";
 const DESKTOP_MEDIA_QUERY = "(min-width: 1180px)";
+const LEDGER_VIEWS = new Set(["all", "expense", "income"]);
+const LEDGER_EXPENSE_CATEGORIES = new Set(["계좌 지출", "현금 지출", "상품권 사용"]);
+const LEDGER_INCOME_CATEGORIES = new Set(["계좌 수입", "현금 수입"]);
 const ROUNY_TEMPLATE_STORAGE_KEY = "kaosgdd.v2.rouny.templates.v1";
 const ROUNY_SELECTED_STORAGE_KEY = "kaosgdd.v2.rouny.selectedTemplateId.v1";
 const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
@@ -235,6 +238,7 @@ const state = {
     categories: [],
     editingId: "",
     adding: false,
+    view: "all",
   },
   desktopUtilsExpanded: null,
 };
@@ -4619,6 +4623,36 @@ function renderLedgerBalances() {
   `;
 }
 
+function ledgerEntriesForView() {
+  if (state.ledger.view === "expense") {
+    return state.ledger.entries.filter((entry) => LEDGER_EXPENSE_CATEGORIES.has(entry.category));
+  }
+  if (state.ledger.view === "income") {
+    return state.ledger.entries.filter((entry) => LEDGER_INCOME_CATEGORIES.has(entry.category));
+  }
+  return state.ledger.entries;
+}
+
+function renderLedgerViewFilters() {
+  const views = [
+    ["all", uiText("ledger.viewAll", "All")],
+    ["expense", uiText("ledger.viewExpense", "Expenses")],
+    ["income", uiText("ledger.viewIncome", "Income")],
+  ];
+  return `
+    <div class="ledgerViewFilters" aria-label="${escapeHtml(uiText("ledger.view", "View"))}">
+      ${views.map(([value, label]) => `
+        <button
+          type="button"
+          class="${state.ledger.view === value ? "isActive" : ""}"
+          data-ledger-view="${value}"
+          aria-pressed="${state.ledger.view === value ? "true" : "false"}"
+        >${escapeHtml(label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderLedgerEditor(entry = null) {
   const draft = entry || {
     id: "",
@@ -4656,7 +4690,7 @@ function renderLedgerEditor(entry = null) {
   `;
 }
 
-function renderLedgerDesktopTable() {
+function renderLedgerDesktopTable(entries) {
   return `
     <div class="ledgerDesktopTableWrap">
       <table class="ledgerTable">
@@ -4673,7 +4707,7 @@ function renderLedgerDesktopTable() {
           </tr>
         </thead>
         <tbody>
-          ${state.ledger.entries.map((entry) => `
+          ${entries.map((entry) => `
             <tr data-ledger-row data-ledger-id="${escapeHtml(entry.id)}" data-ledger-revision="${entry.revision}" class="${entry.locked ? "isLocked" : ""}">
               <td><input name="date" type="date" value="${escapeHtml(entry.date)}" ${entry.locked ? "disabled" : ""} /></td>
               <td>${entry.locked
@@ -4700,16 +4734,16 @@ function renderLedgerDesktopTable() {
   `;
 }
 
-function renderLedgerMobileList() {
+function renderLedgerMobileList(entries) {
   return `
     <div class="ledgerMobileList">
-      ${[...state.ledger.entries].reverse().map((entry) => `
+      ${entries.length ? [...entries].reverse().map((entry) => `
         <button class="ledgerMobileRow" type="button" data-ledger-edit="${escapeHtml(entry.id)}" ${entry.locked ? "disabled" : ""}>
           <span class="ledgerMobileDate">${escapeHtml(entry.date)}</span>
           <span class="ledgerMobileMain"><strong>${escapeHtml(entry.category)}</strong><small>${escapeHtml(entry.details || uiText("ledger.noDetails", "No details"))}</small></span>
           <span class="ledgerMobileAmount">${entry.amount === null ? "-" : formatLedgerMoney(entry.amount)}</span>
         </button>
-      `).join("")}
+      `).join("") : `<p class="ledgerEmpty">${escapeHtml(uiText("ledger.noMatchingEntries", "No matching entries"))}</p>`}
     </div>
   `;
 }
@@ -4722,6 +4756,7 @@ function renderLedger() {
     return `<section class="panel emptyState"><p>${escapeHtml(state.ledger.error)}</p><button class="openButton" type="button" data-ledger-retry>${escapeHtml(uiText("common.retry", "Retry"))}</button></section>`;
   }
   const editingEntry = state.ledger.entries.find((entry) => entry.id === state.ledger.editingId) || null;
+  const visibleEntries = ledgerEntriesForView();
   return `
     <section class="ledgerPage">
       <header class="ledgerToolbar panel">
@@ -4736,11 +4771,14 @@ function renderLedger() {
         </div>
       </header>
       ${renderLedgerBalances()}
-      ${(state.ledger.adding || editingEntry) ? renderLedgerEditor(editingEntry) : ""}
-      <section class="ledgerSheet panel">
-        ${renderLedgerDesktopTable()}
-        ${renderLedgerMobileList()}
-      </section>
+      ${renderLedgerViewFilters()}
+      <div class="ledgerDetailsScroller">
+        ${(state.ledger.adding || editingEntry) ? renderLedgerEditor(editingEntry) : ""}
+        <section class="ledgerSheet panel">
+          ${renderLedgerDesktopTable(visibleEntries)}
+          ${renderLedgerMobileList(visibleEntries)}
+        </section>
+      </div>
     </section>
   `;
 }
@@ -5233,6 +5271,7 @@ function render() {
   if (route === "supplies") loadSupplies();
   if (route === "ledger") loadLedger();
   if (route === "settings") loadRecurringTasks();
+  document.querySelector(".ledgerDetailsScroller")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
   updateTopBarShadow();
 }
 
@@ -5244,7 +5283,9 @@ function updateOverlayMetrics() {
 
 function updateTopBarShadow() {
   const view = document.getElementById("view");
-  document.querySelector(".appTop")?.classList.toggle("hasScrolled", Boolean(view && view.scrollTop > 4));
+  const ledgerScroller = document.querySelector(".ledgerDetailsScroller");
+  const scrollTop = ledgerScroller?.scrollTop || view?.scrollTop || 0;
+  document.querySelector(".appTop")?.classList.toggle("hasScrolled", scrollTop > 4);
 }
 
 document.addEventListener("click", async (event) => {
@@ -5258,6 +5299,15 @@ document.addEventListener("click", async (event) => {
     document.body.appendChild(link);
     link.click();
     link.remove();
+    return;
+  }
+
+  const ledgerView = event.target.closest("[data-ledger-view]");
+  if (ledgerView) {
+    const view = ledgerView.dataset.ledgerView || "all";
+    if (!LEDGER_VIEWS.has(view) || state.ledger.view === view) return;
+    state.ledger.view = view;
+    render();
     return;
   }
 

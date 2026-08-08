@@ -401,6 +401,43 @@ h3 {
   white-space: nowrap;
 }
 
+.ledgerViewFilters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.ledgerViewFilters button {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dim);
+  font-weight: 700;
+}
+
+.ledgerViewFilters button.isActive {
+  border-color: rgba(180, 116, 166, 0.34);
+  background: #ead5e9;
+  color: #713f6a;
+}
+
+.ledgerDetailsScroller {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding-bottom: 40px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
 .ledgerEditor {
   overflow: hidden;
 }
@@ -455,6 +492,12 @@ h3 {
   display: grid;
 }
 
+.ledgerEmpty {
+  padding: 24px 14px;
+  color: var(--dim);
+  text-align: center;
+}
+
 .ledgerMobileRow {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -500,6 +543,25 @@ h3 {
 .ledgerMobileMain small {
   color: var(--dim);
   font-size: 0.74rem;
+}
+
+.app[data-profile="family"][data-route="ledger"] {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app[data-profile="family"][data-route="ledger"] .view {
+  align-content: stretch;
+  padding-bottom: 10px;
+  overflow: hidden;
+}
+
+.app[data-profile="family"][data-route="ledger"] .ledgerPage {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: stretch;
+  height: 100%;
+  min-height: 0;
 }
 
 .app[data-route="settings"] .view {
@@ -3600,13 +3662,13 @@ h3 {
   }
 
   .ledgerPage {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     height: 100%;
     min-height: 0;
   }
 
-  .ledgerPage:has(.ledgerEditor) {
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+  .ledgerDetailsScroller {
+    padding-bottom: 40px;
   }
 
   .ledgerBalances strong {
@@ -3629,9 +3691,7 @@ h3 {
 
   .ledgerDesktopTableWrap {
     display: block;
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   .ledgerMobileList {
