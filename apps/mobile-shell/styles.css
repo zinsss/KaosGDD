@@ -732,14 +732,6 @@ h3 {
   padding-bottom: 4px;
 }
 
-.familyAgendaUpcomingGrid {
-  display: grid;
-}
-
-.familyAgendaUpcomingSection + .familyAgendaUpcomingSection {
-  border-top: 1px solid var(--line);
-}
-
 .familyAgendaDateGroup {
   padding: 8px 0;
 }
@@ -749,58 +741,65 @@ h3 {
 }
 
 .familyAgendaDateGroup h3 {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
   color: #7f6aa6;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
-.familyAgendaItemList {
+.familyAgendaMixedList {
   display: grid;
-  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.familyAgendaItemLink,
-.familyAgendaTaskTitle {
+.familyAgendaMixedRow {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
+  grid-template-columns: 22px 102px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px 0;
+  border-bottom: 1px dotted var(--line);
   min-width: 0;
 }
 
-.familyAgendaItemLink {
-  padding: 6px 0;
+.familyAgendaMixedRow:last-child {
+  border-bottom: 0;
 }
 
-.familyAgendaItemTime {
-  min-height: 22px;
+.familyAgendaEntryControl {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+.familyAgendaMixedTime {
   color: var(--dim);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
-  line-height: 22px;
   white-space: nowrap;
 }
 
-.familyAgendaItemTime.isAllDay {
+.familyAgendaMixedTime.isAllDay {
   width: fit-content;
-  min-height: 22px;
-  padding: 0 7px;
+  padding: 2px 7px;
   border: 1px solid rgba(180, 142, 173, 0.45);
   border-radius: 999px;
   color: #9b5f8f;
-  line-height: 20px;
+  font-size: 0.68rem;
+  line-height: 1.15;
 }
 
-.familyAgendaItemContent {
+.familyAgendaMixedLink {
   display: grid;
+  gap: 2px;
   min-width: 0;
 }
 
-.familyAgendaItemContent strong {
+.familyAgendaMixedLink strong {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -810,30 +809,28 @@ h3 {
   white-space: nowrap;
 }
 
-.familyAgendaItemContent > span:not(.timelineTitleRow) {
+.familyAgendaMixedLink > span:not(.taskTitleRow) {
   color: var(--dim);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
 }
 
-.familyAgendaTaskList .taskRow:first-child {
-  border-top: 0;
+.familyAgendaMixedBadge {
+  color: var(--dim);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-align: right;
 }
 
-.familyAgendaTaskRow {
-  min-height: 44px;
-  padding: 6px 0;
+.familyAgendaMixedRow.priorityHigh .familyAgendaMixedBadge {
+  color: var(--nord11);
 }
 
-.familyAgendaTaskRow .taskRowMain {
-  align-items: center;
+.familyAgendaMixedRow.priorityMedium .familyAgendaMixedBadge {
+  color: var(--nord13);
 }
 
-.familyAgendaTaskRow .checkButton {
-  margin-top: 0;
-}
-
-.familyAgendaTaskRow .taskBadge {
-  align-self: center;
+.familyAgendaMixedRow.priorityLow .familyAgendaMixedBadge {
+  color: var(--nord14);
 }
 
 .familyAgendaRouny .panelHeader time {
@@ -4030,15 +4027,6 @@ h3 {
 
   .familyAgendaUpcoming {
     grid-column: span 2;
-  }
-
-  .familyAgendaUpcomingGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .familyAgendaUpcomingSection + .familyAgendaUpcomingSection {
-    border-top: 0;
-    border-left: 1px solid var(--line);
   }
 
   .todayDesktopGrid > .panel {

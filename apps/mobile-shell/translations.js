@@ -63,8 +63,10 @@ window.KAOS_TRANSLATIONS = {
     "agenda.today": "오늘",
     "agenda.upcomingEvents": "다가오는 일정",
     "agenda.upcomingTasks": "다가오는 할 일",
+    "agenda.upcomingItems": "다가오는 일정과 할 일",
     "agenda.otherTasks": "기타 할 일",
     "agenda.noUpcomingEvents": "다가오는 일정이 없습니다.",
+    "agenda.noUpcomingItems": "다가오는 항목이 없습니다.",
     "agenda.currentRouny": "지금 로운이는",
     "agenda.next": "다음",
 

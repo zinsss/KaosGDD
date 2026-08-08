@@ -2859,63 +2859,71 @@ function familyAgendaDateLabel(dateValue) {
   return `${date.getMonth() + 1}/${date.getDate()} ${weekday}`.trim();
 }
 
-function groupFamilyAgendaItemsByDate(items, dateKey) {
-  return items.reduce((groups, item) => {
-    const date = item[dateKey];
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(item);
-    return groups;
+function familyAgendaEventTime(event) {
+  if (event.allDay) return uiText("event.allDayPill", "All Day");
+  const start = event.startTime || event.time || "";
+  return start && event.endTime ? `${start} - ${event.endTime}` : start;
+}
+
+function familyAgendaMixedItems(events, tasks) {
+  return [
+    ...events.map((event) => ({ kind: "event", date: event.date, time: event.time || "00:00", event })),
+    ...tasks.map((task) => ({ kind: "task", date: task.due, time: task.dueTime || "99:99", task })),
+  ].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    if (a.time !== b.time) return a.time.localeCompare(b.time);
+    if (a.kind !== b.kind) return a.kind === "event" ? -1 : 1;
+    const aTitle = a.event?.title || a.task?.title || "";
+    const bTitle = b.event?.title || b.task?.title || "";
+    return aTitle.localeCompare(bTitle);
+  });
+}
+
+function renderFamilyAgendaMixedRow(item) {
+  if (item.kind === "event") {
+    const event = item.event;
+    return `
+      <li class="familyAgendaMixedRow isEvent">
+        <span class="familyAgendaEntryControl" aria-hidden="true"></span>
+        <time class="familyAgendaMixedTime ${event.allDay ? "isAllDay" : ""}">${escapeHtml(familyAgendaEventTime(event))}</time>
+        <a class="familyAgendaMixedLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
+          <strong>${escapeHtml(event.title)}</strong>
+          ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+        </a>
+        <span class="familyAgendaMixedBadge"></span>
+      </li>
+    `;
+  }
+  const task = item.task;
+  return `
+    <li class="familyAgendaMixedRow isTask ${task.priorityLabel ? `priority${task.priorityLabel}` : ""}" data-task-id="${escapeHtml(task.id)}">
+      <button class="checkButton familyAgendaEntryControl" type="button" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(task.title)}"></button>
+      <time class="familyAgendaMixedTime">${escapeHtml(task.dueTime || "")}</time>
+      <a class="familyAgendaMixedLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
+        <span class="taskTitleRow">
+          <strong>${escapeHtml(task.title)}</strong>
+          ${renderCollectionPill(task)}
+        </span>
+        ${task.subtasks.length ? `<span>${uiText("task.subtasksCount", "{count} subtasks", { count: task.subtasks.length })}</span>` : ""}
+      </a>
+      <small class="familyAgendaMixedBadge">${escapeHtml(task.badge)}</small>
+    </li>
+  `;
+}
+
+function renderFamilyAgendaMixedList(events, tasks) {
+  const items = familyAgendaMixedItems(events, tasks);
+  if (!items.length) return `<p class="taskMeta">${uiText("agenda.noUpcomingItems", "No upcoming items")}</p>`;
+  const groups = items.reduce((result, item) => {
+    if (!result[item.date]) result[item.date] = [];
+    result[item.date].push(item);
+    return result;
   }, {});
-}
-
-function renderFamilyAgendaEvents(events) {
-  if (!events.length) return `<p class="taskMeta">${uiText("agenda.noUpcomingEvents", "No upcoming events")}</p>`;
-  const groups = groupFamilyAgendaItemsByDate(events, "date");
   return Object.keys(groups).sort().map((date) => `
     <section class="familyAgendaDateGroup">
-      <h3>${escapeHtml(familyAgendaDateLabel(date))}</h3>
-      <ol class="familyAgendaItemList">
-        ${groups[date].map((event) => `
-          <li>
-            <a class="familyAgendaItemLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
-              <time class="familyAgendaItemTime ${event.allDay ? "isAllDay" : ""}">${event.allDay ? uiText("event.allDayPill", "All Day") : escapeHtml(event.time || "")}</time>
-              <span class="familyAgendaItemContent">
-                <span class="timelineTitleRow"><strong>${escapeHtml(event.title)}</strong></span>
-                ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
-              </span>
-            </a>
-          </li>
-        `).join("")}
-      </ol>
-    </section>
-  `).join("");
-}
-
-function renderFamilyAgendaTasks(tasks) {
-  if (!tasks.length) return `<p class="taskMeta">${uiText("task.noTasks", "No tasks")}</p>`;
-  const groups = groupFamilyAgendaItemsByDate(tasks, "due");
-  return Object.keys(groups).sort().map((date) => `
-    <section class="familyAgendaDateGroup">
-      <h3>${escapeHtml(familyAgendaDateLabel(date))}</h3>
-      <ul class="taskList familyAgendaTaskList">
-        ${groups[date].map((task) => `
-          <li class="taskRow familyAgendaTaskRow ${task.priorityLabel ? `priority${task.priorityLabel}` : ""}" data-task-id="${escapeHtml(task.id)}">
-            <div class="taskRowMain">
-              <button class="checkButton" type="button" aria-label="${uiText("task.toggle", "Toggle")} ${escapeHtml(task.title)}"></button>
-              <a class="taskEditLink" href="#/edit-task?uid=${encodeURIComponent(task.id)}">
-                <span class="familyAgendaTaskTitle">
-                  <time class="familyAgendaItemTime">${escapeHtml(task.dueTime || "")}</time>
-                  <span class="taskTitleRow">
-                    <p class="taskTitle">${escapeHtml(task.title)}</p>
-                    ${renderCollectionPill(task)}
-                  </span>
-                </span>
-                ${task.subtasks.length ? `<span class="taskMeta">${uiText("task.subtasksCount", "{count} subtasks", { count: task.subtasks.length })}</span>` : ""}
-              </a>
-              <small class="taskBadge">${escapeHtml(task.badge)}</small>
-            </div>
-          </li>
-        `).join("")}
+      <h3>${escapeHtml(`${date} ${familyAgendaDateLabel(date).split(" ").slice(-1)[0]}`)}</h3>
+      <ul class="familyAgendaMixedList">
+        ${groups[date].map(renderFamilyAgendaMixedRow).join("")}
       </ul>
     </section>
   `).join("");
@@ -2978,22 +2986,10 @@ function renderFamilyAgendaSection(title, href, body) {
 function renderFamilyAgendaUpcoming(events, tasks) {
   return `
     <section class="panel familyAgendaUpcoming">
-      <div class="familyAgendaUpcomingGrid">
-        <section class="familyAgendaUpcomingSection">
-          <div class="panelHeader">
-            <h2>${uiText("agenda.upcomingEvents", "Upcoming events")}</h2>
-            <a class="openButton" href="#/calendar">${uiText("common.open", "Open")}</a>
-          </div>
-          <div class="panelBody">${renderFamilyAgendaEvents(events)}</div>
-        </section>
-        <section class="familyAgendaUpcomingSection">
-          <div class="panelHeader">
-            <h2>${uiText("agenda.upcomingTasks", "Upcoming tasks")}</h2>
-            <a class="openButton" href="#/tasks">${uiText("common.open", "Open")}</a>
-          </div>
-          <div class="panelBody">${renderFamilyAgendaTasks(tasks)}</div>
-        </section>
+      <div class="panelHeader">
+        <h2>${uiText("agenda.upcomingItems", "Upcoming")}</h2>
       </div>
+      <div class="panelBody">${renderFamilyAgendaMixedList(events, tasks)}</div>
     </section>
   `;
 }
