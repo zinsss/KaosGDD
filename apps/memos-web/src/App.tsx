@@ -151,6 +151,7 @@ function MemoCard({ memo, onEdit, onDelete, onPin, onTag }: {
 }
 
 function MemoApp({ user, onSignOut }: { user: MemosUser; onSignOut: () => void }) {
+  const embedded = window.self !== window.top;
   const [memos, setMemos] = useState<Memo[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -203,17 +204,19 @@ function MemoApp({ user, onSignOut }: { user: MemosUser; onSignOut: () => void }
   }
 
   return (
-    <div className="memoApp">
-      <header className="appHeader">
-        <div>
-          <p className="eyebrow">{config.appMode === "family" ? "가족" : "KAOSGDD"}</p>
-          <h1>{config.appName}</h1>
-        </div>
-        <div className="headerActions">
-          <span>{user.displayName || user.username}</span>
-          <button className="iconButton" type="button" onClick={onSignOut} title={t.signOut}><LogOut /></button>
-        </div>
-      </header>
+    <div className={`memoApp${embedded ? " isEmbedded" : ""}`}>
+      {!embedded && (
+        <header className="appHeader">
+          <div>
+            <p className="eyebrow">{config.appMode === "family" ? "가족" : "KAOSGDD"}</p>
+            <h1>{config.appName}</h1>
+          </div>
+          <div className="headerActions">
+            <span>{user.displayName || user.username}</span>
+            <button className="iconButton" type="button" onClick={onSignOut} title={t.signOut}><LogOut /></button>
+          </div>
+        </header>
+      )}
 
       <main className="appBody">
         <section className="controlBar">
