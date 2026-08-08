@@ -120,14 +120,16 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .memoApp.isEmbedded .tagFilters,
 .memoApp.isEmbedded .editorPanel,
 .memoApp.isEmbedded .errorBanner { margin-right: 12px; margin-left: 12px; }
-.memoApp.isEmbedded .memoFeed { gap: 10px; }
+.memoApp.isEmbedded .memoFeed { gap: 25px; }
 .memoApp.isEmbedded .memoCard {
   border-right: 0;
   border-left: 0;
   border-radius: 0;
   box-shadow: none;
 }
-.memoApp.isEmbedded .memoCard + .memoCard { border-top: 0; }
+.memoApp.isEmbedded .memoFooter {
+  border-top-color: color-mix(in srgb, var(--line) 45%, transparent);
+}
 .appHeader {
   position: sticky;
   top: 0;
