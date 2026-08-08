@@ -60,6 +60,14 @@ window.KAOS_TRANSLATIONS = {
     "calendar.agenda": "일정",
     "event.allDayPill": "종일 일정",
 
+    "agenda.today": "오늘",
+    "agenda.upcomingEvents": "다가오는 일정",
+    "agenda.upcomingTasks": "다가오는 할 일",
+    "agenda.otherTasks": "기타 할 일",
+    "agenda.noUpcomingEvents": "다가오는 일정이 없습니다.",
+    "agenda.currentRouny": "지금 로운이는",
+    "agenda.next": "다음",
+
     "weather.selectedDayAria": "선택한 날의 날씨",
     "weather.label": "날씨",
     "weather.morning": "아침",

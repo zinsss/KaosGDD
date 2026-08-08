@@ -113,8 +113,9 @@ const profileConfigs = {
   },
   family: {
     label: uiText("profile.family", "Family"),
-    defaultRoute: "calendar",
+    defaultRoute: "today",
     nav: [
+      { route: "today", label: uiText("route.today", "Today") },
       { route: "calendar", label: uiText("route.calendar", "Calendar") },
       { route: "tasks", label: uiText("route.tasks", "Tasks") },
       { route: "rouny", label: uiText("route.rouny", "Rouny") },
@@ -2056,7 +2057,7 @@ function getRoute() {
   const raw = window.location.hash.replace(/^#\/?/, "");
   const route = raw.split("?", 1)[0];
   if (!routes[route]) return profileConfig().defaultRoute;
-  if (portalProfile() === "family" && (route === "today" || route === "services")) return profileConfig().defaultRoute;
+  if (portalProfile() === "family" && route === "services") return profileConfig().defaultRoute;
   if (portalProfile() === "family" && route === "supplies") return profileConfig().defaultRoute;
   if (portalProfile() === "main" && (route === "rouny" || route === "memos" || route === "caregiver" || route === "ledger")) return profileConfig().defaultRoute;
   return route;
@@ -2846,7 +2847,129 @@ function renderSelectedWeather(weather) {
   `;
 }
 
+function addDaysToDateValue(dateValue, days) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return ymd(date);
+}
+
+function familyAgendaDateLabel(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const weekday = rounyDays.find((day) => day.value === String(date.getDay()))?.familyLabel || "";
+  return `${date.getMonth() + 1}/${date.getDate()} ${weekday}`.trim();
+}
+
+function renderFamilyAgendaEvents(events) {
+  if (!events.length) return `<p class="taskMeta">${uiText("agenda.noUpcomingEvents", "No upcoming events")}</p>`;
+  return `
+    <ol class="timeline familyAgendaTimeline">
+      ${events.map((event) => `
+        <li>
+          <time>${escapeHtml(familyAgendaDateLabel(event.date))}${event.allDay ? ` · ${uiText("event.allDayPill", "All Day")}` : event.time ? ` · ${escapeHtml(event.time)}` : ""}</time>
+          <a class="timelineLink" href="#/edit-event?uid=${encodeURIComponent(event.id)}">
+            <span class="timelineTitleRow"><strong>${escapeHtml(event.title)}</strong></span>
+            ${event.detail ? `<span>${escapeHtml(event.detail)}</span>` : ""}
+          </a>
+        </li>
+      `).join("")}
+    </ol>
+  `;
+}
+
+function familyAgendaRounyStatus(now = new Date()) {
+  ensureRounyState();
+  if (!state.rouny.hasPersistedLocal && !state.rouny.remoteLive) return null;
+  const template = state.rouny.templates.find((item) => item.id === state.rouny.selectedTemplateId)
+    || state.rouny.templates[0];
+  if (!template) return null;
+  const dayOfWeek = String(now.getDay());
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const slots = template.items
+    .flatMap((item) => (item.slots || [])
+      .filter((slot) => slot.dayOfWeek === dayOfWeek)
+      .map((slot) => ({ item, slot, start: rounyMinutes(slot.startTime), end: rounyMinutes(slot.endTime) })))
+    .filter((entry) => entry.end > entry.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  const current = slots.find((entry) => entry.start <= currentMinutes && currentMinutes < entry.end);
+  if (current) return { ...current, mode: "current" };
+  const next = slots.find((entry) => entry.start > currentMinutes);
+  return next ? { ...next, mode: "next" } : null;
+}
+
+function renderFamilyAgendaRouny(now = new Date()) {
+  const status = familyAgendaRounyStatus(now);
+  if (!status) return "";
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return `
+    <section class="panel familyAgendaRouny">
+      <div class="panelHeader">
+        <p class="label">${uiText("agenda.currentRouny", "Rouny now")}</p>
+        <time data-family-agenda-now>${time}</time>
+      </div>
+      <a class="familyAgendaRounyBody" href="#/rouny">
+        <span class="familyAgendaRounyMarker" style="background:${escapeHtml(normalizeRounyColor(status.item.color))}"></span>
+        <span class="familyAgendaRounyText is-${status.mode}">
+          ${status.mode === "next" ? `<small>${uiText("agenda.next", "Next")}</small>` : ""}
+          <strong>${escapeHtml(status.item.title || uiText("common.untitled", "Untitled"))}</strong>
+          <span>${escapeHtml(status.slot.startTime)}-${escapeHtml(status.slot.endTime)}</span>
+        </span>
+      </a>
+    </section>
+  `;
+}
+
+function renderFamilyAgendaSection(title, href, body) {
+  return `
+    <section class="panel familyAgendaSection">
+      <div class="panelHeader">
+        <h2>${escapeHtml(title)}</h2>
+        <a class="openButton" href="${escapeHtml(href)}">${uiText("common.open", "Open")}</a>
+      </div>
+      <div class="panelBody">${body}</div>
+    </section>
+  `;
+}
+
+function renderFamilyAgenda() {
+  const today = ymd(new Date());
+  state.selectedDate = today;
+  const endDate = addDaysToDateValue(today, 6);
+  const events = mockAdapter.getEvents()
+    .filter((event) => event.date >= today && event.date <= endDate)
+    .sort(sortByDateTime);
+  const activeTasks = mockAdapter.getTasks().filter((task) => !task.done);
+  const upcomingTasks = activeTasks
+    .filter((task) => task.due && task.due >= today && task.due <= endDate)
+    .sort(compareTasksByDue);
+  const otherTasks = activeTasks
+    .filter((task) => !task.due)
+    .sort(compareTasksByCreated);
+  const weather = weatherForDate(today);
+  const weatherSummary = weather
+    ? `${weatherLocationLabel(weather.city || state.weatherLocation)} ${tempRange(weather)}`
+    : uiText("weather.unavailable", "Weather unavailable");
+  return `
+    <div class="familyAgendaPage">
+      <section class="panel familyAgendaOverview">
+        <div>
+          <p class="label">${uiText("agenda.today", "Today")}</p>
+          <h2>${escapeHtml(compactDateLabel(today))}</h2>
+        </div>
+        <div class="familyAgendaWeather">
+          ${weather ? `<span class="overviewWeatherGlyph">${escapeHtml(weatherGlyph(weather))}</span>` : ""}
+          <strong>${escapeHtml(weatherSummary)}</strong>
+        </div>
+      </section>
+      ${renderFamilyAgendaSection(uiText("agenda.upcomingEvents", "Upcoming events"), "#/calendar", renderFamilyAgendaEvents(events))}
+      ${renderFamilyAgendaSection(uiText("agenda.upcomingTasks", "Upcoming tasks"), "#/tasks", renderTaskRows(upcomingTasks))}
+      ${renderFamilyAgendaSection(uiText("agenda.otherTasks", "Other tasks"), "#/tasks", renderTaskRows(otherTasks))}
+      ${renderFamilyAgendaRouny()}
+    </div>
+  `;
+}
+
 function renderToday() {
+  if (portalProfile() === "family") return renderFamilyAgenda();
   const events = mockAdapter.getEvents().filter((event) => event.date === state.selectedDate);
   const tasks = mockAdapter
     .getTasks()
@@ -3741,7 +3864,7 @@ async function loadRemoteRounyTemplates({ force = false } = {}) {
       state.rouny.syncState = "offline";
       state.rouny.syncError = error.message || "Rouny storage unavailable";
     }
-    if (getRoute() === "rouny") render();
+    if (getRoute() === "rouny" || (portalProfile() === "family" && getRoute() === "today")) render();
     return state.rouny.remoteLive;
   })().finally(() => {
     rounyRemoteLoadPromise = null;
@@ -6450,6 +6573,10 @@ document.addEventListener("change", (event) => {
 document.getElementById("view")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
 desktopMedia.addEventListener("change", render);
 window.addEventListener("resize", updateOverlayMetrics, { passive: true });
+
+window.setInterval(() => {
+  if (portalProfile() === "family" && getRoute() === "today") render();
+}, 60_000);
 
 window.addEventListener("hashchange", () => {
   const view = document.getElementById("view");

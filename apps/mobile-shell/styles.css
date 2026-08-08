@@ -696,6 +696,99 @@ h3 {
   gap: 12px;
 }
 
+.familyAgendaPage {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.familyAgendaOverview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+}
+
+.familyAgendaWeather {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.familyAgendaWeather .overviewWeatherGlyph {
+  font-size: 1.45rem;
+}
+
+.familyAgendaWeather strong {
+  font-size: 0.9rem;
+}
+
+.familyAgendaSection .panelBody {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.familyAgendaTimeline li {
+  grid-template-columns: 108px minmax(0, 1fr);
+}
+
+.familyAgendaTimeline time {
+  white-space: nowrap;
+}
+
+.familyAgendaRouny .panelHeader time {
+  color: var(--dim);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.familyAgendaRounyBody {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+}
+
+.familyAgendaRounyMarker {
+  width: 8px;
+  min-height: 54px;
+  border-radius: 4px;
+}
+
+.familyAgendaRounyText {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.familyAgendaRounyText.is-next {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.familyAgendaRounyText small {
+  color: #9b5f8f;
+  font-weight: 700;
+}
+
+.familyAgendaRounyText strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.familyAgendaRounyText > span {
+  color: var(--dim);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
@@ -2863,7 +2956,7 @@ h3 {
 }
 
 .app[data-profile="family"] .topNav {
-  grid-template-columns: repeat(6, auto);
+  grid-template-columns: repeat(7, auto);
 }
 
 .app[data-profile="family"] .kicker,
@@ -3827,6 +3920,16 @@ h3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;
     gap: 16px;
+  }
+
+  .familyAgendaPage {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .familyAgendaOverview,
+  .familyAgendaRouny {
+    grid-column: 1 / -1;
   }
 
   .todayDesktopGrid > .panel {
