@@ -3261,7 +3261,6 @@ function renderToday() {
     .filter(Boolean)
     .join(" ");
   return `
-    ${renderCollectionRail()}
     <div class="todayDesktopGrid">
       <section class="panel">
         <div class="panelHeader">
