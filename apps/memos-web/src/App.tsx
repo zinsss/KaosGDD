@@ -121,6 +121,7 @@ function MemoCard({ memo, onEdit, onDelete, onPin, onTag }: {
   onPin: () => void;
   onTag: (tag: string) => void;
 }) {
+  const tags = memo.tags ?? [];
   return (
     <article className="memoCard">
       <div className="memoContent">
@@ -128,9 +129,9 @@ function MemoCard({ memo, onEdit, onDelete, onPin, onTag }: {
           a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
         }}>{memo.content}</ReactMarkdown>
       </div>
-      {memo.tags.length > 0 && (
+      {tags.length > 0 && (
         <div className="tagRow">
-          {memo.tags.map((tag) => <button type="button" key={tag} onClick={() => onTag(tag)}>#{tag}</button>)}
+          {tags.map((tag) => <button type="button" key={tag} onClick={() => onTag(tag)}>#{tag}</button>)}
         </div>
       )}
       <footer className="memoFooter">
@@ -178,7 +179,7 @@ function MemoApp({ user, onSignOut }: { user: MemosUser; onSignOut: () => void }
 
   useEffect(() => { void load(false); }, [search, tag, user.name]);
 
-  const tags = useMemo(() => Array.from(new Set(memos.flatMap((memo) => memo.tags))).sort(), [memos]);
+  const tags = useMemo(() => Array.from(new Set(memos.flatMap((memo) => memo.tags ?? []))).sort(), [memos]);
 
   async function togglePin(memo: Memo) {
     const updated = await memosClient.updateMemo(memo.name, { pinned: !memo.pinned });

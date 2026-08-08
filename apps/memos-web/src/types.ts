@@ -15,7 +15,7 @@ export interface Memo {
   updateTime: string;
   content: string;
   visibility: MemoVisibility;
-  tags: string[];
+  tags?: string[];
   pinned: boolean;
   snippet?: string;
 }
