@@ -5036,7 +5036,7 @@ function renderLedger() {
       <section class="familyMemosWorkspace">
         <iframe
           class="familyMemosFrame"
-          src="${escapeHtml(MEMOS_URL)}"
+          src="/memos-app/"
           title="${escapeHtml(uiText("memos.label", "Memos"))}"
           allow="clipboard-read; clipboard-write"
           referrerpolicy="strict-origin-when-cross-origin"
