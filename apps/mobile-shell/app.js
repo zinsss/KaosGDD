@@ -5533,8 +5533,9 @@ function updateTopBarShadow() {
   const view = document.getElementById("view");
   const ledgerScroller = document.querySelector(".ledgerDetailsScroller");
   const scrollTop = ledgerScroller?.scrollTop || view?.scrollTop || 0;
-  document.querySelector(".appTop")?.classList.toggle("hasScrolled", !ledgerScroller && scrollTop > 4);
-  ledgerScroller?.classList.toggle("hasScrolled", scrollTop > 4);
+  const hasScrolled = scrollTop > 4;
+  document.querySelector(".appTop")?.classList.toggle("hasScrolled", !ledgerScroller && hasScrolled);
+  document.querySelector(".ledgerFilterStack")?.classList.toggle("hasScrolled", hasScrolled);
 }
 
 document.addEventListener("click", async (event) => {

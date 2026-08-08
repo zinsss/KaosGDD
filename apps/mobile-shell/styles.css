@@ -408,8 +408,27 @@ h3 {
 }
 
 .ledgerFilterStack {
+  position: relative;
+  z-index: 5;
   display: grid;
   gap: 6px;
+}
+
+.ledgerFilterStack::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 1px;
+  box-shadow: 0 8px 11px 3px rgba(96, 75, 107, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.ledgerFilterStack.hasScrolled::after {
+  opacity: 1;
 }
 
 .ledgerFilterToolbar {
@@ -510,24 +529,6 @@ h3 {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-}
-
-.ledgerDetailsScroller::before {
-  content: "";
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  display: block;
-  height: 1px;
-  margin-bottom: -1px;
-  box-shadow: 0 7px 12px 3px rgba(96, 75, 107, 0.16);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 140ms ease;
-}
-
-.ledgerDetailsScroller.hasScrolled::before {
-  opacity: 1;
 }
 
 .app[data-route="ledger"] .appTop.hasScrolled,
