@@ -484,6 +484,10 @@ h3 {
   overflow: hidden;
 }
 
+.ledgerDetailsScroller > .ledgerSheet {
+  overflow: visible;
+}
+
 .ledgerDesktopTableWrap {
   display: none;
 }
