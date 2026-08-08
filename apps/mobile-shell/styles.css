@@ -340,8 +340,6 @@ h3 {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
   background: var(--surface);
 }
 
@@ -351,6 +349,24 @@ h3 {
   height: 100%;
   border: 0;
   background: var(--surface);
+}
+
+@media (max-width: 560px) {
+  .app[data-route="memos"] {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .app[data-route="memos"] .appTop {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  .app[data-route="memos"] .view {
+    width: 100%;
+    margin: 0;
+    padding-top: 0;
+  }
 }
 
 .ledgerPage {

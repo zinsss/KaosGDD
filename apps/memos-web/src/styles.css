@@ -115,6 +115,19 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 
 .memoApp { min-height: 100vh; }
 .memoApp.isEmbedded { min-height: 100%; }
+.memoApp.isEmbedded .appBody { max-width: none; padding-right: 0; padding-left: 0; }
+.memoApp.isEmbedded .controlBar,
+.memoApp.isEmbedded .tagFilters,
+.memoApp.isEmbedded .editorPanel,
+.memoApp.isEmbedded .errorBanner { margin-right: 12px; margin-left: 12px; }
+.memoApp.isEmbedded .memoFeed { gap: 0; }
+.memoApp.isEmbedded .memoCard {
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.memoApp.isEmbedded .memoCard + .memoCard { border-top: 0; }
 .appHeader {
   position: sticky;
   top: 0;
@@ -149,13 +162,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 
 .memoFeed { display: grid; gap: 12px; }
 .memoCard { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 6px 16px var(--shadow); }
-.memoContent { padding: 16px; overflow-wrap: anywhere; line-height: 1.58; }
+.memoContent { padding: 16px; overflow-wrap: anywhere; font-size: 0.84rem; line-height: 1.58; }
 .memoContent > :first-child { margin-top: 0; }
 .memoContent > :last-child { margin-bottom: 0; }
-.memoContent h1 { font-size: 1.55rem; }
-.memoContent h2 { font-size: 1.35rem; }
-.memoContent h3 { font-size: 1.18rem; }
-.memoContent h4 { font-size: 1.05rem; }
+.memoContent h1 { font-size: 1.25rem; }
+.memoContent h2 { font-size: 1.1rem; }
+.memoContent h3 { font-size: 1rem; }
+.memoContent h4 { font-size: 0.92rem; }
 .memoContent pre { overflow-x: auto; padding: 12px; border-radius: 6px; background: var(--bg); white-space: pre-wrap; }
 .memoContent code { font-family: "Sarasa Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
 .memoContent blockquote { margin-left: 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--muted); }
