@@ -265,14 +265,19 @@ svg {
 }
 
 @media (max-width: 560px) {
+  .app[data-profile="main"] .appIdentity {
+    min-width: 82px;
+  }
+
   .app[data-profile="main"] .topNav {
     grid-template-columns: repeat(6, auto);
-    gap: 4px;
+    gap: 5px;
   }
 
   .app[data-profile="main"] .topNav a {
     padding-inline: 0;
-    font-size: 0.72rem;
+    font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.74rem;
   }
 }
 
@@ -352,19 +357,10 @@ h3 {
 }
 
 @media (max-width: 560px) {
-  .app[data-route="memos"] {
-    padding-right: 0;
-    padding-left: 0;
-  }
-
-  .app[data-route="memos"] .appTop {
-    margin-right: 12px;
-    margin-left: 12px;
-  }
-
   .app[data-route="memos"] .view {
-    width: 100%;
-    margin: 0;
+    width: calc(100% + 24px);
+    max-width: none;
+    margin-left: -12px;
     padding-top: 0;
   }
 }
