@@ -123,6 +123,23 @@ The first run marks existing receive-queue files as already seen by default, so
 deploying the worker does not spam notifications for old faxes. Successful fax
 receipt notices go to both audience topics. Mailbox-delivery failures use the
 system topic. Future calendar and task reminders are desktop-only.
+
+## Mail Notifications
+
+Brain can poll two read-only IMAP sources without storing message bodies:
+
+- Naver: `각종공문` and every descendant folder
+- Gmail: `INBOX`, filtered to the configured KaosGDD fax aliases
+
+The worker records only UIDVALIDITY, last processed UID, folder display name,
+and aggregate runtime status under `/data/mail`. Existing messages establish the
+first checkpoint and do not notify. New matching messages are published to both
+the iOS and desktop audience topics.
+
+Each account has an independent enable flag and password. Keep an account
+disabled until its IMAP/app password has been entered in the protected Brain
+environment.
+
 ## Supplies
 
 Supplies should move into KaosGDD as a dedicated buy-list UI backed by Brain.

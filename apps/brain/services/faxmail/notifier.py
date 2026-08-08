@@ -4,10 +4,10 @@ import re
 import threading
 import time
 import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+
+from services.notifications import ntfy
 
 
 STATE_LOCK = threading.Lock()
@@ -86,37 +86,11 @@ def mark_existing_on_first_run():
 
 
 def ntfy_urls(channel="normal"):
-    raw_url = os.environ.get("NTFY_URL", "").strip().rstrip("/")
-    fallback_topic = os.environ.get("NTFY_TOPIC", "").strip()
-    if not raw_url:
-        return []
-
-    if channel == "system":
-        topics = [os.environ.get("NTFY_TOPIC_SYSTEM", "").strip()]
-    elif channel == "ios":
-        topics = [os.environ.get("NTFY_TOPIC_IOS", "").strip()]
-    elif channel == "desktop":
-        topics = [os.environ.get("NTFY_TOPIC_DESKTOP", "").strip()]
-    else:
-        topics = [
-            os.environ.get("NTFY_TOPIC_IOS", "").strip(),
-            os.environ.get("NTFY_TOPIC_DESKTOP", "").strip(),
-        ]
-        if not any(topics):
-            topics = [os.environ.get("NTFY_TOPIC_NORMAL", "").strip()]
-
-    topics = [topic.strip("/") for topic in topics if topic.strip("/")]
-    if not topics and fallback_topic:
-        topics = [fallback_topic.strip("/")]
-    return [
-        f"{raw_url}/{urllib.parse.quote(topic)}"
-        for topic in dict.fromkeys(topics)
-    ]
+    return ntfy.topic_urls(channel)
 
 
 def ntfy_url(channel="normal"):
-    urls = ntfy_urls(channel)
-    return urls[0] if urls else ""
+    return ntfy.topic_url(channel)
 
 
 def load_state(path=None):
@@ -244,9 +218,6 @@ def scan_delivery_failures(root=None):
 
 
 def notify_ntfy(event, opener=None):
-    urls = ntfy_urls("normal")
-    if not urls:
-        raise RuntimeError("ntfy_not_configured")
     title = os.environ.get("FAX_NOTIFY_TITLE", "Incoming fax").strip() or "Incoming fax"
     topic_click = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
     body_lines = [
@@ -257,33 +228,19 @@ def notify_ntfy(event, opener=None):
         body_lines.append(f"Pages: {event.pages}")
     if event.commid:
         body_lines.append(f"CommID: {event.commid}")
-    token = os.environ.get("NTFY_TOKEN", "").strip()
-    timeout = float(os.environ.get("NTFY_TIMEOUT_SECONDS", "10"))
-    opener = opener or urllib.request.urlopen
-    for url in urls:
-        request = urllib.request.Request(
-            url,
-            data="\n".join(body_lines).encode("utf-8"),
-            method="POST",
-            headers={
-                "Title": title,
-                "Priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
-                "Tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
-                "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
-            },
-        )
-        if topic_click:
-            request.add_header("Click", topic_click)
-        if token:
-            request.add_header("Authorization", f"Bearer {token}")
-        with opener(request, timeout=timeout) as response:
-            response.read()
+    ntfy.publish(
+        channel="normal",
+        title=title,
+        message="\n".join(body_lines),
+        priority=os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
+        tags=os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
+        click_url=topic_click,
+        user_agent="KaosGDD-Brain-Faxmail/1.0",
+        opener=opener,
+    )
 
 
 def notify_delivery_failure(failure, opener=None):
-    url = ntfy_url("system")
-    if not url:
-        raise RuntimeError("ntfy_not_configured")
     body = "\n".join(
         [
             f"Mailbox delivery failed for {failure.filename}",
@@ -292,27 +249,16 @@ def notify_delivery_failure(failure, opener=None):
             "Automatic retry remains enabled.",
         ]
     )
-    request = urllib.request.Request(
-        url,
-        data=body.encode("utf-8"),
-        method="POST",
-        headers={
-            "Title": os.environ.get("FAX_NOTIFY_FAILURE_TITLE", "Fax mailbox delivery failed"),
-            "Priority": "urgent",
-            "Tags": "warning,fax,inbox",
-            "User-Agent": "KaosGDD-Brain-Faxmail/1.0",
-        },
+    ntfy.publish(
+        channel="system",
+        title=os.environ.get("FAX_NOTIFY_FAILURE_TITLE", "Fax mailbox delivery failed"),
+        message=body,
+        priority="urgent",
+        tags="warning,fax,inbox",
+        click_url=os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip(),
+        user_agent="KaosGDD-Brain-Faxmail/1.0",
+        opener=opener,
     )
-    click_url = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
-    if click_url:
-        request.add_header("Click", click_url)
-    token = os.environ.get("NTFY_TOKEN", "").strip()
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
-    opener = opener or urllib.request.urlopen
-    timeout = float(os.environ.get("NTFY_TIMEOUT_SECONDS", "10"))
-    with opener(request, timeout=timeout) as response:
-        response.read()
 
 
 def scan_and_notify(*, opener=None):
