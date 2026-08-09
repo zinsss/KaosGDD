@@ -44,7 +44,7 @@ services:
       FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
       FAX_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
       FAX_OUTGOING_ENABLED: "true"
-      FAX_OUTGOING_MODE: "shadow"
+      FAX_OUTGOING_MODE: "dry-run"
       FAX_OUTGOING_IMAP_FOLDER: "INBOX"
       FAX_OUTGOING_RECIPIENTS: "fax-send@kaosgdd.net"
       FAX_OUTGOING_REQUIRE_AUTH_RESULTS: "true"
