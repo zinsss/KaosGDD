@@ -99,10 +99,11 @@
 
 @font-face {
   font-family: "Kaos Weather Icons";
-  src: url("./fonts/SymbolsNerdFontMono-Regular.ttf?v=83") format("truetype");
+  src: url("./fonts/KaosWeatherIcons.woff2?v=205") format("woff2");
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
+  unicode-range: U+E248, U+E302, U+E30D, U+E312, U+E313, U+E318, U+E31A, U+E31D, U+E32B, U+E371;
 }
 
 @font-face {
