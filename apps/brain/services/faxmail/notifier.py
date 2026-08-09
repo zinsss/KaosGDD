@@ -7,6 +7,7 @@ import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
 
+from services.notifications import actions as notification_actions
 from services.notifications import ntfy
 
 
@@ -228,13 +229,17 @@ def notify_ntfy(event, opener=None):
         body_lines.append(f"Pages: {event.pages}")
     if event.commid:
         body_lines.append(f"CommID: {event.commid}")
+    notification = {
+        "channel": "normal",
+        "title": title,
+        "message": "\n".join(body_lines),
+        "priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
+        "tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
+        "click_url": topic_click,
+    }
     ntfy.publish(
-        channel="normal",
-        title=title,
-        message="\n".join(body_lines),
-        priority=os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
-        tags=os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
-        click_url=topic_click,
+        **notification,
+        actions=notification_actions.action_header(notification),
         user_agent="KaosGDD-Brain-Faxmail/1.0",
         opener=opener,
     )

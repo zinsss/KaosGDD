@@ -45,6 +45,9 @@ def publish(
     priority="default",
     tags="",
     click_url="",
+    actions="",
+    delay="",
+    sequence_id="",
     user_agent="KaosGDD-Brain/1.0",
     opener=None,
 ):
@@ -70,6 +73,12 @@ def publish(
             request.add_header("Tags", str(tags))
         if click_url:
             request.add_header("Click", str(click_url))
+        if actions:
+            request.add_header("Actions", str(actions))
+        if delay:
+            request.add_header("Delay", str(delay))
+        if sequence_id:
+            request.add_header("Sequence-ID", str(sequence_id))
         if token:
             request.add_header("Authorization", f"Bearer {token}")
         with opener(request, timeout=timeout) as response:

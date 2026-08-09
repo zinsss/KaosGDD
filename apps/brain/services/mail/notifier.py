@@ -12,6 +12,7 @@ from email.parser import BytesParser
 from email.utils import getaddresses
 from pathlib import Path
 
+from services.notifications import actions as notification_actions
 from services.notifications import ntfy
 
 
@@ -303,19 +304,24 @@ def event_matches(config, event):
 
 
 def notify_event(event, opener=None):
-    ntfy.publish(
-        channel="normal",
-        title=f"New mail · {event.account_label}",
-        message="\n".join(
+    click_url = os.environ.get("MAIL_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip()
+    notification = {
+        "channel": "normal",
+        "title": f"New mail · {event.account_label}",
+        "message": "\n".join(
             [
                 event.subject,
                 f"From: {event.sender}",
                 f"Folder: {event.mailbox}",
             ]
         ),
-        priority="default",
-        tags="email,inbox",
-        click_url=os.environ.get("MAIL_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip(),
+        "priority": "default",
+        "tags": "email,inbox",
+        "click_url": click_url,
+    }
+    ntfy.publish(
+        **notification,
+        actions=notification_actions.action_header(notification),
         user_agent="KaosGDD-Brain-Mail/1.0",
         opener=opener,
     )

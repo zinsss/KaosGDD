@@ -23,6 +23,7 @@ from services.faxmail import notifier as faxmail_notifier
 from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
 from services.memos import relay as memos_relay
+from services.notifications import actions as notification_actions
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -56,6 +57,30 @@ def xlsx_response(handler, data, filename):
     handler.send_header("Content-Length", str(len(data)))
     handler.end_headers()
     handler.wfile.write(data)
+
+
+def notification_later_response(handler, status, title, message):
+    body = f"""<!doctype html>
+<html lang=\"en\">
+<meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
+<title>{title}</title>
+<style>
+  :root {{ color-scheme: dark; font-family: system-ui, sans-serif; }}
+  body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #2e3440; color: #eceff4; }}
+  main {{ width: min(32rem, calc(100% - 3rem)); }}
+  h1 {{ margin: 0 0 .6rem; color: #ebcb8b; font-size: 1.6rem; }}
+  p {{ margin: 0; color: #d8dee9; line-height: 1.5; }}
+</style>
+<main><h1>{title}</h1><p>{message}</p></main>
+</html>""".encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 def brain_status(headers):
@@ -236,6 +261,19 @@ def proxy_memos(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/notifications/later":
+            try:
+                require_main_profile(self.headers)
+                query = urllib.parse.parse_qs(parsed.query)
+                notification_actions.schedule_later((query.get("token") or [""])[0])
+                notification_later_response(self, 200, "Later", "This notification will return in one hour.")
+            except (ValueError, notification_actions.NotificationActionError) as exc:
+                notification_later_response(self, 400, "Unable to snooze", str(exc).replace("_", " "))
+            except Exception as exc:
+                print(f"Notification snooze failed: {type(exc).__name__}", flush=True)
+                notification_later_response(self, 503, "Unable to snooze", "Notification service is unavailable.")
+            return
+
         if parsed.path == "/api/custom-events":
             try:
                 require_main_profile(self.headers)
