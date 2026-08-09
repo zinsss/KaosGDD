@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.10.3-mail2
+    image: kaosgdd-brain:0.10.5-outgoing-fax-shadow1
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -29,7 +29,7 @@ services:
         format: raw
     environment:
       BRAIN_PORT: "8092"
-      BRAIN_VERSION: "0.10.0-custom-events1"
+      BRAIN_VERSION: "0.10.5-outgoing-fax-shadow1"
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
@@ -43,6 +43,16 @@ services:
       FAX_NOTIFY_POLL_SECONDS: "20"
       FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
       FAX_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
+      FAX_OUTGOING_ENABLED: "true"
+      FAX_OUTGOING_MODE: "shadow"
+      FAX_OUTGOING_IMAP_FOLDER: "INBOX"
+      FAX_OUTGOING_RECIPIENTS: "fax-send@kaosgdd.net"
+      FAX_OUTGOING_REQUIRE_AUTH_RESULTS: "true"
+      FAX_OUTGOING_MARK_EXISTING_ON_FIRST_RUN: "true"
+      FAX_OUTGOING_POLL_SECONDS: "60"
+      FAX_OUTGOING_QUEUE_ROOT: "/data/fax-outgoing"
+      FAX_OUTGOING_STATE_PATH: "/data/fax-outgoing/state.json"
+      FAX_OUTGOING_DONEQ_ROOT: "/integrations/hylafax/doneq"
       MAIL_NOTIFY_STATE_PATH: "/data/mail/notified-imap.json"
       MAIL_NOTIFY_POLL_SECONDS: "60"
       MAIL_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
@@ -55,6 +65,7 @@ services:
       - "1000"
     volumes:
       - /srv/kaos/data/kaosgdd/brain/faxmail:/data/faxmail
+      - /srv/kaos/data/kaosgdd/brain/fax-outgoing:/data/fax-outgoing
       - /srv/kaos/data/kaosgdd/brain/mail:/data/mail
       - /srv/kaos/backups/kaosgdd/ledger:/data/ledger/backups
       - /var/spool/hylafax:/integrations/hylafax:ro
@@ -71,3 +82,25 @@ services:
       interval: 15s
       timeout: 8s
       retries: 10
+
+  fax-bridge:
+    image: kaosgdd-fax-bridge:0.1.0
+    container_name: kaosgdd-fax-bridge
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      FAX_BRIDGE_MODE: "dry-run"
+      FAX_BRIDGE_QUEUE_ROOT: "/data/fax-outgoing"
+      FAX_BRIDGE_POLL_SECONDS: "5"
+      FAXSERVER: "127.0.0.1:4559"
+    group_add:
+      - "1000"
+    volumes:
+      - /srv/kaos/data/kaosgdd/brain/fax-outgoing:/data/fax-outgoing
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

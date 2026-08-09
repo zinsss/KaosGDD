@@ -272,6 +272,53 @@ device configuration changes.
 
 ## Outgoing Fax
 
-Outgoing fax automation is not enabled yet. Before implementing it, confirm the
-actual international dialing prefix and full local fax identity. Convert PDFs
-to fax-ready TIFF before submitting to HylaFAX.
+Outgoing requests use the hosted fax mailbox as the human interface:
+
+```text
+To: fax-send@kaosgdd.net
+Subject: fax:022848302
+Attachment: exactly one PDF
+```
+
+The `fax:` prefix is mandatory. Brain accepts only configured senders whose
+mail has a passing DKIM or DMARC result. It normalizes Korean `+82` numbers to
+domestic form and rejects malformed numbers, multiple attachments, non-PDF
+content, and duplicate requests. For example, `010304949393` is rejected;
+`010-3049-4939` is `01030494939`.
+
+The deployment has two independent safety switches:
+
+```text
+FAX_OUTGOING_MODE=shadow       # Brain validates only; writes no queue job
+FAX_BRIDGE_MODE=dry-run        # bridge converts PDF to TIFF; never calls sendfax
+```
+
+Activation order is always:
+
+1. Deploy Brain in `shadow` and baseline the existing mailbox.
+2. Confirm `/api/brain/status` reports `outgoingFax` healthy.
+3. Change Brain to `dry-run`, send a deliberate test email, and inspect the
+   converted TIFF and dry-run result.
+4. Confirm the destination and attachment manually.
+5. Change only the bridge to `live` for an approved live fax test.
+
+Never skip the dry-run stage. No production live fax is sent as part of a
+deployment or automated test.
+
+Brain writes validated jobs under:
+
+```text
+/srv/kaos/data/kaosgdd/brain/fax-outgoing
+```
+
+The separate `kaosgdd-fax-bridge` container validates the manifest and SHA-256,
+converts the PDF with Ghostscript `tiffg3`, verifies it with `tiffinfo`, and in
+live mode submits that TIFF to `127.0.0.1:4559`. Brain never receives raw modem
+or HylaFAX spool write access. The bridge is unprivileged and has no published
+port.
+
+After submission, Brain reconciles `/var/spool/hylafax/doneq/qJOBID`. Success
+and failure notifications go to both normal audiences or `kaosgdd-system`
+respectively, with Open and Later actions. Mailbox folder transitions remain
+disabled during shadow/dry-run validation; the durable job state prevents the
+same message from being submitted twice.

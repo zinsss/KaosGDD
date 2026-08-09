@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ghostscript hylafax-client libtiff-tools \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10002 --gid users --home /nonexistent --shell /usr/sbin/nologin faxbridge
+
+WORKDIR /app
+COPY services/faxmail/outbound_bridge.py /app/outbound_bridge.py
+
+USER faxbridge
+
+CMD ["python", "/app/outbound_bridge.py"]

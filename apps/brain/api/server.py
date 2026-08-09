@@ -20,6 +20,7 @@ from services.caregiver.upstream import (
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
 from services.event_presets import service as event_preset_service
 from services.faxmail import notifier as faxmail_notifier
+from services.faxmail import outgoing as outgoing_fax
 from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
 from services.memos import relay as memos_relay
@@ -97,6 +98,7 @@ def brain_status(headers):
         "upstreams": {
             "calendarAdapter": calendar_adapter,
             "faxmailNotifications": faxmail_notifier.status(),
+            "outgoingFax": outgoing_fax.status(),
             "mailNotifications": mail_notifier.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
@@ -812,6 +814,7 @@ def main():
     ledger_service.start_backup_scheduler()
     recurring_task_service.start_scheduler()
     faxmail_notifier.start_scheduler()
+    outgoing_fax.start_scheduler()
     mail_notifier.start_scheduler()
     holiday_service.start_scheduler()
     generated_calendar_service.start_scheduler()

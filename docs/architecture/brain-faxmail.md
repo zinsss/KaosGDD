@@ -82,6 +82,22 @@ poll mailbox/folder
   -> send notification or reply
 ```
 
+The transport boundary is a separate unprivileged `fax-bridge` container.
+Brain writes a versioned manifest and PDF SHA-256 to a shared queue. The bridge
+validates both, performs PDF-to-TIFF conversion, and is the only application
+component allowed to contact localhost `hfaxd`. It defaults to dry-run and has
+no public listener. Brain mounts the HylaFAX spool read-only solely to reconcile
+`doneq` results.
+
+Current rollout modes:
+
+- `shadow`: parse and record validation results without writing attachments.
+- `dry-run`: queue, convert, and verify TIFF without calling `sendfax`.
+- `live`: submit the verified TIFF and reconcile the resulting HylaFAX job.
+
+Both Brain and the bridge have independent mode switches. This deliberately
+requires two configuration changes before a live transmission is possible.
+
 Important: Brain should submit TIFF to HylaFAX, not raw PDF. The current modem
 host has historical failed jobs with `Error: /undefinedfilename`, which points
 back to HylaFAX-side PDF conversion problems.
