@@ -333,12 +333,12 @@ or HylaFAX spool write access. The bridge is unprivileged and has no published
 port.
 
 After submission, Brain reconciles `/var/spool/hylafax/doneq/qJOBID`. Live jobs
-send idempotent `Fax queued`, `Fax sending`, and `Fax sent` notifications to
-both normal audiences. A terminal error sends `Fax failed` to
-both device topics with urgent priority. All stages include Open and Later
-actions. Mailbox folder transitions remain disabled during shadow/dry-run
-validation; the durable job state prevents the same message from being
-submitted twice.
+send idempotent `Fax queued to send.`, `Sending fax to NUMBER.`, and
+`Fax successfully sent.` notifications to both device topics. Each includes the
+original PDF filename. A terminal error sends `Fax failed` to both topics with
+urgent priority. Notification action buttons are disabled globally. Mailbox
+folder transitions remain disabled during shadow/dry-run validation; the
+durable job state prevents the same message from being submitted twice.
 
 The verifier checks `setup.cache` from inside the running `faxq` mount
 namespace. If that check fails while no fax is active, repair it without

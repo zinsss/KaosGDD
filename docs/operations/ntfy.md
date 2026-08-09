@@ -13,23 +13,26 @@ Successful incoming-fax notifications are published to both audience topics.
 Mailbox-delivery failures and other operational faults are urgent and published
 to both device topics.
 
-Incoming-fax and selected-mail notifications include two actions:
-
-- `Open` opens `https://mail.kaosgdd.net/`.
-- `Later` opens a signed Brain action and schedules the same notification for
-  delivery one hour later. Repeated taps update the same scheduled message.
-
-Configure the signed action with:
+Notification action buttons are currently disabled globally:
 
 ```text
+NOTIFICATION_ACTIONS_ENABLED=false
+```
+
+This removes Open and Later from fax, mail, and every other Brain notification.
+The signed Later implementation remains available for a future opt-in. Enabling
+it also requires:
+
+```text
+NOTIFICATION_ACTIONS_ENABLED=true
 NOTIFICATION_LATER_SECRET=<random 32-byte-or-longer secret>
 NOTIFICATION_LATER_BASE_URL=https://kaosgdd.net/api/notifications/later
 NOTIFICATION_LATER_DELAY=1h
 NOTIFICATION_LATER_TOKEN_TTL_SECONDS=604800
 ```
 
-The later-action route must proxy to Brain and remain behind Cloudflare Access.
-The notification carries a signed replay payload, never the ntfy API token.
+The Later route must proxy to Brain and remain behind Cloudflare Access. The
+notification carries a signed replay payload, never the ntfy API token.
 
 The self-hosted ntfy server requires this setting for immediate iOS delivery:
 

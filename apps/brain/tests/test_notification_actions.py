@@ -38,6 +38,7 @@ class NotificationActionTests(unittest.TestCase):
             os.environ,
             {
                 "NOTIFICATION_LATER_SECRET": "a" * 64,
+                "NOTIFICATION_ACTIONS_ENABLED": "true",
                 "NOTIFICATION_LATER_BASE_URL": "https://kaosgdd.net/api/notifications/later",
                 "NTFY_URL": "https://ntfy.example",
                 "NTFY_TOPIC_IOS": "kaosgdd-ios",
@@ -53,6 +54,12 @@ class NotificationActionTests(unittest.TestCase):
 
         self.assertIn("view, Open, https://mail.kaosgdd.net/", header)
         self.assertIn("view, Later, https://kaosgdd.net/api/notifications/later?token=", header)
+
+    def test_actions_are_disabled_by_default(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(actions.action_header(self.notification(), now=1000), "")
+            with self.assertRaisesRegex(actions.NotificationActionError, "actions_disabled"):
+                actions.schedule_later("unused", now=1001)
 
     def test_token_rejects_tampering_and_expiration(self):
         with self.environment():

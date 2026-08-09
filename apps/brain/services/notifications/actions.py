@@ -17,6 +17,15 @@ ALLOWED_CHANNELS = {"normal", "ios", "desktop", "system"}
 MAX_TOKEN_BYTES = 12_000
 
 
+def actions_enabled():
+    return os.environ.get("NOTIFICATION_ACTIONS_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _secret():
     return os.environ.get("NOTIFICATION_LATER_SECRET", "").strip().encode("utf-8")
 
@@ -94,6 +103,8 @@ def decode_later_token(token, now=None):
 
 
 def action_header(notification, now=None):
+    if not actions_enabled():
+        return ""
     notification = normalize_notification(notification)
     actions = []
     if notification["click_url"]:
@@ -111,6 +122,8 @@ def action_header(notification, now=None):
 
 
 def schedule_later(token, *, opener=None, now=None):
+    if not actions_enabled():
+        raise NotificationActionError("notification_actions_disabled")
     notification = decode_later_token(token, now=now)
     actions = action_header(notification, now=now)
     sequence_id = f"later-{hashlib.sha256(token.encode('ascii')).hexdigest()[:24]}"

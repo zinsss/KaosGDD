@@ -5,6 +5,7 @@ import os
 import re
 import threading
 import time
+import unicodedata
 from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
@@ -291,17 +292,21 @@ def parse_doneq(path):
 def notification_for_stage(job, stage):
     click_url = os.environ.get("FAX_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip()
     definitions = {
-        "queued": ("normal", "Fax queued", "default", "fax,outbox_tray"),
-        "sending": ("normal", "Fax sending", "high", "fax,telephone_receiver"),
-        "sent": ("normal", "Fax sent", "default", "fax,white_check_mark"),
+        "queued": ("normal", "Fax queued to send.", "default", "fax,outbox_tray"),
+        "sending": ("normal", "", "high", "fax,telephone_receiver"),
+        "sent": ("normal", "Fax successfully sent.", "default", "fax,white_check_mark"),
         "failed": ("system", "Fax failed", "urgent", "warning,fax"),
     }
     channel, title, priority, tags = definitions[stage]
-    details = [f"To: {job.get('destination', 'unknown')}"]
-    if job.get("hylafaxJobId"):
-        details.append(f"Job: {job['hylafaxJobId']}")
-    if stage == "failed":
-        details.append(f"Reason: {job.get('error', 'transmission failed')}")
+    destination = str(job.get("destination") or "unknown")
+    filename = unicodedata.normalize("NFC", str(job.get("filename") or "fax.pdf"))
+    if stage == "sending":
+        title = f"Sending fax to {destination}."
+        details = [f": {filename}"]
+    else:
+        details = [f": to {destination}", f": {filename}"]
+        if stage == "failed":
+            details.append(f": {job.get('error', 'transmission failed')}")
     notification = {
         "channel": channel,
         "title": title,
