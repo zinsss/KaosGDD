@@ -98,13 +98,13 @@ through normal event editing routes.
 ## Fax Notifications
 
 Incoming fax remains owned by HylaFAX and the hosted mailbox. Brain only watches
-the HylaFAX receive queue and sends a push notification through ntfy when a new
-TIFF appears.
+the HylaFAX receive queue and sends a Pushover notification when a new TIFF
+appears.
 
 ```text
 HylaFAX recvq mounted read-only at /integrations/hylafax
 Brain polls recvq/fax*.tif
-Brain posts a short message to ntfy
+Brain posts a short message to Pushover
 Roundcube remains the fax inbox
 ```
 
@@ -112,23 +112,18 @@ The worker is controlled by:
 
 ```text
 FAX_NOTIFY_ENABLED=true
-NTFY_URL=http://ntfy
-NTFY_TOPIC_IOS=kaosgdd-ios
-NTFY_TOPIC_DESKTOP=kaosgdd-desktop
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
 The first run marks existing receive-queue files as already seen by default, so
 deploying the worker does not spam notifications for old faxes. Successful fax
-receipt notices and urgent mailbox-delivery failures go to both device topics.
-Future calendar and task reminders are desktop-only.
+receipt notices and urgent mailbox-delivery failures go to every configured
+Pushover audience. Future calendar and task reminders are desktop-only.
 
-Brain supports `ntfy` and `pushover` through one notification router. Select the
-live transport with `NOTIFICATION_TRANSPORT`. Pushover uses separate application
-tokens and explicit device names for the iOS and desktop audiences:
+Pushover uses separate application tokens and explicit device names for the iOS
+and desktop audiences:
 
 ```env
-NOTIFICATION_TRANSPORT=pushover
 PUSHOVER_ENABLED=true
 PUSHOVER_USER_KEY=
 PUSHOVER_IOS_TOKEN=
@@ -137,12 +132,11 @@ PUSHOVER_DESKTOP_TOKEN=
 PUSHOVER_DESKTOP_DEVICE=desktop
 ```
 
-Routine fax and mail notifications fan out to both applications at priority 0.
+Routine fax and mail notifications fan out to available applications at priority 0.
 Calendar and task notifications can target `desktop` only. The `system` channel
 fans out at high priority 1; Brain intentionally does not use acknowledgement-
-repeating emergency priority 2. Keep ntfy configured until both Pushover device
-names have been validated, otherwise an untargeted application token sends to
-every device on the Pushover account.
+repeating emergency priority 2. A missing desktop device does not block iOS;
+desktop delivery begins after its explicit Pushover device name is configured.
 
 ## Mail Notifications
 

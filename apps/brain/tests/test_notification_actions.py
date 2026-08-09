@@ -11,17 +11,6 @@ sys.path.insert(0, str(APP_ROOT))
 from services.notifications import actions
 
 
-class Response:
-    def read(self):
-        return b"{}"
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, traceback):
-        return False
-
-
 class NotificationActionTests(unittest.TestCase):
     def notification(self):
         return {
@@ -40,10 +29,6 @@ class NotificationActionTests(unittest.TestCase):
                 "NOTIFICATION_LATER_SECRET": "a" * 64,
                 "NOTIFICATION_ACTIONS_ENABLED": "true",
                 "NOTIFICATION_LATER_BASE_URL": "https://kaosgdd.net/api/notifications/later",
-                "NTFY_URL": "https://ntfy.example",
-                "NTFY_TOPIC_IOS": "kaosgdd-ios",
-                "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
-                "NTFY_TOKEN": "test-token",
             },
             clear=True,
         )
@@ -72,25 +57,14 @@ class NotificationActionTests(unittest.TestCase):
             with self.assertRaises(actions.NotificationActionError):
                 actions.decode_later_token(token, now=1_000_000)
 
-    def test_schedule_later_republishes_to_both_topics(self):
-        requests = []
-
-        def opener(request, timeout):
-            requests.append(request)
-            return Response()
-
-        with self.environment():
+    def test_schedule_later_republishes_through_notification_router(self):
+        with self.environment(), patch.object(actions.router, "publish") as publish:
             token = actions.create_later_token(self.notification(), now=1000)
-            actions.schedule_later(token, opener=opener, now=1001)
+            actions.schedule_later(token, now=1001)
 
-        self.assertEqual(
-            [request.full_url for request in requests],
-            ["https://ntfy.example/kaosgdd-ios", "https://ntfy.example/kaosgdd-desktop"],
-        )
-        for request in requests:
-            self.assertEqual(request.get_header("Delay"), "1h")
-            self.assertTrue(request.get_header("Actions").startswith("view, Open,"))
-            self.assertTrue(request.get_header("Sequence-id").startswith("later-"))
+        self.assertEqual(publish.call_count, 1)
+        self.assertEqual(publish.call_args.kwargs["channel"], "normal")
+        self.assertEqual(publish.call_args.kwargs["delay"], "1h")
 
 
 if __name__ == "__main__":

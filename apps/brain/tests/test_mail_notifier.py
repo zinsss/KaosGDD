@@ -12,17 +12,6 @@ sys.path.insert(0, str(APP_ROOT))
 from services.mail import notifier
 
 
-class FakeResponse:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        return False
-
-    def read(self):
-        return b"ok"
-
-
 class FakeMailboxServer:
     def __init__(self):
         root = notifier.encode_modified_utf7("각종공문")
@@ -150,12 +139,6 @@ class MailNotifierTests(unittest.TestCase):
         self.assertFalse(notifier.event_matches(config, unrelated))
 
     def test_first_scan_baselines_then_new_naver_mail_notifies_both_audiences(self):
-        requests = []
-
-        def opener(request, timeout):
-            requests.append((request, timeout))
-            return FakeResponse()
-
         with tempfile.TemporaryDirectory() as tmp:
             state = pathlib.Path(tmp) / "state.json"
             server = FakeMailboxServer()
@@ -165,31 +148,25 @@ class MailNotifierTests(unittest.TestCase):
                 "MAIL_NOTIFY_NAVER_PASSWORD": "password",
                 "MAIL_NOTIFY_GMAIL_ENABLED": "false",
                 "MAIL_NOTIFY_STATE_PATH": str(state),
-                "NTFY_URL": "http://ntfy",
-                "NTFY_TOPIC_IOS": "kaosgdd-ios",
-                "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
             }
-            with mock.patch.dict(os.environ, environment, clear=False):
+            with mock.patch.dict(os.environ, environment, clear=False), mock.patch.object(
+                notifier.notifications, "publish"
+            ) as publish:
                 first_sent = notifier.scan_and_notify(
-                    imap_factories={"naver": server.factory},
-                    opener=opener,
+                    imap_factories={"naver": server.factory}
                 )
                 root = notifier.encode_modified_utf7("각종공문")
                 server.mailboxes[root]["messages"][2] = server.header("New notice")
                 second_sent = notifier.scan_and_notify(
-                    imap_factories={"naver": server.factory},
-                    opener=opener,
+                    imap_factories={"naver": server.factory}
                 )
 
             saved = notifier.load_state(state)
 
         self.assertEqual(first_sent, 0)
         self.assertEqual(second_sent, 1)
-        self.assertEqual(
-            [request.full_url for request, _timeout in requests],
-            ["http://ntfy/kaosgdd-ios", "http://ntfy/kaosgdd-desktop"],
-        )
-        self.assertIn(b"New notice", requests[0][0].data)
+        self.assertEqual(publish.call_count, 1)
+        self.assertIn("New notice", publish.call_args.kwargs["message"])
         self.assertEqual(saved["accounts"]["naver"]["mailboxes"][root]["lastUid"], 2)
 
 

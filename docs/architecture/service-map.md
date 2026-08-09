@@ -12,7 +12,6 @@
 | PDF | `https://pdf.kaosgdd.net` | Stirling-PDF |
 | Vaultwarden | `https://vault.kaosgdd.net` | Vaultwarden |
 | Supplies | inside `https://kaosgdd.net` | KaosGDD Brain + Radicale |
-| ntfy | `https://ntfy.kaosgdd.net` | legacy `kaos` host for now |
 
 ## Internal Adapter URLs
 

@@ -2,7 +2,7 @@
 
 This playbook is the practical rebuild guide for KaosGDD incoming fax. It
 documents the HylaFAX modem setup, hosted mail path, mailbox hook, and Brain
-ntfy notifier needed to reproduce the working `kaos` system.
+Pushover notifier needed to reproduce the working `kaos` system.
 
 The current production goal is incoming fax only:
 
@@ -15,7 +15,7 @@ USB fax modem
   -> Cloudflare Email Routing alias
   -> Gmail/Roundcube mailbox
   -> Brain polls recvq
-  -> ntfy push
+  -> Pushover push
 ```
 
 Outgoing fax by email is intentionally not part of this runbook yet.
@@ -396,11 +396,11 @@ RECV FAX (...): recvq/fax000000001.tif from example-sender
 RECV FAX: bin/faxrcvd "recvq/fax000000001.tif" "ttyACM0" "000000001" ""
 ```
 
-## Brain ntfy Notifications
+## Brain Pushover Notifications
 
 Brain does not send the fax email. The HylaFAX hook sends the email. Brain
 polls stable receive files and durable mailbox-delivery failures, then sends
-push notifications through ntfy.
+push notifications through Pushover.
 
 Brain environment:
 
@@ -417,10 +417,12 @@ FAX_NOTIFY_TITLE=Incoming fax
 FAX_NOTIFY_PRIORITY=high
 FAX_NOTIFY_TAGS=fax,inbox
 FAX_NOTIFY_CLICK_URL=https://roundcube.kaosgdd.net/
-NTFY_URL=http://ntfy-host-or-ip
-NTFY_TOPIC_IOS=kaosgdd-ios
-NTFY_TOPIC_DESKTOP=kaosgdd-desktop
-NTFY_TOKEN=
+PUSHOVER_ENABLED=true
+PUSHOVER_USER_KEY=
+PUSHOVER_IOS_TOKEN=
+PUSHOVER_IOS_DEVICE=iphone
+PUSHOVER_DESKTOP_TOKEN=
+PUSHOVER_DESKTOP_DEVICE=
 ```
 
 Production mounts:
@@ -481,9 +483,9 @@ On a new system:
     30-day sent-fax retention timer.
 11. Test an existing TIFF through `sudo -u uucp /bin/sh ... faxrcvd`.
 12. Send one live fax and confirm PDF email arrives.
-13. Enable Brain ntfy env.
+13. Enable Brain Pushover env.
 14. Restart/deploy Brain.
-15. Send one more live fax and confirm ntfy push.
+15. Send one more live fax and confirm Pushover push.
 
 ## Backup List
 
@@ -579,13 +581,13 @@ Direct test:
 sudo sh -c 'set -a; . /etc/kaosgdd/faxmail.env; set +a; FAXMAIL_TO=destination@gmail.com; /usr/bin/python3 /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py /var/spool/hylafax/recvq/fax000000001.tif --remote-number direct-test --device ttyACM0 --commid 000000001 --force'
 ```
 
-Brain ntfy does not notify:
+Brain Pushover does not notify:
 
 - Confirm `FAX_NOTIFY_ENABLED=true`.
 - Confirm Brain has `/var/spool/hylafax` mounted read-only at
   `/integrations/hylafax`.
 - Confirm `/data/faxmail` is writable.
-- Confirm `NTFY_URL`, `NTFY_TOPIC_IOS`, and `NTFY_TOPIC_DESKTOP`.
+- Confirm the Pushover user key, application token, and explicit device name.
 - Check `/api/brain/status`.
 - If first-run marking is enabled, old faxes will not notify.
 

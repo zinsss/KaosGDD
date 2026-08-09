@@ -1,25 +1,13 @@
-import os
-
-from services.notifications import ntfy, pushover
+from services.notifications import pushover
 
 
 def transport_name():
-    return os.environ.get("NOTIFICATION_TRANSPORT", "ntfy").strip().lower() or "ntfy"
+    return "pushover"
 
 
 def configured(channel="normal"):
-    transport = transport_name()
-    if transport == "pushover":
-        return pushover.configured(channel)
-    if transport == "ntfy":
-        return bool(ntfy.topic_urls(channel))
-    return False
+    return pushover.configured(channel)
 
 
 def publish(**notification):
-    transport = transport_name()
-    if transport == "pushover":
-        return pushover.publish(**notification)
-    if transport == "ntfy":
-        return ntfy.publish(**notification)
-    raise RuntimeError("notification_transport_not_configured")
+    return pushover.publish(**notification)

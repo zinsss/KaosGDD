@@ -10,7 +10,7 @@ Target shape:
 Roundcube / hosted mailbox = fax UI
 Brain faxmail worker       = policy and automation
 HylaFAX                    = modem authority
-ntfy/webpush               = alerts
+Pushover                   = alerts
 KaosGDD UI                 = not in the fax path
 ```
 
@@ -51,7 +51,7 @@ HylaFAX receives TIFF
   -> incoming-mail script converts TIFF to PDF
   -> SMTP submission sends PDF to fax@kaosgdd.net
   -> Roundcube shows it
-  -> Brain optionally sends ntfy/webpush
+  -> Brain sends Pushover notification
 ```
 
 Incoming fax does not need a KaosGDD database row. The mailbox is the operational

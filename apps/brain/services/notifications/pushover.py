@@ -36,14 +36,11 @@ def destinations(channel="normal"):
     else:
         selected = [ios, desktop]
 
-    targets = [
+    return [
         {"token": token, "user": user_key, "device": device}
         for token, device in dict.fromkeys(selected)
         if token and device
     ]
-    if channel not in {"ios", "desktop"} and len(targets) != 2:
-        return []
-    return targets
 
 
 def configured(channel="normal"):

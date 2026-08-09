@@ -13,17 +13,6 @@ sys.path.insert(0, str(APP_ROOT))
 from services.faxmail import notifier
 
 
-class FakeResponse:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        return False
-
-    def read(self):
-        return b"ok"
-
-
 class FaxmailNotifierTests(unittest.TestCase):
     def test_scan_received_faxes_uses_xferfaxlog_details(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -62,9 +51,6 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "true",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
-                    "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
-                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                 },
                 clear=False,
             ):
@@ -91,13 +77,7 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(events[0].commid, "000000007")
         self.assertEqual(events[0].remote, "unknown")
 
-    def test_new_fax_posts_to_ntfy_and_updates_state(self):
-        requests = []
-
-        def opener(request, timeout):
-            requests.append((request, timeout))
-            return FakeResponse()
-
+    def test_new_fax_publishes_and_updates_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             recvq = root / "recvq"
@@ -112,25 +92,19 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_XFERFAXLOG": str(root / "missing.log"),
                     "FAX_NOTIFY_STATE_PATH": str(state),
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
-                    "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
-                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                 },
                 clear=False,
-            ):
-                sent = notifier.scan_and_notify(opener=opener)
+            ), mock.patch.object(notifier.notifications, "publish") as publish:
+                sent = notifier.scan_and_notify()
 
             payload = json.loads(state.read_text(encoding="utf-8"))
 
         self.assertEqual(sent, 1)
         self.assertEqual(len(payload["known"]), 1)
-        self.assertEqual(
-            [request.full_url for request, _timeout in requests],
-            ["http://ntfy/kaosgdd-ios", "http://ntfy/kaosgdd-desktop"],
-        )
-        self.assertIn(b"fax000000002.tif", requests[0][0].data)
+        self.assertEqual(publish.call_count, 1)
+        self.assertIn("fax000000002.tif", publish.call_args.kwargs["message"])
 
     def test_recent_fax_waits_until_stable_age(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,13 +130,7 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(recent, [])
         self.assertEqual(len(stable), 1)
 
-    def test_delivery_failure_posts_urgent_ntfy_once(self):
-        requests = []
-
-        def opener(request, timeout):
-            requests.append((request, timeout))
-            return FakeResponse()
-
+    def test_delivery_failure_posts_high_priority_once(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             recvq = root / "recvq"
@@ -191,52 +159,20 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN": "false",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(failures),
-                    "NTFY_URL": "http://ntfy",
-                    "NTFY_TOPIC_IOS": "kaosgdd-ios",
-                    "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
                 },
                 clear=False,
-            ):
-                sent = notifier.scan_and_notify(opener=opener)
-                sent_again = notifier.scan_and_notify(opener=opener)
+            ), mock.patch.object(notifier.notifications, "publish") as publish:
+                sent = notifier.scan_and_notify()
+                sent_again = notifier.scan_and_notify()
 
             payload = json.loads(state.read_text(encoding="utf-8"))
 
         self.assertEqual(sent, 1)
         self.assertEqual(sent_again, 0)
         self.assertEqual(payload["knownFailures"], ["000000010"])
-        self.assertEqual(
-            [request.full_url for request, _timeout in requests],
-            ["http://ntfy/kaosgdd-ios", "http://ntfy/kaosgdd-desktop"],
-        )
-        self.assertTrue(all(request.get_header("Priority") == "urgent" for request, _timeout in requests))
-
-    def test_single_topic_variable_remains_a_compatibility_fallback(self):
-        with mock.patch.dict(
-            os.environ,
-            {
-                "NTFY_URL": "http://ntfy",
-                "NTFY_TOPIC": "legacy-topic",
-                "NTFY_TOPIC_IOS": "",
-                "NTFY_TOPIC_DESKTOP": "",
-                "NTFY_TOPIC_NORMAL": "",
-            },
-            clear=False,
-        ):
-            self.assertTrue(notifier.notifications.configured("normal"))
-            self.assertTrue(notifier.notifications.configured("system"))
-
-    def test_duplicate_audience_topic_is_published_once(self):
-        with mock.patch.dict(
-            os.environ,
-            {
-                "NTFY_URL": "http://ntfy",
-                "NTFY_TOPIC_IOS": "kaosgdd-shared",
-                "NTFY_TOPIC_DESKTOP": "kaosgdd-shared",
-            },
-            clear=False,
-        ):
-            self.assertTrue(notifier.notifications.configured("normal"))
+        self.assertEqual(publish.call_count, 1)
+        self.assertEqual(publish.call_args.kwargs["channel"], "system")
+        self.assertEqual(publish.call_args.kwargs["priority"], "urgent")
 
     def test_unreadable_delivery_failure_directory_does_not_stop_scan(self):
         with mock.patch.object(pathlib.Path, "is_dir", return_value=True), mock.patch.object(

@@ -12,7 +12,7 @@ Conexant/Rockwell 0572:1340 on /dev/ttyACM0 (USB 2.0)
   -> TIFF-to-PDF sender submits through hosted SMTP
   -> hosted mailbox / Roundcube
   -> Brain observes stable recvq files and mailbox-delivery failures
-  -> ntfy push
+  -> Pushover push
 ```
 
 Do not regenerate the working modem configuration casually. Incoming fax is
@@ -122,8 +122,8 @@ Failures create:
 /var/spool/hylafax/status/kaosgdd-faxmail/failed/COMMID.json
 ```
 
-The retry timer retries indefinitely with bounded backoff. Brain sends an
-urgent ntfy alert when a failed marker first appears. A sent marker prevents a
+The retry timer retries indefinitely with bounded backoff. Brain sends a
+high-priority Pushover alert when a failed marker first appears. A sent marker prevents a
 manual hook replay from sending the same fax twice.
 
 Inspect pending failures:
@@ -167,14 +167,17 @@ FAX_NOTIFY_STATE_PATH=/data/faxmail/notified-recvq.json
 FAX_NOTIFY_DELIVERY_FAILURE_ROOT=/integrations/hylafax/status/kaosgdd-faxmail/failed
 FAX_NOTIFY_MIN_FILE_AGE_SECONDS=60
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
-NTFY_URL=
-NTFY_TOPIC_IOS=kaosgdd-ios
-NTFY_TOPIC_DESKTOP=kaosgdd-desktop
+PUSHOVER_ENABLED=true
+PUSHOVER_USER_KEY=
+PUSHOVER_IOS_TOKEN=
+PUSHOVER_IOS_DEVICE=iphone
+PUSHOVER_DESKTOP_TOKEN=
+PUSHOVER_DESKTOP_DEVICE=
 ```
 
 The minimum file age prevents notification while HylaFAX may still be writing
-the TIFF. Routine incoming-fax notices use both audience topics;
-mailbox-delivery failures use urgent priority on both device topics. Check
+the TIFF. Routine incoming-fax notices use every configured Pushover audience;
+mailbox-delivery failures use priority 1. Check
 `/api/brain/status` under
 `faxmailNotifications` for enabled,
 configured, lastError, failureCount, and minimumFileAgeSeconds.
@@ -207,7 +210,7 @@ sudo journalctl -u faxgetty@ttyACM0.service -f
 sudo tail -f /var/spool/hylafax/log/kaosgdd-faxmail-faxdispatch.log
 ```
 
-Confirm all three results: TIFF in `recvq`, PDF in the mailbox, and ntfy push.
+Confirm all three results: TIFF in `recvq`, PDF in the mailbox, and Pushover push.
 
 ## Backup And Retention
 

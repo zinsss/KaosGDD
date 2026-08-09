@@ -26,7 +26,6 @@ class Response:
 class PushoverNotificationTests(unittest.TestCase):
     def environment(self, **overrides):
         values = {
-            "NOTIFICATION_TRANSPORT": "pushover",
             "PUSHOVER_ENABLED": "true",
             "PUSHOVER_USER_KEY": "user-key",
             "PUSHOVER_IOS_TOKEN": "ios-token",
@@ -95,22 +94,12 @@ class PushoverNotificationTests(unittest.TestCase):
         with self.environment(PUSHOVER_USER_KEY=""):
             self.assertFalse(pushover.configured("normal"))
 
-    def test_fanout_requires_explicit_device_for_both_audiences(self):
+    def test_fanout_uses_available_audiences(self):
         with self.environment(PUSHOVER_DESKTOP_DEVICE=""):
             self.assertTrue(pushover.configured("ios"))
             self.assertFalse(pushover.configured("desktop"))
-            self.assertFalse(pushover.configured("normal"))
-            with self.assertRaisesRegex(RuntimeError, "pushover_not_configured"):
-                router.publish(channel="normal", title="Mail", message="New message")
-
-    def test_ntfy_remains_default_transport(self):
-        with mock.patch.dict(
-            os.environ,
-            {"NTFY_URL": "https://ntfy.example", "NTFY_TOPIC_IOS": "kaosgdd-ios"},
-            clear=True,
-        ):
-            self.assertEqual(router.transport_name(), "ntfy")
-            self.assertTrue(router.configured("ios"))
+            self.assertTrue(pushover.configured("normal"))
+            self.assertEqual(router.transport_name(), "pushover")
 
 
 if __name__ == "__main__":
