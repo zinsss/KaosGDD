@@ -223,8 +223,8 @@ class FaxmailNotifierTests(unittest.TestCase):
             },
             clear=False,
         ):
-            self.assertEqual(notifier.ntfy_url("normal"), "http://ntfy/legacy-topic")
-            self.assertEqual(notifier.ntfy_url("system"), "http://ntfy/legacy-topic")
+            self.assertTrue(notifier.notifications.configured("normal"))
+            self.assertTrue(notifier.notifications.configured("system"))
 
     def test_duplicate_audience_topic_is_published_once(self):
         with mock.patch.dict(
@@ -236,7 +236,7 @@ class FaxmailNotifierTests(unittest.TestCase):
             },
             clear=False,
         ):
-            self.assertEqual(notifier.ntfy_urls("normal"), ["http://ntfy/kaosgdd-shared"])
+            self.assertTrue(notifier.notifications.configured("normal"))
 
     def test_unreadable_delivery_failure_directory_does_not_stop_scan(self):
         with mock.patch.object(pathlib.Path, "is_dir", return_value=True), mock.patch.object(

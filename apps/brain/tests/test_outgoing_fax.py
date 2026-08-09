@@ -106,7 +106,7 @@ class OutgoingFaxTests(unittest.TestCase):
 
     def test_live_stage_notifications_are_idempotent(self):
         job = {"destination": "022848302", "filename": "sample.pdf", "hylafaxJobId": "419"}
-        with mock.patch.object(outgoing.ntfy, "publish") as publish:
+        with mock.patch.object(outgoing.notifications, "publish") as publish:
             first = outgoing.notify_stage_once(job, "queued")
             duplicate = outgoing.notify_stage_once(job, "queued")
             outgoing.notify_stage_once(job, "sending")

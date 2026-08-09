@@ -123,6 +123,27 @@ deploying the worker does not spam notifications for old faxes. Successful fax
 receipt notices and urgent mailbox-delivery failures go to both device topics.
 Future calendar and task reminders are desktop-only.
 
+Brain supports `ntfy` and `pushover` through one notification router. Select the
+live transport with `NOTIFICATION_TRANSPORT`. Pushover uses separate application
+tokens and explicit device names for the iOS and desktop audiences:
+
+```env
+NOTIFICATION_TRANSPORT=pushover
+PUSHOVER_ENABLED=true
+PUSHOVER_USER_KEY=
+PUSHOVER_IOS_TOKEN=
+PUSHOVER_IOS_DEVICE=iphone
+PUSHOVER_DESKTOP_TOKEN=
+PUSHOVER_DESKTOP_DEVICE=desktop
+```
+
+Routine fax and mail notifications fan out to both applications at priority 0.
+Calendar and task notifications can target `desktop` only. The `system` channel
+fans out at high priority 1; Brain intentionally does not use acknowledgement-
+repeating emergency priority 2. Keep ntfy configured until both Pushover device
+names have been validated, otherwise an untargeted application token sends to
+every device on the Pushover account.
+
 ## Mail Notifications
 
 Brain can poll two read-only IMAP sources without storing message bodies:

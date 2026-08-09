@@ -13,7 +13,7 @@ from email.utils import getaddresses
 from pathlib import Path
 
 from services.notifications import actions as notification_actions
-from services.notifications import ntfy
+from services.notifications import router as notifications
 
 
 STATE_LOCK = threading.Lock()
@@ -319,7 +319,7 @@ def notify_event(event, opener=None):
         "tags": "email,inbox",
         "click_url": click_url,
     }
-    ntfy.publish(
+    notifications.publish(
         **notification,
         actions=notification_actions.action_header(notification),
         user_agent="KaosGDD-Brain-Mail/1.0",

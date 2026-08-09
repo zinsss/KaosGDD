@@ -14,7 +14,7 @@ from pathlib import Path
 
 from services.mail.notifier import encode_modified_utf7, quoted_mailbox, selected_uidvalidity
 from services.notifications import actions as notification_actions
-from services.notifications import ntfy
+from services.notifications import router as notifications
 
 
 STATE_LOCK = threading.Lock()
@@ -316,7 +316,7 @@ def notification_for_stage(job, stage):
         "click_url": click_url,
     }
     try:
-        ntfy.publish(
+        notifications.publish(
             **notification,
             actions=notification_actions.action_header(notification),
             user_agent="KaosGDD-Brain-Outgoing-Fax/1.0",

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from services.notifications import actions as notification_actions
-from services.notifications import ntfy
+from services.notifications import router as notifications
 
 
 STATE_LOCK = threading.Lock()
@@ -84,14 +84,6 @@ def mark_existing_on_first_run():
         "yes",
         "on",
     }
-
-
-def ntfy_urls(channel="normal"):
-    return ntfy.topic_urls(channel)
-
-
-def ntfy_url(channel="normal"):
-    return ntfy.topic_url(channel)
 
 
 def load_state(path=None):
@@ -218,7 +210,7 @@ def scan_delivery_failures(root=None):
     return failures
 
 
-def notify_ntfy(event, opener=None):
+def notify(event, opener=None):
     title = os.environ.get("FAX_NOTIFY_TITLE", "Incoming fax").strip() or "Incoming fax"
     topic_click = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
     body_lines = [
@@ -237,7 +229,7 @@ def notify_ntfy(event, opener=None):
         "tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
         "click_url": topic_click,
     }
-    ntfy.publish(
+    notifications.publish(
         **notification,
         actions=notification_actions.action_header(notification),
         user_agent="KaosGDD-Brain-Faxmail/1.0",
@@ -254,7 +246,7 @@ def notify_delivery_failure(failure, opener=None):
             "Automatic retry remains enabled.",
         ]
     )
-    ntfy.publish(
+    notifications.publish(
         channel="system",
         title=os.environ.get("FAX_NOTIFY_FAILURE_TITLE", "Fax mailbox delivery failed"),
         message=body,
@@ -281,7 +273,7 @@ def scan_and_notify(*, opener=None):
     for event in events:
         if event.key in known:
             continue
-        notify_ntfy(event, opener=opener)
+        notify(event, opener=opener)
         known.add(event.key)
         sent += 1
         state["known"] = sorted(known)
@@ -331,12 +323,13 @@ def status():
     return {
         "ok": (not enabled())
         or (
-            bool(ntfy_urls("normal"))
-            and bool(ntfy_url("system"))
+            notifications.configured("normal")
+            and notifications.configured("system")
             and int(worker["failureCount"]) == 0
         ),
         "enabled": enabled(),
-        "configured": bool(ntfy_urls("normal")) and bool(ntfy_url("system")),
+        "configured": notifications.configured("normal") and notifications.configured("system"),
+        "transport": notifications.transport_name(),
         "recvq": str(recvq_root()),
         "xferfaxlog": str(xferfaxlog_path()),
         "statePath": str(state_path()),

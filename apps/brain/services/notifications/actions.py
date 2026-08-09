@@ -6,7 +6,7 @@ import os
 import time
 import urllib.parse
 
-from services.notifications import ntfy
+from services.notifications import router
 
 
 class NotificationActionError(ValueError):
@@ -127,7 +127,7 @@ def schedule_later(token, *, opener=None, now=None):
     notification = decode_later_token(token, now=now)
     actions = action_header(notification, now=now)
     sequence_id = f"later-{hashlib.sha256(token.encode('ascii')).hexdigest()[:24]}"
-    ntfy.publish(
+    router.publish(
         **notification,
         actions=actions,
         delay=os.environ.get("NOTIFICATION_LATER_DELAY", "1h").strip() or "1h",
