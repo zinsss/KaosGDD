@@ -16,7 +16,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-for command in dpkg-divert logrotate rsync sha256sum systemctl; do
+for command in dpkg-divert logrotate nsenter rsync sha256sum systemctl; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Missing required command: $command" >&2
     exit 1

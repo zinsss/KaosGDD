@@ -2,7 +2,7 @@
 set -u
 
 DEVICE="${1:-ttyACM0}"
-CONFIG_PATH="${CONFIG_PATH:-/var/spool/hylafax/etc/config.$DEVICE}"
+CONFIG_PATH="${CONFIG_PATH:-/etc/hylafax/config.$DEVICE}"
 ROOT="${ROOT:-/srv/projects/KaosGDD}"
 FAILED=0
 
