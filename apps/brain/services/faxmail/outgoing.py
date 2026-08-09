@@ -399,10 +399,12 @@ def scan_mailbox(*, imap_factory=None):
                 request = parse_request(raw_message)
                 if request is None:
                     state["lastUid"] = uid
+                    save_state(state)
                     continue
                 job_id = request_job_id(request)
                 if job_id in state["jobs"]:
                     state["lastUid"] = uid
+                    save_state(state)
                     continue
                 job = {
                     "jobId": job_id,

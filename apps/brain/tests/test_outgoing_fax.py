@@ -101,6 +101,47 @@ class OutgoingFaxTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(state["jobs"][job_id]["status"], "dry_run")
 
+    def test_irrelevant_mail_advances_persisted_uid_cursor(self):
+        class FakeIMAP:
+            def login(self, _username, _password):
+                return "OK", [b"logged in"]
+
+            def select(self, _mailbox, readonly=False):
+                self.readonly = readonly
+                return "OK", [b"1"]
+
+            def response(self, _code):
+                return "UIDVALIDITY", [b"7"]
+
+            def uid(self, command, *args):
+                if command == "search":
+                    return "OK", [b"12"]
+                if command == "fetch":
+                    message = EmailMessage()
+                    message["From"] = "sender@example.test"
+                    message["To"] = "fax@kaosgdd.net"
+                    message["Subject"] = "ordinary inbox mail"
+                    return "OK", [(b"message", message.as_bytes())]
+                raise AssertionError((command, args))
+
+            def close(self):
+                return "OK", [b"closed"]
+
+            def logout(self):
+                return "BYE", [b"logout"]
+
+        with tempfile.TemporaryDirectory() as tmp, self.env(
+            FAX_OUTGOING_STATE_PATH=str(pathlib.Path(tmp) / "state.json"),
+            FAX_OUTGOING_IMAP_USERNAME="fax@example.test",
+            FAX_OUTGOING_IMAP_PASSWORD="password",
+        ):
+            outgoing.save_state({"uidValidity": "7", "lastUid": 11, "jobs": {}})
+            outgoing.scan_mailbox(imap_factory=lambda *_args, **_kwargs: FakeIMAP())
+            state = outgoing.load_state()
+
+        self.assertEqual(state["lastUid"], 12)
+        self.assertEqual(state["jobs"], {})
+
 
 if __name__ == "__main__":
     unittest.main()
