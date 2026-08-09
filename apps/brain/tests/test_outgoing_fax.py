@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import stat
 import sys
 import tempfile
 import unittest
@@ -71,9 +72,11 @@ class OutgoingFaxTests(unittest.TestCase):
             first = outgoing.queue_request(request, root=tmp, now=1)
             second = outgoing.queue_request(request, root=tmp, now=2)
             manifests = list((pathlib.Path(tmp) / "pending").glob("*.json"))
+            job_mode = stat.S_IMODE((pathlib.Path(tmp) / "jobs" / first["jobId"]).stat().st_mode)
 
         self.assertEqual(first["jobId"], second["jobId"])
         self.assertEqual(len(manifests), 1)
+        self.assertEqual(job_mode, 0o2770)
 
     def test_legacy_doneq_success_and_failure_rules(self):
         with tempfile.TemporaryDirectory() as tmp:

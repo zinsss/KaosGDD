@@ -17,6 +17,17 @@ class BridgeError(RuntimeError):
     pass
 
 
+def ensure_shared_directory(path):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path, 0o2770)
+    except PermissionError:
+        # The bind-mount root can be owned by the host provisioning account.
+        pass
+    return path
+
+
 def queue_root():
     return Path(os.environ.get("FAX_BRIDGE_QUEUE_ROOT", "/data/fax-outgoing"))
 
@@ -39,7 +50,7 @@ def utc_timestamp(now=None):
 
 
 def atomic_json(path, payload):
-    path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(path.parent)
     temporary = path.with_suffix(f"{path.suffix}.tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     os.chmod(temporary, 0o660)
@@ -80,7 +91,7 @@ def run_command(command, *, timeout=120):
 
 
 def convert_pdf(pdf_path, tiff_path, *, runner=run_command):
-    tiff_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(tiff_path.parent)
     runner(
         [
             "gs",
@@ -150,7 +161,7 @@ def process_manifest(path, *, root=None, runner=run_command, now=None):
             "completedAt": utc_timestamp(now),
         }
     atomic_json(result_path, result)
-    processed_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(processed_path.parent)
     if path.exists():
         shutil.move(str(path), str(processed_path))
     return result
@@ -159,7 +170,7 @@ def process_manifest(path, *, root=None, runner=run_command, now=None):
 def process_pending(*, root=None, runner=run_command):
     root = Path(root or queue_root())
     pending = root / "pending"
-    pending.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(pending)
     results = []
     for path in sorted(pending.glob("*.json")):
         results.append(process_manifest(path, root=root, runner=runner))
@@ -169,7 +180,7 @@ def process_pending(*, root=None, runner=run_command):
 def main():
     root = queue_root()
     for name in ("pending", "processed", "results", "jobs"):
-        (root / name).mkdir(parents=True, exist_ok=True)
+        ensure_shared_directory(root / name)
     print(f"KaosGDD fax bridge started in {mode()} mode", flush=True)
     while True:
         for result in process_pending(root=root):

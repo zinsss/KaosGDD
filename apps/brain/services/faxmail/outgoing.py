@@ -39,6 +39,17 @@ class OutgoingFaxError(ValueError):
     pass
 
 
+def ensure_shared_directory(path):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path, 0o2770)
+    except PermissionError:
+        # The bind-mount root is provisioned by the host and may not be owned by Brain.
+        pass
+    return path
+
+
 @dataclass(frozen=True)
 class OutgoingRequest:
     destination: str
@@ -210,7 +221,7 @@ def load_state(path=None):
 
 def save_state(state, path=None):
     path = Path(path or state_path())
-    path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(path.parent)
     tmp = path.with_suffix(f"{path.suffix}.tmp")
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
     os.chmod(tmp, 0o660)
@@ -218,7 +229,7 @@ def save_state(state, path=None):
 
 
 def atomic_bytes(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_shared_directory(path.parent)
     tmp = path.with_suffix(f"{path.suffix}.tmp")
     tmp.write_bytes(value)
     os.chmod(tmp, 0o660)
@@ -232,7 +243,7 @@ def atomic_json(path, value):
 def queue_request(request, *, root=None, now=None):
     root = Path(root or queue_root())
     job_id = request_job_id(request)
-    job_dir = root / "jobs" / job_id
+    job_dir = ensure_shared_directory(root / "jobs" / job_id)
     pdf_path = job_dir / "document.pdf"
     manifest_path = root / "pending" / f"{job_id}.json"
     if not pdf_path.exists():

@@ -311,6 +311,17 @@ Brain writes validated jobs under:
 /srv/kaos/data/kaosgdd/brain/fax-outgoing
 ```
 
+Provision the shared queue once with its setgid group permissions before the
+first start:
+
+```bash
+install -d -m 2770 /srv/kaos/data/kaosgdd/brain/fax-outgoing/{pending,processed,results,jobs}
+chmod 2770 /srv/kaos/data/kaosgdd/brain/fax-outgoing
+```
+
+Brain and the bridge both maintain mode `2770` on child directories so files
+retain the shared Compose group rather than either container's private group.
+
 The separate `kaosgdd-fax-bridge` container validates the manifest and SHA-256,
 converts the PDF with Ghostscript `tiffg3`, verifies it with `tiffinfo`, and in
 live mode submits that TIFF to `127.0.0.1:4559`. Brain never receives raw modem
