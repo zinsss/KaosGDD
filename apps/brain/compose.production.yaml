@@ -44,7 +44,7 @@ services:
       FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
       FAX_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
       FAX_OUTGOING_ENABLED: "true"
-      FAX_OUTGOING_MODE: "dry-run"
+      FAX_OUTGOING_MODE: "live"
       FAX_OUTGOING_IMAP_FOLDER: "INBOX"
       FAX_OUTGOING_RECIPIENTS: "fax-send@kaosgdd.net"
       FAX_OUTGOING_REQUIRE_AUTH_RESULTS: "true"
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      FAX_BRIDGE_MODE: "dry-run"
+      FAX_BRIDGE_MODE: "live"
       FAX_BRIDGE_QUEUE_ROOT: "/data/fax-outgoing"
       FAX_BRIDGE_POLL_SECONDS: "5"
       FAXSERVER: "127.0.0.1:4559"
