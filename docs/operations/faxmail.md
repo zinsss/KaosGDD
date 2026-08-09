@@ -76,11 +76,15 @@ This command does not restart `faxgetty` or alter the modem baseline. It:
 - protects the custom `faxrcvd` with a dpkg diversion
 - installs durable delivery state and a five-minute retry timer
 - binds `hfaxd` to localhost and disables unused SNPP port 444
+- refreshes the outbound `faxq` namespace so generated HylaFAX setup files are visible
 - enables the HylaFAX parent service at boot
 - installs faxmail log rotation
 - enables a daily local recvq backup
 - deletes successfully emailed local TIFF and backup copies after 30 days
 - verifies the resulting host state
+
+Run it only when no outbound fax is active. Incoming reception remains on the
+separate `faxgetty@ttyACM0.service`, which the installer does not restart.
 
 ## Mailbox Configuration
 
@@ -328,8 +332,18 @@ live mode submits that TIFF to `127.0.0.1:4559`. Brain never receives raw modem
 or HylaFAX spool write access. The bridge is unprivileged and has no published
 port.
 
-After submission, Brain reconciles `/var/spool/hylafax/doneq/qJOBID`. Success
-and failure notifications go to both normal audiences or `kaosgdd-system`
-respectively, with Open and Later actions. Mailbox folder transitions remain
-disabled during shadow/dry-run validation; the durable job state prevents the
-same message from being submitted twice.
+After submission, Brain reconciles `/var/spool/hylafax/doneq/qJOBID`. Live jobs
+send idempotent `Fax queued`, `Fax sending`, and `Fax sent` notifications to
+both normal audiences. A terminal error sends `Fax failed` to
+`kaosgdd-system`. All stages include Open and Later actions. Mailbox folder
+transitions remain disabled during shadow/dry-run validation; the durable job
+state prevents the same message from being submitted twice.
+
+The verifier checks `setup.cache` from inside the running `faxq` mount
+namespace. If that check fails while no fax is active, repair it without
+touching the receive modem:
+
+```bash
+sudo systemctl restart faxq.service
+sudo ./ops/faxmail/verify-hylafax-modem-ready.sh ttyACM0
+```

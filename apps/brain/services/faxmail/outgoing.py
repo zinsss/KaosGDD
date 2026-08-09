@@ -288,27 +288,47 @@ def parse_doneq(path):
     }
 
 
-def notification_for_job(job, success):
+def notification_for_stage(job, stage):
     click_url = os.environ.get("FAX_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip()
+    definitions = {
+        "queued": ("normal", "Fax queued", "default", "fax,outbox_tray"),
+        "sending": ("normal", "Fax sending", "high", "fax,telephone_receiver"),
+        "sent": ("normal", "Fax sent", "default", "fax,white_check_mark"),
+        "failed": ("system", "Fax failed", "urgent", "warning,fax"),
+    }
+    channel, title, priority, tags = definitions[stage]
+    details = [f"To: {job.get('destination', 'unknown')}"]
+    if job.get("hylafaxJobId"):
+        details.append(f"Job: {job['hylafaxJobId']}")
+    if stage == "failed":
+        details.append(f"Reason: {job.get('error', 'transmission failed')}")
     notification = {
-        "channel": "normal" if success else "system",
-        "title": "Fax sent" if success else "Fax failed",
-        "message": "\n".join(
-            [
-                f"To: {job.get('destination', 'unknown')}",
-                f"Job: {job.get('hylafaxJobId', 'unknown')}",
-                *([] if success else [f"Reason: {job.get('error', 'transmission failed')}"]),
-            ]
-        ),
-        "priority": "default" if success else "urgent",
-        "tags": "fax,outbox_tray" if success else "warning,fax",
+        "channel": channel,
+        "title": title,
+        "message": "\n".join(details),
+        "priority": priority,
+        "tags": tags,
         "click_url": click_url,
     }
-    ntfy.publish(
-        **notification,
-        actions=notification_actions.action_header(notification),
-        user_agent="KaosGDD-Brain-Outgoing-Fax/1.0",
-    )
+    try:
+        ntfy.publish(
+            **notification,
+            actions=notification_actions.action_header(notification),
+            user_agent="KaosGDD-Brain-Outgoing-Fax/1.0",
+        )
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+def notify_stage_once(job, stage):
+    notified = job.setdefault("notifiedStages", [])
+    if stage in notified:
+        return False
+    if not notification_for_stage(job, stage):
+        return False
+    notified.append(stage)
+    return True
 
 
 def bridge_result(root, job_id):
@@ -337,13 +357,15 @@ def reconcile_jobs(state, *, root=None, doneq=None, notify=True):
                 job["status"] = "submitted"
                 job["hylafaxJobId"] = str(result["hylafaxJobId"])
                 job["bridgeResult"] = result
+                if notify:
+                    notify_stage_once(job, "sending")
                 changed = True
             elif result_status == "failed":
                 job["status"] = "failed"
                 job["error"] = str(result.get("error") or "submission_failed")
                 job["completedAt"] = result.get("completedAt") or ""
                 if notify:
-                    notification_for_job(job, False)
+                    notify_stage_once(job, "failed")
                 changed = True
         hylafax_job_id = str(job.get("hylafaxJobId") or "")
         if job.get("status") != "submitted" or not hylafax_job_id:
@@ -358,7 +380,7 @@ def reconcile_jobs(state, *, root=None, doneq=None, notify=True):
         job["doneq"] = result
         job["completedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(done_path.stat().st_mtime))
         if notify:
-            notification_for_job(job, success)
+            notify_stage_once(job, "sent" if success else "failed")
         changed = True
     return changed
 
@@ -431,6 +453,8 @@ def scan_mailbox(*, imap_factory=None):
                 if mode() != "shadow":
                     queue_request(request)
                 state["jobs"][job_id] = job
+                if mode() == "live":
+                    notify_stage_once(job, "queued")
                 accepted += 1
             except OutgoingFaxError as exc:
                 key = hashlib.sha256(f"{uid}\0{uidvalidity}".encode("utf-8")).hexdigest()[:32]

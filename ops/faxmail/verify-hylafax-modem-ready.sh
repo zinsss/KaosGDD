@@ -36,8 +36,23 @@ check "recvq backup timer enabled" systemctl is-enabled --quiet kaos-hylafax-bac
 check "fax retention timer enabled" systemctl is-enabled --quiet kaos-faxmail-retention.timer
 echo
 
+echo "== Outbound queue runtime =="
+FAXQ_PID=$(systemctl show faxq.service --property MainPID --value 2>/dev/null || true)
+if [ -n "$FAXQ_PID" ] && [ "$FAXQ_PID" -gt 0 ] 2>/dev/null; then
+  check "faxq runtime sees generated setup.cache" \
+    nsenter -t "$FAXQ_PID" -m -- test -r /var/spool/hylafax/etc/setup.cache
+  check "faxq runtime sees modem configuration" \
+    nsenter -t "$FAXQ_PID" -m -- test -r "/var/spool/hylafax/etc/config.$DEVICE"
+else
+  echo "FAIL faxq has no running process"
+  FAILED=1
+fi
+echo
+
 echo "== Local protocol exposure =="
 check "hfaxd listens on localhost:4559" sh -c "ss -ltn | grep -qE '127\\.0\\.0\\.1:4559'"
+check "hfaxd access rules match maintained template" cmp -s \
+  /etc/hylafax/hosts.hfaxd "$ROOT/ops/faxmail/templates/hosts.hfaxd.kaosgdd"
 if ss -ltn | grep -qE '(^|[[:space:]])[^[:space:]]*:444[[:space:]]'; then
   echo "FAIL unused SNPP port 444 is listening"
   FAILED=1

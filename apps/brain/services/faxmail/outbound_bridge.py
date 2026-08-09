@@ -90,6 +90,18 @@ def run_command(command, *, timeout=120):
     return subprocess.run(command, check=True, capture_output=True, text=True, timeout=timeout)
 
 
+def command_error(exc, stage):
+    if isinstance(exc, subprocess.CalledProcessError):
+        output = str(exc.stderr or exc.stdout or "").strip()
+        detail = output.splitlines()[-1][:400] if output else f"exit_{exc.returncode}"
+        return f"{stage}_failed: {detail}"
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"{stage}_timed_out"
+    if isinstance(exc, BridgeError):
+        return str(exc)
+    return f"{stage}_failed: {type(exc).__name__}"
+
+
 def convert_pdf(pdf_path, tiff_path, *, runner=run_command):
     ensure_shared_directory(tiff_path.parent)
     runner(
@@ -131,10 +143,12 @@ def process_manifest(path, *, root=None, runner=run_command, now=None):
     if result_path.exists():
         return json.loads(result_path.read_text(encoding="utf-8"))
     job_id = path.stem
+    stage = "manifest"
     try:
         manifest, pdf_path = load_manifest(path, root)
         job_id = manifest["jobId"]
         tiff_path = root / "jobs" / job_id / "document.tif"
+        stage = "conversion"
         convert_pdf(pdf_path, tiff_path, runner=runner)
         if mode() == "dry-run":
             result = {
@@ -145,6 +159,7 @@ def process_manifest(path, *, root=None, runner=run_command, now=None):
                 "completedAt": utc_timestamp(now),
             }
         else:
+            stage = "submission"
             request_id = submit_fax(manifest["destination"], tiff_path, runner=runner)
             result = {
                 "status": "submitted",
@@ -157,7 +172,7 @@ def process_manifest(path, *, root=None, runner=run_command, now=None):
         result = {
             "status": "failed",
             "jobId": job_id,
-            "error": str(exc) if isinstance(exc, BridgeError) else type(exc).__name__,
+            "error": command_error(exc, stage),
             "completedAt": utc_timestamp(now),
         }
     atomic_json(result_path, result)

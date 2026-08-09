@@ -98,6 +98,16 @@ Current rollout modes:
 Both Brain and the bridge have independent mode switches. This deliberately
 requires two configuration changes before a live transmission is possible.
 
+In live mode, Brain records and publishes each transition once:
+
+```text
+queued -> sending (HylaFAX job assigned) -> sent (doneq confirms success)
+                                      `-> failed (terminal error)
+```
+
+Queued, sending, and sent use the normal desktop/iOS notification audiences.
+Failed transmission uses the system topic.
+
 Important: Brain should submit TIFF to HylaFAX, not raw PDF. The current modem
 host has historical failed jobs with `Error: /undefinedfilename`, which points
 back to HylaFAX-side PDF conversion problems.

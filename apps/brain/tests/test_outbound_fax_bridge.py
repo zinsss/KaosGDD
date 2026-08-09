@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -95,6 +96,18 @@ class OutboundFaxBridgeTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error"], "pdf_hash_mismatch")
         self.assertEqual(runner.commands, [])
+
+    def test_submission_error_preserves_useful_stderr(self):
+        error = outbound_bridge.command_error(
+            subprocess.CalledProcessError(
+                1,
+                ["sendfax"],
+                stderr="Login failed: password required",
+            ),
+            "submission",
+        )
+
+        self.assertEqual(error, "submission_failed: Login failed: password required")
 
 
 if __name__ == "__main__":

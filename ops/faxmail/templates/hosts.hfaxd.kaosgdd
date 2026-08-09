@@ -1,0 +1,5 @@
+# KaosGDD HylaFAX is bound to 127.0.0.1. Only the dedicated bridge identity
+# may submit without a password; the historical local rule remains available
+# for host maintenance tools.
+^faxbridge@.*$:21::
+localhost:21::

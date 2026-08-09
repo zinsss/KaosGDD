@@ -27,6 +27,8 @@ install -d -o root -g root -m 0700 /srv/kaos/backups/hylafax/host-maintenance
 install -d -o root -g root -m 0700 /srv/kaos/backups/faxmail
 cp -a /etc/hylafax/hfaxd.systemd.conf \
   "/srv/kaos/backups/hylafax/host-maintenance/hfaxd.systemd.conf.$STAMP"
+cp -a /etc/hylafax/hosts.hfaxd \
+  "/srv/kaos/backups/hylafax/host-maintenance/hosts.hfaxd.$STAMP"
 
 "$FAXMAIL/install-mailbox-faxrcvd.sh" --install
 install -o root -g root -m 0755 \
@@ -36,6 +38,8 @@ install -o root -g uucp -m 0755 \
   /usr/local/lib/kaosgdd/faxmail/cleanup-received-faxes.py
 install -o root -g root -m 0644 \
   "$FAXMAIL/templates/hfaxd.systemd.conf.kaosgdd" /etc/hylafax/hfaxd.systemd.conf
+install -o uucp -g uucp -m 0600 \
+  "$FAXMAIL/templates/hosts.hfaxd.kaosgdd" /etc/hylafax/hosts.hfaxd
 install -o root -g root -m 0644 \
   "$FAXMAIL/templates/kaos-faxmail-retry.service" /etc/systemd/system/kaos-faxmail-retry.service
 install -o root -g root -m 0644 \
@@ -57,7 +61,10 @@ systemctl enable --now \
   kaos-faxmail-retry.timer \
   kaos-hylafax-backup.timer \
   kaos-faxmail-retention.timer
-systemctl restart hfaxd.service
+# Refresh both server namespaces after changing /etc/hylafax. An older faxq
+# process can otherwise retain a spool view without setup.cache and reject
+# every outbound job before dialing. faxgetty is deliberately left running.
+systemctl restart faxq.service hfaxd.service
 
 systemctl start kaos-hylafax-backup.service
 

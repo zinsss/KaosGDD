@@ -104,6 +104,23 @@ class OutgoingFaxTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(state["jobs"][job_id]["status"], "dry_run")
 
+    def test_live_stage_notifications_are_idempotent(self):
+        job = {"destination": "022848302", "hylafaxJobId": "419"}
+        with mock.patch.object(outgoing.ntfy, "publish") as publish:
+            first = outgoing.notify_stage_once(job, "queued")
+            duplicate = outgoing.notify_stage_once(job, "queued")
+            outgoing.notify_stage_once(job, "sending")
+            outgoing.notify_stage_once(job, "sent")
+
+        self.assertTrue(first)
+        self.assertFalse(duplicate)
+        self.assertEqual([call.kwargs["title"] for call in publish.call_args_list], [
+            "Fax queued",
+            "Fax sending",
+            "Fax sent",
+        ])
+        self.assertEqual(job["notifiedStages"], ["queued", "sending", "sent"])
+
     def test_irrelevant_mail_advances_persisted_uid_cursor(self):
         class FakeIMAP:
             def login(self, _username, _password):
