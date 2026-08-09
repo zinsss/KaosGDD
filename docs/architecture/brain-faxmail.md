@@ -106,7 +106,7 @@ queued -> sending (HylaFAX job assigned) -> sent (doneq confirms success)
 ```
 
 Queued, sending, and sent use the normal desktop/iOS notification audiences.
-Failed transmission uses the system topic.
+Failed transmission uses urgent priority on both device topics.
 
 Important: Brain should submit TIFF to HylaFAX, not raw PDF. The current modem
 host has historical failed jobs with `Error: /undefinedfilename`, which points

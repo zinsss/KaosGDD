@@ -115,14 +115,13 @@ FAX_NOTIFY_ENABLED=true
 NTFY_URL=http://ntfy
 NTFY_TOPIC_IOS=kaosgdd-ios
 NTFY_TOPIC_DESKTOP=kaosgdd-desktop
-NTFY_TOPIC_SYSTEM=kaosgdd-system
 FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
 The first run marks existing receive-queue files as already seen by default, so
 deploying the worker does not spam notifications for old faxes. Successful fax
-receipt notices go to both audience topics. Mailbox-delivery failures use the
-system topic. Future calendar and task reminders are desktop-only.
+receipt notices and urgent mailbox-delivery failures go to both device topics.
+Future calendar and task reminders are desktop-only.
 
 ## Mail Notifications
 

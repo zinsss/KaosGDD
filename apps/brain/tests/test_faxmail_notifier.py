@@ -65,7 +65,6 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "NTFY_URL": "http://ntfy",
                     "NTFY_TOPIC_IOS": "kaosgdd-ios",
                     "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
-                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
             ):
@@ -116,7 +115,6 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "NTFY_URL": "http://ntfy",
                     "NTFY_TOPIC_IOS": "kaosgdd-ios",
                     "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
-                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                     "FAX_NOTIFY_MIN_FILE_AGE_SECONDS": "0",
                     "FAX_NOTIFY_DELIVERY_FAILURE_ROOT": str(root / "missing-failures"),
                 },
@@ -196,7 +194,6 @@ class FaxmailNotifierTests(unittest.TestCase):
                     "NTFY_URL": "http://ntfy",
                     "NTFY_TOPIC_IOS": "kaosgdd-ios",
                     "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
-                    "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
                 },
                 clear=False,
             ):
@@ -208,8 +205,11 @@ class FaxmailNotifierTests(unittest.TestCase):
         self.assertEqual(sent, 1)
         self.assertEqual(sent_again, 0)
         self.assertEqual(payload["knownFailures"], ["000000010"])
-        self.assertEqual(requests[0][0].full_url, "http://ntfy/kaosgdd-system")
-        self.assertEqual(requests[0][0].get_header("Priority"), "urgent")
+        self.assertEqual(
+            [request.full_url for request, _timeout in requests],
+            ["http://ntfy/kaosgdd-ios", "http://ntfy/kaosgdd-desktop"],
+        )
+        self.assertTrue(all(request.get_header("Priority") == "urgent" for request, _timeout in requests))
 
     def test_single_topic_variable_remains_a_compatibility_fallback(self):
         with mock.patch.dict(
@@ -220,7 +220,6 @@ class FaxmailNotifierTests(unittest.TestCase):
                 "NTFY_TOPIC_IOS": "",
                 "NTFY_TOPIC_DESKTOP": "",
                 "NTFY_TOPIC_NORMAL": "",
-                "NTFY_TOPIC_SYSTEM": "",
             },
             clear=False,
         ):

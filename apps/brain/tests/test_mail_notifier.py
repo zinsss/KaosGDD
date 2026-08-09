@@ -168,7 +168,6 @@ class MailNotifierTests(unittest.TestCase):
                 "NTFY_URL": "http://ntfy",
                 "NTFY_TOPIC_IOS": "kaosgdd-ios",
                 "NTFY_TOPIC_DESKTOP": "kaosgdd-desktop",
-                "NTFY_TOPIC_SYSTEM": "kaosgdd-system",
             }
             with mock.patch.dict(os.environ, environment, clear=False):
                 first_sent = notifier.scan_and_notify(

@@ -170,12 +170,12 @@ FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 NTFY_URL=
 NTFY_TOPIC_IOS=kaosgdd-ios
 NTFY_TOPIC_DESKTOP=kaosgdd-desktop
-NTFY_TOPIC_SYSTEM=kaosgdd-system
 ```
 
 The minimum file age prevents notification while HylaFAX may still be writing
 the TIFF. Routine incoming-fax notices use both audience topics;
-mailbox-delivery failures use `kaosgdd-system`. Check `/api/brain/status` under
+mailbox-delivery failures use urgent priority on both device topics. Check
+`/api/brain/status` under
 `faxmailNotifications` for enabled,
 configured, lastError, failureCount, and minimumFileAgeSeconds.
 
@@ -335,9 +335,10 @@ port.
 After submission, Brain reconciles `/var/spool/hylafax/doneq/qJOBID`. Live jobs
 send idempotent `Fax queued`, `Fax sending`, and `Fax sent` notifications to
 both normal audiences. A terminal error sends `Fax failed` to
-`kaosgdd-system`. All stages include Open and Later actions. Mailbox folder
-transitions remain disabled during shadow/dry-run validation; the durable job
-state prevents the same message from being submitted twice.
+both device topics with urgent priority. All stages include Open and Later
+actions. Mailbox folder transitions remain disabled during shadow/dry-run
+validation; the durable job state prevents the same message from being
+submitted twice.
 
 The verifier checks `setup.cache` from inside the running `faxq` mount
 namespace. If that check fails while no fax is active, repair it without

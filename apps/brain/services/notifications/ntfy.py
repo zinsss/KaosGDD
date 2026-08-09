@@ -9,13 +9,13 @@ def topic_urls(channel="normal"):
     if not raw_url:
         return []
 
-    if channel == "system":
-        topics = [os.environ.get("NTFY_TOPIC_SYSTEM", "").strip()]
-    elif channel == "ios":
+    if channel == "ios":
         topics = [os.environ.get("NTFY_TOPIC_IOS", "").strip()]
     elif channel == "desktop":
         topics = [os.environ.get("NTFY_TOPIC_DESKTOP", "").strip()]
     else:
+        # Normal and urgent system notifications fan out by device. Priority
+        # remains part of the notification payload, not the topic hierarchy.
         topics = [
             os.environ.get("NTFY_TOPIC_IOS", "").strip(),
             os.environ.get("NTFY_TOPIC_DESKTOP", "").strip(),
