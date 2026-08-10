@@ -21,6 +21,8 @@ class TelegramFaxIntakeTests(unittest.TestCase):
             "TELEGRAM_BOT_TOKEN": "token",
             "TELEGRAM_SUPERGROUP_CHAT_ID": "-100123",
             "TELEGRAM_TOPIC_FAX_ID": "77",
+            "TELEGRAM_TOPIC_MEMOS_ID": "88",
+            "TELEGRAM_MEMOS_TOPIC_READ_ONLY": "true",
             "TELEGRAM_FAX_INTAKE_STATE_PATH": str(root / "telegram-intake.json"),
             "TELEGRAM_FAX_INTAKE_MARK_EXISTING_ON_FIRST_RUN": "true",
             "FAX_OUTGOING_ENABLED": "true",
@@ -190,6 +192,46 @@ class TelegramFaxIntakeTests(unittest.TestCase):
                 ]
 
         self.assertEqual(results, ["ignored", "ignored", "ignored"])
+
+    def test_user_message_in_memos_topic_is_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            deleted = []
+            message = {
+                "message_id": 91,
+                "message_thread_id": 88,
+                "from": {"id": 777, "is_bot": False},
+                "chat": {"id": -100123, "type": "supergroup"},
+                "text": "do not keep this",
+            }
+            with self.env(root):
+                result = telegram_intake.protect_memos_topic(
+                    message,
+                    message_deleter=lambda token, chat, message_id: deleted.append(
+                        (token, chat, message_id)
+                    ),
+                )
+
+        self.assertEqual(result, "protected")
+        self.assertEqual(deleted, [("token", "-100123", 91)])
+
+    def test_bot_messages_in_memos_topic_are_not_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            message = {
+                "message_id": 91,
+                "message_thread_id": 88,
+                "from": {"id": 1, "is_bot": True},
+                "chat": {"id": -100123, "type": "supergroup"},
+                "text": "archive",
+            }
+            with self.env(root):
+                result = telegram_intake.protect_memos_topic(
+                    message,
+                    message_deleter=mock.Mock(),
+                )
+
+        self.assertEqual(result, "ignored")
 
     def test_invalid_caption_is_rejected_without_download(self):
         with tempfile.TemporaryDirectory() as tmp:

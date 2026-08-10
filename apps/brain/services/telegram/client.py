@@ -101,6 +101,31 @@ def send_message(
     return result if isinstance(result, dict) else {}
 
 
+def edit_message_text(token, chat_id, message_id, text, *, opener=None):
+    result = call(
+        token,
+        "editMessageText",
+        {
+            "chat_id": chat_id,
+            "message_id": int(message_id),
+            "text": text[:4096],
+        },
+        opener=opener,
+    )
+    return result if isinstance(result, dict) else {}
+
+
+def delete_message(token, chat_id, message_id, *, opener=None):
+    return bool(
+        call(
+            token,
+            "deleteMessage",
+            {"chat_id": chat_id, "message_id": int(message_id)},
+            opener=opener,
+        )
+    )
+
+
 def _safe_filename(filename):
     value = re.sub(r"[\x00-\x1f\x7f\"\\/]+", "-", str(filename)).strip(" .-")
     return value or "attachment"

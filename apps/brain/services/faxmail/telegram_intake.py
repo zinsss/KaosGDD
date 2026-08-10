@@ -21,6 +21,8 @@ WORKER_STATE = {
     "lastError": "",
     "acceptedCount": 0,
     "rejectedCount": 0,
+    "protectedDeletedCount": 0,
+    "protectedDeleteFailedCount": 0,
 }
 
 
@@ -32,7 +34,15 @@ def env_bool(name, default=False):
 
 
 def enabled():
+    return env_bool("TELEGRAM_FAX_INTAKE_ENABLED") or memos_topic_read_only()
+
+
+def fax_intake_enabled():
     return env_bool("TELEGRAM_FAX_INTAKE_ENABLED")
+
+
+def memos_topic_read_only():
+    return env_bool("TELEGRAM_MEMOS_TOPIC_READ_ONLY")
 
 
 def bot_token():
@@ -43,8 +53,15 @@ def topic_id():
     return os.environ.get("TELEGRAM_TOPIC_FAX_ID", "").strip()
 
 
+def memos_topic_id():
+    return os.environ.get("TELEGRAM_TOPIC_MEMOS_ID", "").strip()
+
+
 def configured():
-    return bool(bot_token() and access.configured_supergroup_id() and topic_id() and outgoing.configured())
+    base = bool(bot_token() and access.configured_supergroup_id())
+    fax_ready = (not fax_intake_enabled()) or bool(topic_id() and outgoing.configured())
+    memos_ready = (not memos_topic_read_only()) or bool(memos_topic_id())
+    return base and fax_ready and memos_ready
 
 
 def state_path():
@@ -94,6 +111,38 @@ def message_in_fax_topic(message):
         access.message_is_allowed(message)
         and str(message.get("message_thread_id") or "") == topic_id()
     )
+
+
+def message_in_memos_topic(message):
+    return (
+        memos_topic_read_only()
+        and access.message_is_allowed(message)
+        and str(message.get("message_thread_id") or "") == memos_topic_id()
+    )
+
+
+def protect_memos_topic(message, *, message_deleter=None):
+    if not message_in_memos_topic(message):
+        return "ignored"
+    source = message.get("from") if isinstance(message.get("from"), dict) else {}
+    if source.get("is_bot"):
+        return "ignored"
+    try:
+        message_id = int(message.get("message_id") or 0)
+    except (TypeError, ValueError):
+        message_id = 0
+    if message_id <= 0:
+        return "ignored"
+    deleter = message_deleter or telegram.delete_message
+    try:
+        deleter(bot_token(), access.configured_supergroup_id(), message_id)
+    except telegram.TelegramError:
+        with STATE_LOCK:
+            WORKER_STATE["protectedDeleteFailedCount"] += 1
+        raise
+    with STATE_LOCK:
+        WORKER_STATE["protectedDeletedCount"] += 1
+    return "protected"
 
 
 def text_destination(value, *, error_code):
@@ -256,7 +305,7 @@ def get_updates(state, *, api_call=None):
     )
 
 
-def scan_once(*, api_call=None, file_downloader=None, api_sender=None):
+def scan_once(*, api_call=None, file_downloader=None, api_sender=None, message_deleter=None):
     state = load_state()
     updates = get_updates(state, api_call=api_call)
     if not isinstance(updates, list):
@@ -268,9 +317,10 @@ def scan_once(*, api_call=None, file_downloader=None, api_sender=None):
         update_id = int(update.get("update_id") or 0)
         if update_id < state["updateOffset"]:
             continue
-        if not baseline:
-            message = update.get("message") or update.get("edited_message") or {}
-            try:
+        message = update.get("message") or update.get("edited_message") or {}
+        try:
+            protected = protect_memos_topic(message, message_deleter=message_deleter)
+            if not baseline and protected != "protected" and fax_intake_enabled():
                 result = process_message(
                     message,
                     file_downloader=file_downloader,
@@ -278,10 +328,10 @@ def scan_once(*, api_call=None, file_downloader=None, api_sender=None):
                     intake_state=state,
                 )
                 accepted += int(result == "accepted")
-            except (outgoing.OutgoingFaxError, telegram.TelegramError) as exc:
-                if message_in_fax_topic(message):
-                    reply(rejection_message(exc), api_sender=api_sender)
-                    rejected += 1
+        except (outgoing.OutgoingFaxError, telegram.TelegramError) as exc:
+            if message_in_fax_topic(message):
+                reply(rejection_message(exc), api_sender=api_sender)
+                rejected += 1
         state["updateOffset"] = update_id + 1
         save_state(state)
     # A full page can mean more old updates remain. Keep baselining until a
@@ -324,7 +374,10 @@ def status():
         "configured": configured(),
         "started": bool(runtime["started"]),
         "groupOnly": True,
-        "topic": "Fax",
+        "topics": {
+            "faxIntake": fax_intake_enabled(),
+            "memosReadOnly": memos_topic_read_only(),
+        },
         "statePath": str(state_path()),
         "pollSeconds": poll_seconds(),
         **{key: runtime[key] for key in (
@@ -333,6 +386,8 @@ def status():
             "lastError",
             "acceptedCount",
             "rejectedCount",
+            "protectedDeletedCount",
+            "protectedDeleteFailedCount",
         )},
     }
 

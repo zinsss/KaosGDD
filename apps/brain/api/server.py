@@ -29,6 +29,7 @@ from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
 from services.mail import telegram_archive as mail_telegram_archive
 from services.memos import relay as memos_relay
+from services.memos import telegram_archive as memos_telegram_archive
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -87,6 +88,7 @@ def brain_status(headers):
             "mailTelegramArchive": mail_telegram_archive.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
+            "memosTelegramArchive": memos_telegram_archive.status(),
             "holidaySync": holiday_service.status(),
             "generatedCalendar": generated_calendar_service.status(),
         },
@@ -1021,6 +1023,7 @@ def main():
     telegram_fax_intake.start_scheduler()
     mail_notifier.start_scheduler()
     mail_telegram_archive.start_scheduler()
+    memos_telegram_archive.start_scheduler()
     holiday_service.start_scheduler()
     generated_calendar_service.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)

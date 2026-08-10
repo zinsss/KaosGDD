@@ -110,6 +110,31 @@ Brain must not:
 - write user Radicale data outside explicit adapter calls
 - write current-location weather history by default
 
+## Telegram Memos Archive
+
+Production stores archive metadata at:
+
+```text
+/srv/kaos/data/kaosgdd/brain/memos/telegram-archive.json
+```
+
+The file is mode `0600` and contains no memo bodies. Brain uses the personal
+Memos relay PAT already encrypted in PostgreSQL, paginates
+`GET /api/v1/memos`, and accepts only `creator == users/$MEMOS_PERSONAL_USERNAME`.
+It never reads or archives the Family profile.
+
+Expected status is available under:
+
+```text
+GET /api/brain/status
+upstreams.memosTelegramArchive
+```
+
+`configured`, `enabled`, and `started` should all be true. `lastError` should
+remain empty. The Telegram bot must be an administrator with permission to
+delete messages so Brain can keep the `Memos` topic read-only. Fax intake and
+Memos-topic protection deliberately share one Telegram `getUpdates` consumer.
+
 HWP handoffs are temporary browser-opening payloads, not document records. Brain
 accepts only HWP, HWPX, and HML files, limits them to 50 MB, and removes them
 after 30 minutes. They are never submitted to Paperless automatically.

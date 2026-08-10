@@ -21,6 +21,7 @@ Brain owns:
 - temporary PDF intake, preview, expiry, and explicit Paperless handoff
 - incoming fax notification polling over the HylaFAX receive queue
 - idempotent Telegram archival of confirmed incoming and outgoing fax documents
+- personal Memos archival to Telegram with in-place edit tracking and deletion preservation
 - audited Family medical association ledger storage and XLSX recovery backups
 - service health/status aggregation
 
@@ -161,6 +162,31 @@ Telegram topic notification settings control device delivery. Brain sends
 normal and former device-specific channels to `Notifications`, and the
 `system` channel to `System Alerts`. Brain does not maintain per-device
 notification credentials.
+
+## Personal Memos Archive
+
+Brain polls the current Memos v1 API with the encrypted personal relay token and
+copies personal memos into the private Telegram `Memos` topic. Memos remains the
+source of truth. Family memos are intentionally excluded.
+
+The archive state contains only memo resource names, content hashes, update
+timestamps, and Telegram message IDs. It does not duplicate memo bodies. New
+memos create silent Telegram messages, edits update the same messages, and a
+memo deleted from Memos leaves its archived messages intact with a separate
+deletion marker. Long memo content is split without truncation. Attachment
+names are recorded; binary attachment export is deferred until its download
+contract is verified against the live Memos API.
+
+The existing Telegram update consumer also enforces the Memos topic as
+read-only by deleting non-bot messages. Do not start a second `getUpdates`
+worker for the same bot token because Telegram update offsets are shared.
+
+```env
+MEMOS_TELEGRAM_ARCHIVE_ENABLED=true
+MEMOS_TELEGRAM_ARCHIVE_STATE_PATH=/data/memos/telegram-archive.json
+MEMOS_TELEGRAM_ARCHIVE_POLL_SECONDS=60
+TELEGRAM_MEMOS_TOPIC_READ_ONLY=true
+```
 
 ## Mail Notifications
 

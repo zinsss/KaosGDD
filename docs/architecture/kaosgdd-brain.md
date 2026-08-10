@@ -39,6 +39,7 @@ See [Control Center Monitoring Plan](control-center-monitoring.md).
 | notes/knowledge | Wiki.js |
 | files | SFTPGo |
 | passwords | Vaultwarden |
+| personal memo content | Memos; Telegram is a read-only secondary archive |
 | supplies buy-list VTODOs | Radicale |
 | supplies presets/recent history | Brain PostgreSQL |
 | fax | KaosFaxMail or legacy bridge until replaced |
