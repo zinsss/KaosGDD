@@ -29,16 +29,20 @@ TELEGRAM_API_ID=...
 TELEGRAM_API_HASH=...
 ```
 
-## Build On The Control Center
+## Build On Kaos
 
-The official server is a large TDLib C++ build. Do not compile it on the
-production ODROID during normal operations.
+The official server is a large TDLib C++ build. Build it on production `kaos`
+only during a quiet maintenance window. Monitor temperature, memory, disk, and
+load while it builds; PACS uptime takes priority and the build must be stopped
+if it affects production.
 
 ```bash
 cd /srv/projects/KaosGDD/ops/telegram-bot-api
 docker build -t kaos-telegram-bot-api:adfd7f6 .
-docker save kaos-telegram-bot-api:adfd7f6 | ssh zin@kaos docker load
 ```
+
+The Control Center is reserved for Wake-on-LAN transmission and is not the
+image build host.
 
 The image is pinned to upstream commit
 `adfd7f6a8e990272851777eeb3ae0def4216f161`.

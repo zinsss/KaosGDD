@@ -179,6 +179,7 @@ python3 apps/brain/scripts/verify_write_cycle.py --host kaosgdd.net
 python3 apps/brain/scripts/verify_write_cycle.py --host family.kaosgdd.net
 ```
 
-Build tagged Brain images on the Control Center. Production Compose references
-the image tag and must not build application images on the production server
-during normal deployments.
+Build tagged Brain images on production `kaos` during a quiet maintenance
+window. Production Compose references the immutable image tag. Stop a build if
+its resource use could affect PACS or another live service. The Control Center
+is reserved for Wake-on-LAN transmission.

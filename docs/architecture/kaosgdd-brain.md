@@ -18,10 +18,10 @@ Radicale can own user calendar and task data, but it does not provide every Kaos
 Brain owns those joins and calculations. It should not become a generic application platform.
 
 Brain publishes application notifications, logs, fax/mail archives, and
-personal Memos archives. Local production service health and restart controls
-belong to `KaosTelegram` on `kaos`. Machine reachability, the System Status
-dashboard, and Wake-on-LAN belong to `KaosController` on the Control Center.
-See [Control Center Monitoring Plan](control-center-monitoring.md).
+personal Memos archives. Production host and service health, status dashboards,
+alerts, and restricted local recovery belong to `KaosTelegram` on `kaos`.
+`KaosController` on the Control Center only sends confirmed, allowlisted
+Wake-on-LAN packets. See [Control Center Wake-on-LAN Boundary](control-center-monitoring.md).
 
 ## Ownership Rules
 

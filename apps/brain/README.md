@@ -269,8 +269,10 @@ apps/brain/
 ```
 
 Brain should remain independently restartable from the static portal.
-Build release images on the Control Center and deploy the tagged image to
-production. The production Compose file does not contain a build context.
+Build release images on production `kaos` during a quiet maintenance window
+and deploy an immutable tag. Stop a build if it could affect PACS or another
+live service. The production Compose file does not contain a build context;
+the Control Center is reserved for Wake-on-LAN transmission.
 
 Production shadow port:
 
