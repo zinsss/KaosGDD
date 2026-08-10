@@ -235,6 +235,22 @@ svg {
     0 10px 22px rgba(9, 12, 18, 0.64);
 }
 
+@media (max-width: 1179px) {
+  .app[data-profile="main"] .appTop {
+    box-shadow:
+      0 3px 7px rgba(9, 12, 18, 0.5),
+      0 10px 22px rgba(9, 12, 18, 0.64);
+  }
+
+  .app[data-profile="main"] .view {
+    padding-top: 20px;
+  }
+
+  .app[data-profile="main"][data-route="memos"] .view {
+    padding-top: 14px;
+  }
+}
+
 .appIdentity {
   min-width: 94px;
 }
