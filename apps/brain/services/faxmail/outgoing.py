@@ -1,5 +1,4 @@
 import hashlib
-import imaplib
 import json
 import os
 import re
@@ -7,17 +6,14 @@ import threading
 import time
 import unicodedata
 from dataclasses import dataclass
-from email import policy
-from email.parser import BytesParser
-from email.utils import getaddresses, parseaddr
 from pathlib import Path
 
-from services.mail.notifier import encode_modified_utf7, quoted_mailbox, selected_uidvalidity
-from services.notifications import actions as notification_actions
 from services.notifications import router as notifications
+from services.telegram import client as telegram
 
 
 STATE_LOCK = threading.Lock()
+STATE_FILE_LOCK = threading.Lock()
 WORKER_THREAD = None
 WORKER_STATE = {
     "started": False,
@@ -98,35 +94,12 @@ def max_pdf_bytes():
     return max(1, int(os.environ.get("FAX_OUTGOING_MAX_PDF_MB", "20"))) * 1024 * 1024
 
 
-def outgoing_aliases():
-    return {
-        item.strip().lower()
-        for item in os.environ.get("FAX_OUTGOING_RECIPIENTS", "fax-send@kaosgdd.net").split(",")
-        if item.strip()
-    }
-
-
-def allowed_senders():
-    return {
-        item.strip().lower()
-        for item in os.environ.get("FAX_OUTGOING_ALLOWED_SENDERS", "").split(",")
-        if item.strip()
-    }
-
-
-def imap_settings():
-    return {
-        "host": os.environ.get("FAX_OUTGOING_IMAP_HOST", os.environ.get("MAIL_NOTIFY_GMAIL_HOST", "imap.gmail.com")).strip(),
-        "port": int(os.environ.get("FAX_OUTGOING_IMAP_PORT", os.environ.get("MAIL_NOTIFY_GMAIL_PORT", "993"))),
-        "username": os.environ.get("FAX_OUTGOING_IMAP_USERNAME", os.environ.get("MAIL_NOTIFY_GMAIL_USERNAME", "")).strip(),
-        "password": os.environ.get("FAX_OUTGOING_IMAP_PASSWORD", os.environ.get("MAIL_NOTIFY_GMAIL_PASSWORD", "")),
-        "folder": os.environ.get("FAX_OUTGOING_IMAP_FOLDER", "INBOX").strip(),
-    }
+def delete_telegram_source_on_success():
+    return env_bool("TELEGRAM_FAX_DELETE_SOURCE_ON_SUCCESS")
 
 
 def configured():
-    settings = imap_settings()
-    return bool(settings["host"] and settings["username"] and settings["password"] and allowed_senders())
+    return bool(str(queue_root()) and str(state_path()) and str(doneq_root()))
 
 
 def normalize_destination(raw):
@@ -139,63 +112,23 @@ def normalize_destination(raw):
     return compact
 
 
-def message_addresses(message, names):
-    values = []
-    for name in names:
-        values.extend(str(value) for value in message.get_all(name, []))
-    return {address.lower() for _label, address in getaddresses(values) if address}
-
-
-def sender_authenticated(message):
-    if not env_bool("FAX_OUTGOING_REQUIRE_AUTH_RESULTS", True):
-        return True
-    results = " ".join(str(value) for value in message.get_all("Authentication-Results", [])).lower()
-    return "dkim=pass" in results or "dmarc=pass" in results
-
-
-def extract_pdf(message):
-    attachments = [part for part in message.iter_attachments()]
-    if len(attachments) != 1:
-        raise OutgoingFaxError("exactly_one_pdf_required")
-    attachment = attachments[0]
-    filename = str(attachment.get_filename() or "fax.pdf").strip()
-    content_type = attachment.get_content_type().lower()
-    if content_type != "application/pdf" and not filename.lower().endswith(".pdf"):
+def request_from_pdf(*, destination, sender, message_id, filename, pdf):
+    destination = normalize_destination(destination)
+    sender = str(sender or "").strip()
+    message_id = str(message_id or "").strip()
+    filename = Path(str(filename or "fax.pdf")).name.strip() or "fax.pdf"
+    if not sender or not message_id:
+        raise OutgoingFaxError("source_identity_required")
+    if not filename.lower().endswith(".pdf"):
         raise OutgoingFaxError("pdf_attachment_required")
-    payload = attachment.get_payload(decode=True) or b""
-    if not payload.startswith(b"%PDF-"):
+    if not isinstance(pdf, bytes) or not pdf.startswith(b"%PDF-"):
         raise OutgoingFaxError("invalid_pdf_signature")
-    if not payload or len(payload) > max_pdf_bytes():
+    if len(pdf) > max_pdf_bytes():
         raise OutgoingFaxError("pdf_size_invalid")
-    return filename, payload
-
-
-def parse_request(raw_message):
-    message = BytesParser(policy=policy.default).parsebytes(raw_message)
-    recipients = message_addresses(
-        message,
-        ("To", "Cc", "Delivered-To", "X-Original-To", "Envelope-To", "X-Envelope-To"),
-    )
-    if not outgoing_aliases().intersection(recipients):
-        return None
-    sender = parseaddr(str(message.get("From", "")))[1].lower()
-    if not sender or sender not in allowed_senders():
-        raise OutgoingFaxError("sender_not_authorized")
-    if not sender_authenticated(message):
-        raise OutgoingFaxError("sender_authentication_failed")
-    subject = str(message.get("Subject", "")).strip()
-    match = SUBJECT_PATTERN.fullmatch(subject)
-    if not match:
-        raise OutgoingFaxError("subject_must_be_fax_colon_number")
-    destination = normalize_destination(match.group(1))
-    filename, pdf = extract_pdf(message)
-    message_id = str(message.get("Message-ID", "")).strip()
-    if not message_id:
-        raise OutgoingFaxError("message_id_required")
     return OutgoingRequest(
         destination=destination,
         sender=sender,
-        subject=subject,
+        subject=f"fax:{destination}",
         message_id=message_id,
         filename=filename,
         pdf=pdf,
@@ -265,6 +198,37 @@ def queue_request(request, *, root=None, now=None):
     return manifest
 
 
+def submit_request(request, *, source="telegram", source_metadata=None, now=None):
+    with STATE_FILE_LOCK:
+        state = load_state()
+        job_id = request_job_id(request)
+        if job_id in state["jobs"]:
+            return state["jobs"][job_id], False
+        timestamp = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(time.time() if now is None else now),
+        )
+        job = {
+            "jobId": job_id,
+            "destination": request.destination,
+            "sender": request.sender,
+            "messageId": request.message_id,
+            "filename": request.filename,
+            "pdfSha256": request.pdf_sha256,
+            "source": source,
+            "sourceMetadata": dict(source_metadata or {}),
+            "status": "shadow_valid" if mode() == "shadow" else "queued",
+            "createdAt": timestamp,
+        }
+        if mode() != "shadow":
+            queue_request(request, now=now)
+        state["jobs"][job_id] = job
+        if mode() == "live":
+            notify_stage_once(job, "queued")
+        save_state(state)
+        return job, True
+
+
 def parse_doneq(path):
     values = {}
     current_key = None
@@ -290,19 +254,20 @@ def parse_doneq(path):
 
 
 def notification_for_stage(job, stage):
-    click_url = os.environ.get("FAX_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip()
     definitions = {
-        "queued": ("normal", "Fax queued to send.", "default", "fax,outbox_tray"),
-        "sending": ("normal", "", "high", "fax,telephone_receiver"),
-        "sent": ("normal", "Fax successfully sent.", "default", "fax,white_check_mark"),
-        "failed": ("system", "Fax failed", "urgent", "warning,fax"),
+        "queued": ("normal", "Fax queued to send."),
+        "sending": ("normal", ""),
+        "sent": ("normal", "Fax successfully sent."),
+        "failed": ("system", "Fax failed"),
     }
-    channel, title, priority, tags = definitions[stage]
+    channel, title = definitions[stage]
     destination = str(job.get("destination") or "unknown")
     filename = unicodedata.normalize("NFC", str(job.get("filename") or "fax.pdf"))
     if stage == "sending":
         title = f"Sending fax to {destination}."
         details = [f": {filename}"]
+    elif stage == "sent":
+        details = [f": to {destination}"]
     else:
         details = [f": to {destination}", f": {filename}"]
         if stage == "failed":
@@ -311,14 +276,10 @@ def notification_for_stage(job, stage):
         "channel": channel,
         "title": title,
         "message": "\n".join(details),
-        "priority": priority,
-        "tags": tags,
-        "click_url": click_url,
     }
     try:
         notifications.publish(
             **notification,
-            actions=notification_actions.action_header(notification),
             user_agent="KaosGDD-Brain-Outgoing-Fax/1.0",
         )
     except (OSError, RuntimeError, ValueError):
@@ -336,6 +297,76 @@ def notify_stage_once(job, stage):
     return True
 
 
+def telegram_source_message_ids(job):
+    if str(job.get("source") or "") != "telegram":
+        return []
+    metadata = job.get("sourceMetadata")
+    if not isinstance(metadata, dict):
+        return []
+    message_ids = set()
+    for key in ("messageId", "commandMessageId", "instructionMessageId"):
+        try:
+            message_id = int(metadata.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+        if message_id > 0:
+            message_ids.add(message_id)
+    return sorted(message_ids)
+
+
+def delete_telegram_source_messages(job, *, api_call=None, now=None):
+    if not delete_telegram_source_on_success() or job.get("status") != "sent":
+        return False
+    message_ids = telegram_source_message_ids(job)
+    if not message_ids:
+        return False
+    metadata = job.get("sourceMetadata") or {}
+    chat_id = str(metadata.get("chatId") or "").strip()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    cleanup = job.setdefault("sourceMessageCleanup", {})
+    deleted_ids = {
+        int(value)
+        for value in cleanup.get("deletedMessageIds", [])
+        if str(value).isdigit() and int(value) > 0
+    }
+    pending_ids = [message_id for message_id in message_ids if message_id not in deleted_ids]
+    if not pending_ids:
+        return False
+
+    cleanup["attemptCount"] = int(cleanup.get("attemptCount") or 0) + 1
+    cleanup["lastAttemptAt"] = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+        time.gmtime(time.time() if now is None else now),
+    )
+    cleanup["status"] = "pending"
+    cleanup["lastError"] = ""
+    if not token or not chat_id:
+        cleanup["status"] = "failed"
+        cleanup["lastError"] = "telegram_cleanup_not_configured"
+        return True
+
+    call = api_call or telegram.call
+    for message_id in pending_ids:
+        try:
+            call(
+                token,
+                "deleteMessage",
+                {"chat_id": chat_id, "message_id": message_id},
+            )
+        except telegram.TelegramError as exc:
+            cleanup["status"] = "failed"
+            cleanup["lastError"] = str(exc)
+            break
+        deleted_ids.add(message_id)
+        cleanup["deletedMessageIds"] = sorted(deleted_ids)
+
+    if all(message_id in deleted_ids for message_id in message_ids):
+        cleanup["status"] = "deleted"
+        cleanup["completedAt"] = cleanup["lastAttemptAt"]
+        cleanup["lastError"] = ""
+    return True
+
+
 def bridge_result(root, job_id):
     path = Path(root) / "results" / f"{job_id}.json"
     try:
@@ -344,12 +375,18 @@ def bridge_result(root, job_id):
         return None
 
 
-def reconcile_jobs(state, *, root=None, doneq=None, notify=True):
+def reconcile_jobs(state, *, root=None, doneq=None, notify=True, telegram_api_call=None):
     root = Path(root or queue_root())
     doneq = Path(doneq or doneq_root())
     changed = False
     for job_id, job in state.get("jobs", {}).items():
-        if job.get("status") in {"sent", "failed", "rejected", "shadow_valid", "shadow_rejected"}:
+        if job.get("status") == "sent":
+            changed = delete_telegram_source_messages(
+                job,
+                api_call=telegram_api_call,
+            ) or changed
+            continue
+        if job.get("status") in {"failed", "rejected", "shadow_valid", "shadow_rejected"}:
             continue
         result = bridge_result(root, job_id)
         if result and job.get("status") == "queued":
@@ -386,105 +423,10 @@ def reconcile_jobs(state, *, root=None, doneq=None, notify=True):
         job["completedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(done_path.stat().st_mtime))
         if notify:
             notify_stage_once(job, "sent" if success else "failed")
+        if success:
+            delete_telegram_source_messages(job, api_call=telegram_api_call)
         changed = True
     return changed
-
-
-def fetch_raw_message(client, uid):
-    status, rows = client.uid("fetch", str(uid), "(BODY.PEEK[])")
-    if status != "OK":
-        raise RuntimeError("imap_fetch_failed")
-    return b"".join(
-        row[1]
-        for row in rows or []
-        if isinstance(row, tuple) and len(row) > 1 and isinstance(row[1], bytes)
-    )
-
-
-def search_uids(client):
-    status, rows = client.uid("search", None, "ALL")
-    if status != "OK":
-        raise RuntimeError("imap_search_failed")
-    raw = b" ".join(row for row in (rows or []) if isinstance(row, bytes))
-    return sorted(int(value) for value in raw.split() if value.isdigit())
-
-
-def scan_mailbox(*, imap_factory=None):
-    settings = imap_settings()
-    state = load_state()
-    imap_factory = imap_factory or imaplib.IMAP4_SSL
-    client = imap_factory(settings["host"], settings["port"], timeout=20)
-    accepted = 0
-    rejected = 0
-    try:
-        status, _data = client.login(settings["username"], settings["password"])
-        if status != "OK":
-            raise RuntimeError("imap_login_failed")
-        status, _data = client.select(quoted_mailbox(encode_modified_utf7(settings["folder"])), readonly=True)
-        if status != "OK":
-            raise RuntimeError("imap_select_failed")
-        uidvalidity = selected_uidvalidity(client)
-        uids = search_uids(client)
-        if state.get("uidValidity") != uidvalidity:
-            state["uidValidity"] = uidvalidity
-            state["lastUid"] = max(uids, default=0) if env_bool("FAX_OUTGOING_MARK_EXISTING_ON_FIRST_RUN", True) else 0
-            save_state(state)
-            return 0, 0
-        last_uid = int(state.get("lastUid") or 0)
-        for uid in (value for value in uids if value > last_uid):
-            raw_message = fetch_raw_message(client, uid)
-            try:
-                request = parse_request(raw_message)
-                if request is None:
-                    state["lastUid"] = uid
-                    save_state(state)
-                    continue
-                job_id = request_job_id(request)
-                if job_id in state["jobs"]:
-                    state["lastUid"] = uid
-                    save_state(state)
-                    continue
-                job = {
-                    "jobId": job_id,
-                    "destination": request.destination,
-                    "sender": request.sender,
-                    "messageId": request.message_id,
-                    "filename": request.filename,
-                    "pdfSha256": request.pdf_sha256,
-                    "sourceUid": uid,
-                    "status": "shadow_valid" if mode() == "shadow" else "queued",
-                    "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                }
-                if mode() != "shadow":
-                    queue_request(request)
-                state["jobs"][job_id] = job
-                if mode() == "live":
-                    notify_stage_once(job, "queued")
-                accepted += 1
-            except OutgoingFaxError as exc:
-                key = hashlib.sha256(f"{uid}\0{uidvalidity}".encode("utf-8")).hexdigest()[:32]
-                state["jobs"][key] = {
-                    "jobId": key,
-                    "sourceUid": uid,
-                    "status": "shadow_rejected" if mode() == "shadow" else "rejected",
-                    "error": str(exc),
-                    "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                }
-                rejected += 1
-            state["lastUid"] = uid
-            save_state(state)
-        if reconcile_jobs(state):
-            save_state(state)
-    finally:
-        try:
-            client.close()
-        except (imaplib.IMAP4.error, OSError):
-            pass
-        try:
-            client.logout()
-        except (imaplib.IMAP4.error, OSError):
-            pass
-    return accepted, rejected
 
 
 def update_status(*, accepted=0, rejected=0, last_error=None):
@@ -500,19 +442,21 @@ def update_status(*, accepted=0, rejected=0, last_error=None):
             WORKER_STATE["rejectedCount"] += rejected
 
 
-def scan_and_process(*, imap_factory=None):
+def scan_and_process():
     try:
-        accepted, rejected = scan_mailbox(imap_factory=imap_factory)
-        update_status(accepted=accepted, rejected=rejected, last_error="")
-        return accepted, rejected
-    except (imaplib.IMAP4.error, OSError, RuntimeError, UnicodeError, ValueError) as exc:
+        with STATE_FILE_LOCK:
+            state = load_state()
+            if reconcile_jobs(state):
+                save_state(state)
+        update_status(last_error="")
+        return 0, 0
+    except (OSError, RuntimeError, UnicodeError, ValueError) as exc:
         update_status(last_error=type(exc).__name__)
-        print(f"Outgoing fax scan failed: {type(exc).__name__}", flush=True)
+        print(f"Outgoing fax reconciliation failed: {type(exc).__name__}", flush=True)
         return 0, 0
 
 
 def status():
-    settings = imap_settings()
     with STATE_LOCK:
         runtime = dict(WORKER_STATE)
     state = load_state()
@@ -525,11 +469,9 @@ def status():
         "ok": (not enabled()) or (configured() and not runtime["lastError"]),
         "enabled": enabled(),
         "configured": configured(),
+        "intake": "telegram",
         "mode": mode(),
         "started": bool(runtime["started"]),
-        "host": settings["host"],
-        "folder": settings["folder"],
-        "allowedSenderCount": len(allowed_senders()),
         "queueRoot": str(queue_root()),
         "statePath": str(state_path()),
         "lastScanAt": runtime["lastScanAt"],
@@ -554,6 +496,6 @@ def start_scheduler():
             scan_and_process()
             time.sleep(poll_seconds())
 
-    WORKER_THREAD = threading.Thread(target=run, name="outgoing-fax", daemon=True)
+    WORKER_THREAD = threading.Thread(target=run, name="outgoing-fax-reconcile", daemon=True)
     WORKER_THREAD.start()
     return WORKER_THREAD

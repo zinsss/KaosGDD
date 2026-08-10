@@ -7,7 +7,6 @@ import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
 
-from services.notifications import actions as notification_actions
 from services.notifications import router as notifications
 
 
@@ -20,7 +19,6 @@ WORKER_STATE = {
     "lastError": "",
     "knownCount": 0,
     "notifiedCount": 0,
-    "failureCount": 0,
 }
 
 
@@ -33,15 +31,6 @@ class FaxEvent:
     remote: str
     pages: str
     received_at: str
-
-
-@dataclass(frozen=True)
-class DeliveryFailure:
-    key: str
-    delivery_key: str
-    filename: str
-    attempts: int
-    error_type: str
 
 
 def enabled():
@@ -68,15 +57,6 @@ def min_file_age_seconds():
     return max(0, int(os.environ.get("FAX_NOTIFY_MIN_FILE_AGE_SECONDS", "60")))
 
 
-def delivery_failure_root():
-    return Path(
-        os.environ.get(
-            "FAX_NOTIFY_DELIVERY_FAILURE_ROOT",
-            "/integrations/hylafax/status/kaosgdd-faxmail/failed",
-        )
-    )
-
-
 def mark_existing_on_first_run():
     return os.environ.get("FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN", "true").strip().lower() in {
         "1",
@@ -91,31 +71,20 @@ def load_state(path=None):
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"known": [], "knownFailures": []}
+        return {"known": []}
     known = payload.get("known") if isinstance(payload, dict) else []
-    known_failures = payload.get("knownFailures") if isinstance(payload, dict) else []
     if not isinstance(known, list):
         known = []
-    if not isinstance(known_failures, list):
-        known_failures = []
-    return {
-        "known": [str(value) for value in known],
-        "knownFailures": [str(value) for value in known_failures],
-    }
+    return {"known": [str(value) for value in known]}
 
 
 def save_state(state, path=None):
     path = Path(path or state_path())
     path.parent.mkdir(parents=True, exist_ok=True)
     known = sorted(set(str(value) for value in state.get("known", [])))
-    known_failures = sorted(set(str(value) for value in state.get("knownFailures", [])))
     tmp = path.with_suffix(f"{path.suffix}.tmp")
     tmp.write_text(
-        json.dumps(
-            {"known": known, "knownFailures": known_failures},
-            indent=2,
-            sort_keys=True,
-        ),
+        json.dumps({"known": known}, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     os.replace(tmp, path)
@@ -180,39 +149,7 @@ def scan_received_faxes(recvq=None, xferlog=None, *, minimum_age=None, now=None)
     return events
 
 
-def scan_delivery_failures(root=None):
-    root = Path(root or delivery_failure_root())
-    try:
-        if not root.is_dir():
-            return []
-        paths = sorted(root.glob("*.json"))
-    except OSError:
-        return []
-    failures = []
-    for path in paths:
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(payload, dict):
-            continue
-        delivery_key = str(payload.get("deliveryKey") or path.stem)
-        source = Path(str(payload.get("source") or ""))
-        failures.append(
-            DeliveryFailure(
-                key=delivery_key,
-                delivery_key=delivery_key,
-                filename=source.name or "unknown fax",
-                attempts=int(payload.get("attempts") or 0),
-                error_type=str(payload.get("lastErrorType") or "delivery error"),
-            )
-        )
-    return failures
-
-
 def notify(event, opener=None):
-    title = os.environ.get("FAX_NOTIFY_TITLE", "Incoming fax").strip() or "Incoming fax"
-    topic_click = os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip()
     body_lines = [
         f"Received {event.filename}",
         f"From: {event.remote or 'unknown'}",
@@ -221,38 +158,10 @@ def notify(event, opener=None):
         body_lines.append(f"Pages: {event.pages}")
     if event.commid:
         body_lines.append(f"CommID: {event.commid}")
-    notification = {
-        "channel": "normal",
-        "title": title,
-        "message": "\n".join(body_lines),
-        "priority": os.environ.get("FAX_NOTIFY_PRIORITY", "high"),
-        "tags": os.environ.get("FAX_NOTIFY_TAGS", "fax,inbox"),
-        "click_url": topic_click,
-    }
     notifications.publish(
-        **notification,
-        actions=notification_actions.action_header(notification),
-        user_agent="KaosGDD-Brain-Faxmail/1.0",
-        opener=opener,
-    )
-
-
-def notify_delivery_failure(failure, opener=None):
-    body = "\n".join(
-        [
-            f"Mailbox delivery failed for {failure.filename}",
-            f"Attempts: {failure.attempts}",
-            f"Error: {failure.error_type}",
-            "Automatic retry remains enabled.",
-        ]
-    )
-    notifications.publish(
-        channel="system",
-        title=os.environ.get("FAX_NOTIFY_FAILURE_TITLE", "Fax mailbox delivery failed"),
-        message=body,
-        priority="urgent",
-        tags="warning,fax,inbox",
-        click_url=os.environ.get("FAX_NOTIFY_CLICK_URL", "").strip(),
+        channel="normal",
+        title="Incoming fax",
+        message="\n".join(body_lines),
         user_agent="KaosGDD-Brain-Faxmail/1.0",
         opener=opener,
     )
@@ -262,12 +171,10 @@ def scan_and_notify(*, opener=None):
     state_file = state_path()
     state = load_state(state_file)
     known = set(state.get("known", []))
-    known_failures = set(state.get("knownFailures", []))
     events = scan_received_faxes()
     if not known and mark_existing_on_first_run():
         state["known"] = [event.key for event in events]
         known = set(state["known"])
-        state["knownFailures"] = sorted(known_failures)
         save_state(state, state_file)
     sent = 0
     for event in events:
@@ -277,41 +184,25 @@ def scan_and_notify(*, opener=None):
         known.add(event.key)
         sent += 1
         state["known"] = sorted(known)
-        state["knownFailures"] = sorted(known_failures)
-        save_state(state, state_file)
-
-    failures = scan_delivery_failures()
-    for failure in failures:
-        if failure.key in known_failures:
-            continue
-        notify_delivery_failure(failure, opener=opener)
-        known_failures.add(failure.key)
-        sent += 1
-        state["known"] = sorted(known)
-        state["knownFailures"] = sorted(known_failures)
         save_state(state, state_file)
 
     state["known"] = sorted(known)
-    state["knownFailures"] = sorted(known_failures)
     save_state(state, state_file)
     update_status(
         last_error="",
         known_count=len(known),
-        failure_count=len(failures),
         notified_delta=sent,
     )
     return sent
 
 
-def update_status(*, last_error=None, known_count=None, failure_count=None, notified_delta=0):
+def update_status(*, last_error=None, known_count=None, notified_delta=0):
     with STATE_LOCK:
         WORKER_STATE["lastScanAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         if last_error is not None:
             WORKER_STATE["lastError"] = last_error
         if known_count is not None:
             WORKER_STATE["knownCount"] = known_count
-        if failure_count is not None:
-            WORKER_STATE["failureCount"] = failure_count
         if notified_delta:
             WORKER_STATE["lastNotifyAt"] = WORKER_STATE["lastScanAt"]
             WORKER_STATE["notifiedCount"] = int(WORKER_STATE["notifiedCount"]) + notified_delta
@@ -321,19 +212,13 @@ def status():
     with STATE_LOCK:
         worker = dict(WORKER_STATE)
     return {
-        "ok": (not enabled())
-        or (
-            notifications.configured("normal")
-            and notifications.configured("system")
-            and int(worker["failureCount"]) == 0
-        ),
+        "ok": (not enabled()) or notifications.configured("normal"),
         "enabled": enabled(),
-        "configured": notifications.configured("normal") and notifications.configured("system"),
+        "configured": notifications.configured("normal"),
         "transport": notifications.transport_name(),
         "recvq": str(recvq_root()),
         "xferfaxlog": str(xferfaxlog_path()),
         "statePath": str(state_path()),
-        "deliveryFailureRoot": str(delivery_failure_root()),
         "minimumFileAgeSeconds": min_file_age_seconds(),
         **worker,
     }

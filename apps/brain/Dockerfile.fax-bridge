@@ -4,8 +4,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ghostscript hylafax-client libtiff-tools \
+    && apt-get install --no-install-recommends -y \
+        fonts-nanum \
+        ghostscript \
+        hylafax-client \
+        libtiff-tools \
     && rm -rf /var/lib/apt/lists/* \
+    && test -f /usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf \
     && useradd --system --uid 10002 --gid users --home /nonexistent --shell /usr/sbin/nologin faxbridge
 
 WORKDIR /app

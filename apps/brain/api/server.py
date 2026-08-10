@@ -21,10 +21,12 @@ from services.calendar.upstream import adapter_status, portal_host, request_upst
 from services.event_presets import service as event_preset_service
 from services.faxmail import notifier as faxmail_notifier
 from services.faxmail import outgoing as outgoing_fax
+from services.faxmail import telegram_archive as fax_telegram_archive
+from services.faxmail import telegram_intake as telegram_fax_intake
 from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
+from services.mail import telegram_archive as mail_telegram_archive
 from services.memos import relay as memos_relay
-from services.notifications import actions as notification_actions
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
 from services.recurring_tasks import service as recurring_task_service
 from services.supplies import service as supplies_service
@@ -33,7 +35,7 @@ from services.system_calendar import generated as generated_calendar_service
 
 
 PORT = int(os.environ.get("BRAIN_PORT", "8092"))
-VERSION = os.environ.get("BRAIN_VERSION", "0.5.1")
+VERSION = os.environ.get("BRAIN_VERSION", "0.7.0")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MAX_REQUEST_BYTES = 500_000
 
@@ -60,30 +62,6 @@ def xlsx_response(handler, data, filename):
     handler.wfile.write(data)
 
 
-def notification_later_response(handler, status, title, message):
-    body = f"""<!doctype html>
-<html lang=\"en\">
-<meta charset=\"utf-8\">
-<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
-<title>{title}</title>
-<style>
-  :root {{ color-scheme: dark; font-family: system-ui, sans-serif; }}
-  body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #2e3440; color: #eceff4; }}
-  main {{ width: min(32rem, calc(100% - 3rem)); }}
-  h1 {{ margin: 0 0 .6rem; color: #ebcb8b; font-size: 1.6rem; }}
-  p {{ margin: 0; color: #d8dee9; line-height: 1.5; }}
-</style>
-<main><h1>{title}</h1><p>{message}</p></main>
-</html>""".encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("Content-Type", "text/html; charset=utf-8")
-    handler.send_header("Cache-Control", "no-store")
-    handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
-
-
 def brain_status(headers):
     host = portal_host(headers)
     database = database_status()
@@ -98,8 +76,11 @@ def brain_status(headers):
         "upstreams": {
             "calendarAdapter": calendar_adapter,
             "faxmailNotifications": faxmail_notifier.status(),
+            "faxTelegramArchive": fax_telegram_archive.status(),
+            "telegramFaxIntake": telegram_fax_intake.status(),
             "outgoingFax": outgoing_fax.status(),
             "mailNotifications": mail_notifier.status(),
+            "mailTelegramArchive": mail_telegram_archive.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
             "holidaySync": holiday_service.status(),
@@ -263,19 +244,6 @@ def proxy_memos(handler, method):
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
-        if parsed.path == "/api/notifications/later":
-            try:
-                require_main_profile(self.headers)
-                query = urllib.parse.parse_qs(parsed.query)
-                notification_actions.schedule_later((query.get("token") or [""])[0])
-                notification_later_response(self, 200, "Later", "This notification will return in one hour.")
-            except (ValueError, notification_actions.NotificationActionError) as exc:
-                notification_later_response(self, 400, "Unable to snooze", str(exc).replace("_", " "))
-            except Exception as exc:
-                print(f"Notification snooze failed: {type(exc).__name__}", flush=True)
-                notification_later_response(self, 503, "Unable to snooze", "Notification service is unavailable.")
-            return
-
         if parsed.path == "/api/custom-events":
             try:
                 require_main_profile(self.headers)
@@ -815,7 +783,10 @@ def main():
     recurring_task_service.start_scheduler()
     faxmail_notifier.start_scheduler()
     outgoing_fax.start_scheduler()
+    fax_telegram_archive.start_scheduler()
+    telegram_fax_intake.start_scheduler()
     mail_notifier.start_scheduler()
+    mail_telegram_archive.start_scheduler()
     holiday_service.start_scheduler()
     generated_calendar_service.start_scheduler()
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)

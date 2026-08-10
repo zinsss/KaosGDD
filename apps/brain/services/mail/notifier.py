@@ -12,7 +12,6 @@ from email.parser import BytesParser
 from email.utils import getaddresses
 from pathlib import Path
 
-from services.notifications import actions as notification_actions
 from services.notifications import router as notifications
 
 
@@ -25,7 +24,6 @@ WORKER_STATE = {
     "notifiedCount": 0,
     "accounts": {
         "naver": {"lastError": "", "mailboxCount": 0},
-        "gmailFax": {"lastError": "", "mailboxCount": 0},
     },
 }
 LIST_PATTERN = re.compile(
@@ -85,14 +83,6 @@ def env_bool(name, default=False):
 
 
 def account_configs():
-    fax_addresses = tuple(
-        address.strip().lower()
-        for address in os.environ.get(
-            "MAIL_NOTIFY_GMAIL_MATCH_ADDRESSES",
-            "fax@kaosgdd.net,fax-in@kaosgdd.net,fax-send@kaosgdd.net,fax-failed@kaosgdd.net",
-        ).split(",")
-        if address.strip()
-    )
     return (
         AccountConfig(
             key="naver",
@@ -108,18 +98,6 @@ def account_configs():
             ).strip(),
             include_descendants=True,
             match_addresses=(),
-        ),
-        AccountConfig(
-            key="gmailFax",
-            label="Fax mail",
-            enabled=env_bool("MAIL_NOTIFY_GMAIL_ENABLED"),
-            host=os.environ.get("MAIL_NOTIFY_GMAIL_HOST", "imap.gmail.com").strip(),
-            port=int(os.environ.get("MAIL_NOTIFY_GMAIL_PORT", "993")),
-            username=os.environ.get("MAIL_NOTIFY_GMAIL_USERNAME", "").strip(),
-            password=os.environ.get("MAIL_NOTIFY_GMAIL_PASSWORD", ""),
-            folder_root=os.environ.get("MAIL_NOTIFY_GMAIL_FOLDER", "INBOX").strip(),
-            include_descendants=False,
-            match_addresses=fax_addresses,
         ),
     )
 
@@ -304,24 +282,16 @@ def event_matches(config, event):
 
 
 def notify_event(event, opener=None):
-    click_url = os.environ.get("MAIL_NOTIFY_CLICK_URL", "https://mail.kaosgdd.net/").strip()
-    notification = {
-        "channel": "normal",
-        "title": f"New mail · {event.account_label}",
-        "message": "\n".join(
+    notifications.publish(
+        channel="normal",
+        title=f"New mail · {event.account_label}",
+        message="\n".join(
             [
                 event.subject,
                 f"From: {event.sender}",
                 f"Folder: {event.mailbox}",
             ]
         ),
-        "priority": "default",
-        "tags": "email,inbox",
-        "click_url": click_url,
-    }
-    notifications.publish(
-        **notification,
-        actions=notification_actions.action_header(notification),
         user_agent="KaosGDD-Brain-Mail/1.0",
         opener=opener,
     )

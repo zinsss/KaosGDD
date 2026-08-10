@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.10.10-pushover-only1
+    image: kaosgdd-brain:0.11.8-telegram-only-fax1
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -29,7 +29,7 @@ services:
         format: raw
     environment:
       BRAIN_PORT: "8092"
-      BRAIN_VERSION: "0.10.10-pushover-only1"
+      BRAIN_VERSION: "0.11.8-telegram-only-fax1"
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
@@ -42,20 +42,27 @@ services:
       FAX_NOTIFY_STATE_PATH: "/data/faxmail/notified-recvq.json"
       FAX_NOTIFY_POLL_SECONDS: "20"
       FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN: "true"
-      FAX_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
       FAX_OUTGOING_ENABLED: "true"
       FAX_OUTGOING_MODE: "live"
-      FAX_OUTGOING_IMAP_FOLDER: "INBOX"
-      FAX_OUTGOING_RECIPIENTS: "fax-send@kaosgdd.net"
-      FAX_OUTGOING_REQUIRE_AUTH_RESULTS: "true"
-      FAX_OUTGOING_MARK_EXISTING_ON_FIRST_RUN: "true"
       FAX_OUTGOING_POLL_SECONDS: "60"
       FAX_OUTGOING_QUEUE_ROOT: "/data/fax-outgoing"
       FAX_OUTGOING_STATE_PATH: "/data/fax-outgoing/state.json"
       FAX_OUTGOING_DONEQ_ROOT: "/integrations/hylafax/doneq"
+      TELEGRAM_FAX_INTAKE_ENABLED: "true"
+      TELEGRAM_FAX_INTAKE_STATE_PATH: "/data/fax-outgoing/telegram-intake.json"
+      TELEGRAM_FAX_INTAKE_POLL_SECONDS: "20"
+      TELEGRAM_FAX_INTAKE_MARK_EXISTING_ON_FIRST_RUN: "true"
+      TELEGRAM_FAX_DELETE_SOURCE_ON_SUCCESS: "true"
+      FAX_TELEGRAM_ARCHIVE_RECVQ: "/integrations/hylafax/recvq"
+      FAX_TELEGRAM_ARCHIVE_XFERFAXLOG: "/integrations/hylafax/log/xferfaxlog"
+      FAX_TELEGRAM_ARCHIVE_MIN_FILE_AGE_SECONDS: "60"
+      FAX_TELEGRAM_ARCHIVE_OUTGOING_STATE_PATH: "/data/fax-outgoing/state.json"
+      FAX_TELEGRAM_ARCHIVE_STATE_PATH: "/data/faxmail/telegram-archive.json"
+      FAX_TELEGRAM_ARCHIVE_POLL_SECONDS: "30"
       MAIL_NOTIFY_STATE_PATH: "/data/mail/notified-imap.json"
       MAIL_NOTIFY_POLL_SECONDS: "60"
-      MAIL_NOTIFY_CLICK_URL: "https://mail.kaosgdd.net/"
+      MAIL_TELEGRAM_ARCHIVE_STATE_PATH: "/data/mail/telegram-archive.json"
+      MAIL_TELEGRAM_ARCHIVE_POLL_SECONDS: "60"
       LEDGER_BACKUP_ROOT: "/data/ledger/backups"
       LEDGER_BACKUP_HOUR: "3"
       LEDGER_BACKUP_MINUTE: "20"
@@ -84,7 +91,7 @@ services:
       retries: 10
 
   fax-bridge:
-    image: kaosgdd-fax-bridge:0.1.2
+    image: kaosgdd-fax-bridge:0.1.3-korean-fonts1
     container_name: kaosgdd-fax-bridge
     restart: unless-stopped
     network_mode: host

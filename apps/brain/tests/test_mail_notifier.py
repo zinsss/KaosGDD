@@ -85,7 +85,6 @@ class MailNotifierTests(unittest.TestCase):
         notifier.WORKER_STATE["notifiedCount"] = 0
         notifier.WORKER_STATE["accounts"] = {
             "naver": {"lastError": "", "mailboxCount": 0},
-            "gmailFax": {"lastError": "", "mailboxCount": 0},
         }
 
     def test_modified_utf7_round_trip(self):
@@ -115,30 +114,7 @@ class MailNotifierTests(unittest.TestCase):
             ["각종공문", "각종공문/보건소", "세무사", "세무사/부가세"],
         )
 
-    def test_gmail_filter_accepts_only_configured_fax_aliases(self):
-        config = notifier.AccountConfig(
-            key="gmailFax",
-            label="Fax mail",
-            enabled=True,
-            host="imap.gmail.com",
-            port=993,
-            username="fax@example.test",
-            password="password",
-            folder_root="INBOX",
-            include_descendants=False,
-            match_addresses=("fax-in@kaosgdd.net", "fax-send@kaosgdd.net"),
-        )
-        matching = notifier.MailEvent(
-            "gmailFax", "Fax mail", "INBOX", 1, "Fax", "Sender", ("fax-in@kaosgdd.net",), "",
-        )
-        unrelated = notifier.MailEvent(
-            "gmailFax", "Fax mail", "INBOX", 2, "Other", "Sender", ("other@example.test",), "",
-        )
-
-        self.assertTrue(notifier.event_matches(config, matching))
-        self.assertFalse(notifier.event_matches(config, unrelated))
-
-    def test_first_scan_baselines_then_new_naver_mail_notifies_both_audiences(self):
+    def test_first_scan_baselines_then_new_naver_mail_notifies_once(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = pathlib.Path(tmp) / "state.json"
             server = FakeMailboxServer()
@@ -146,7 +122,6 @@ class MailNotifierTests(unittest.TestCase):
                 "MAIL_NOTIFY_NAVER_ENABLED": "true",
                 "MAIL_NOTIFY_NAVER_USERNAME": "user",
                 "MAIL_NOTIFY_NAVER_PASSWORD": "password",
-                "MAIL_NOTIFY_GMAIL_ENABLED": "false",
                 "MAIL_NOTIFY_STATE_PATH": str(state),
             }
             with mock.patch.dict(os.environ, environment, clear=False), mock.patch.object(

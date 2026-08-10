@@ -5,7 +5,6 @@ import stat
 import sys
 import tempfile
 import unittest
-from email.message import EmailMessage
 from unittest import mock
 
 
@@ -15,60 +14,52 @@ sys.path.insert(0, str(APP_ROOT))
 from services.faxmail import outgoing
 
 
-def fax_message(subject="fax:022848302", *, sender="zin@example.test", attachment=b"%PDF-1.4\n%%EOF"):
-    message = EmailMessage()
-    message["From"] = sender
-    message["To"] = "fax-send@kaosgdd.net"
-    message["Subject"] = subject
-    message["Message-ID"] = "<fax-request@example.test>"
-    message["Authentication-Results"] = "mx.example; dkim=pass header.d=example.test"
-    message.set_content("Send attached fax")
-    message.add_attachment(attachment, maintype="application", subtype="pdf", filename="fax.pdf")
-    return message.as_bytes()
-
-
 class OutgoingFaxTests(unittest.TestCase):
     def env(self, **overrides):
-        values = {
-            "FAX_OUTGOING_RECIPIENTS": "fax-send@kaosgdd.net",
-            "FAX_OUTGOING_ALLOWED_SENDERS": "zin@example.test",
-            "FAX_OUTGOING_REQUIRE_AUTH_RESULTS": "true",
-        }
+        values = {}
         values.update(overrides)
         return mock.patch.dict(os.environ, values, clear=False)
 
-    def test_parses_strict_authenticated_pdf_request(self):
-        with self.env():
-            request = outgoing.parse_request(fax_message())
-
-        self.assertEqual(request.destination, "022848302")
-        self.assertEqual(request.sender, "zin@example.test")
-
     def test_normalizes_korean_international_number(self):
+        self.assertEqual(outgoing.normalize_destination("+82 2-2848-302"), "022848302")
+
+    def test_builds_source_agnostic_request_from_pdf(self):
         with self.env():
-            request = outgoing.parse_request(fax_message("fax:+82 2-2848-302"))
+            request = outgoing.request_from_pdf(
+                destination="02-2848-302",
+                sender="telegram:777",
+                message_id="telegram:-100123:55:unique",
+                filename="notice.pdf",
+                pdf=b"%PDF-1.4\n%%EOF",
+            )
 
         self.assertEqual(request.destination, "022848302")
+        self.assertEqual(request.sender, "telegram:777")
+        self.assertEqual(request.subject, "fax:022848302")
 
     def test_rejects_plain_number_and_twelve_digit_mobile_number(self):
-        with self.env():
-            with self.assertRaisesRegex(outgoing.OutgoingFaxError, "subject_must"):
-                outgoing.parse_request(fax_message("022848302"))
-            with self.assertRaisesRegex(outgoing.OutgoingFaxError, "invalid_domestic"):
-                outgoing.parse_request(fax_message("fax:010304949393"))
+        with self.assertRaisesRegex(outgoing.OutgoingFaxError, "invalid_domestic"):
+            outgoing.normalize_destination("010304949393")
 
-    def test_rejects_unapproved_or_unauthenticated_sender(self):
-        with self.env():
-            with self.assertRaisesRegex(outgoing.OutgoingFaxError, "sender_not_authorized"):
-                outgoing.parse_request(fax_message(sender="other@example.test"))
-        raw = fax_message().replace(b"dkim=pass", b"dkim=fail")
-        with self.env():
-            with self.assertRaisesRegex(outgoing.OutgoingFaxError, "sender_authentication_failed"):
-                outgoing.parse_request(raw)
+    def test_rejects_invalid_pdf_source(self):
+        with self.assertRaisesRegex(outgoing.OutgoingFaxError, "invalid_pdf_signature"):
+            outgoing.request_from_pdf(
+                destination="022848302",
+                sender="telegram:777",
+                message_id="telegram-message",
+                filename="fax.pdf",
+                pdf=b"not-pdf",
+            )
 
     def test_queue_is_deterministic_and_does_not_duplicate_manifest(self):
         with tempfile.TemporaryDirectory() as tmp, self.env():
-            request = outgoing.parse_request(fax_message())
+            request = outgoing.request_from_pdf(
+                destination="022848302",
+                sender="telegram:777",
+                message_id="telegram-message",
+                filename="fax.pdf",
+                pdf=b"%PDF-1.4\n%%EOF",
+            )
             first = outgoing.queue_request(request, root=tmp, now=1)
             second = outgoing.queue_request(request, root=tmp, now=2)
             manifests = list((pathlib.Path(tmp) / "pending").glob("*.json"))
@@ -122,52 +113,102 @@ class OutgoingFaxTests(unittest.TestCase):
         self.assertEqual([call.kwargs["message"] for call in publish.call_args_list], [
             ": to 022848302\n: sample.pdf",
             ": sample.pdf",
-            ": to 022848302\n: sample.pdf",
+            ": to 022848302",
         ])
-        self.assertTrue(all(call.kwargs["actions"] == "" for call in publish.call_args_list))
+        self.assertTrue(all("actions" not in call.kwargs for call in publish.call_args_list))
         self.assertEqual(job["notifiedStages"], ["queued", "sending", "sent"])
 
-    def test_irrelevant_mail_advances_persisted_uid_cursor(self):
-        class FakeIMAP:
-            def login(self, _username, _password):
-                return "OK", [b"logged in"]
+    def test_success_deletes_telegram_source_messages_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            doneq = root / "doneq"
+            doneq.mkdir()
+            (doneq / "q419").write_text(
+                "state:7\nreturned:2\nstatus:\n",
+                encoding="utf-8",
+            )
+            job = {
+                "status": "submitted",
+                "hylafaxJobId": "419",
+                "source": "telegram",
+                "sourceMetadata": {
+                    "chatId": "-100123",
+                    "messageId": 55,
+                    "commandMessageId": 56,
+                    "instructionMessageId": 88,
+                },
+            }
+            state = {"jobs": {"a" * 32: job}}
+            calls = []
 
-            def select(self, _mailbox, readonly=False):
-                self.readonly = readonly
-                return "OK", [b"1"]
+            def api_call(token, method, fields):
+                calls.append((token, method, fields))
+                return True
 
-            def response(self, _code):
-                return "UIDVALIDITY", [b"7"]
+            with self.env(
+                TELEGRAM_FAX_DELETE_SOURCE_ON_SUCCESS="true",
+                TELEGRAM_BOT_TOKEN="token",
+            ):
+                first = outgoing.reconcile_jobs(
+                    state,
+                    root=root,
+                    doneq=doneq,
+                    notify=False,
+                    telegram_api_call=api_call,
+                )
+                second = outgoing.reconcile_jobs(
+                    state,
+                    root=root,
+                    doneq=doneq,
+                    notify=False,
+                    telegram_api_call=api_call,
+                )
 
-            def uid(self, command, *args):
-                if command == "search":
-                    return "OK", [b"12"]
-                if command == "fetch":
-                    message = EmailMessage()
-                    message["From"] = "sender@example.test"
-                    message["To"] = "fax@kaosgdd.net"
-                    message["Subject"] = "ordinary inbox mail"
-                    return "OK", [(b"message", message.as_bytes())]
-                raise AssertionError((command, args))
+        self.assertTrue(first)
+        self.assertFalse(second)
+        self.assertEqual(
+            [call[1] for call in calls],
+            ["deleteMessage", "deleteMessage", "deleteMessage"],
+        )
+        self.assertEqual([call[2]["message_id"] for call in calls], [55, 56, 88])
+        self.assertEqual(job["sourceMessageCleanup"]["status"], "deleted")
 
-            def close(self):
-                return "OK", [b"closed"]
+    def test_failed_fax_keeps_telegram_source_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            doneq = root / "doneq"
+            doneq.mkdir()
+            (doneq / "q420").write_text(
+                "state:8\nstatus:No carrier\nstatuscode:40\n",
+                encoding="utf-8",
+            )
+            job = {
+                "status": "submitted",
+                "hylafaxJobId": "420",
+                "source": "telegram",
+                "sourceMetadata": {
+                    "chatId": "-100123",
+                    "messageId": 55,
+                    "commandMessageId": 56,
+                },
+            }
+            state = {"jobs": {"b" * 32: job}}
+            api_call = mock.Mock()
 
-            def logout(self):
-                return "BYE", [b"logout"]
+            with self.env(
+                TELEGRAM_FAX_DELETE_SOURCE_ON_SUCCESS="true",
+                TELEGRAM_BOT_TOKEN="token",
+            ):
+                outgoing.reconcile_jobs(
+                    state,
+                    root=root,
+                    doneq=doneq,
+                    notify=False,
+                    telegram_api_call=api_call,
+                )
 
-        with tempfile.TemporaryDirectory() as tmp, self.env(
-            FAX_OUTGOING_STATE_PATH=str(pathlib.Path(tmp) / "state.json"),
-            FAX_OUTGOING_IMAP_USERNAME="fax@example.test",
-            FAX_OUTGOING_IMAP_PASSWORD="password",
-        ):
-            outgoing.save_state({"uidValidity": "7", "lastUid": 11, "jobs": {}})
-            outgoing.scan_mailbox(imap_factory=lambda *_args, **_kwargs: FakeIMAP())
-            state = outgoing.load_state()
-
-        self.assertEqual(state["lastUid"], 12)
-        self.assertEqual(state["jobs"], {})
-
+        self.assertEqual(job["status"], "failed")
+        api_call.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

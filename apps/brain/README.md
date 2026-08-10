@@ -2,7 +2,7 @@
 
 KaosGDD Brain is the small backend for KaosGDD v2 orchestration.
 
-It is not a replacement for Radicale, Paperless, Wiki.js, KaosFaxMail, or PACS. It exists for logic that the static shell cannot do safely by itself.
+It is not a replacement for Radicale, Paperless, Wiki.js, HylaFAX, or PACS. It exists for logic that the static shell cannot do safely by itself.
 
 ## Scope
 
@@ -95,17 +95,16 @@ classification survives later source syncs, and generated entries are read-only
 through normal event editing routes.
 
 
-## Fax Notifications
+## Fax Notifications And Archive
 
-Incoming fax remains owned by HylaFAX and the hosted mailbox. Brain only watches
-the HylaFAX receive queue and sends a Pushover notification when a new TIFF
-appears.
+Incoming fax remains owned by HylaFAX. Brain watches the HylaFAX receive queue,
+sends a pushed Telegram message, and archives the converted PDF to Telegram.
 
 ```text
 HylaFAX recvq mounted read-only at /integrations/hylafax
 Brain polls recvq/fax*.tif
-Brain posts a short message to Pushover
-Roundcube remains the fax inbox
+Brain posts a short message to the Telegram Notifications topic
+Brain archives the fax PDF to the Telegram Fax topic
 ```
 
 The worker is controlled by:
@@ -116,43 +115,35 @@ FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
 The first run marks existing receive-queue files as already seen by default, so
-deploying the worker does not spam notifications for old faxes. Successful fax
-receipt notices and urgent mailbox-delivery failures go to every configured
-Pushover audience. Future calendar and task reminders are desktop-only.
+deploying the worker does not spam notifications for old faxes. Receipt notices
+go to `Notifications`; transmission failures go to `System Alerts`.
 
-Pushover uses separate application tokens and explicit device names for the iOS
-and desktop audiences:
+Telegram uses one private supergroup and explicit numeric topic IDs:
 
 ```env
-PUSHOVER_ENABLED=true
-PUSHOVER_USER_KEY=
-PUSHOVER_IOS_TOKEN=
-PUSHOVER_IOS_DEVICE=iphone
-PUSHOVER_DESKTOP_TOKEN=
-PUSHOVER_DESKTOP_DEVICE=desktop
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_SUPERGROUP_CHAT_ID=
+TELEGRAM_TOPIC_NOTIFICATIONS_ID=
+TELEGRAM_TOPIC_SYSTEM_ALERTS_ID=
 ```
 
-Routine fax and mail notifications fan out to available applications at priority 0.
-Calendar and task notifications can target `desktop` only. The `system` channel
-fans out at high priority 1; Brain intentionally does not use acknowledgement-
-repeating emergency priority 2. A missing desktop device does not block iOS;
-desktop delivery begins after its explicit Pushover device name is configured.
+Inbound bot actions are group-only. Brain accepts an update only when both the
+numeric chat ID matches `TELEGRAM_SUPERGROUP_CHAT_ID` and Telegram reports the
+chat type as `supergroup`; private chats and all other groups are ignored.
 
 ## Mail Notifications
 
-Brain can poll two read-only IMAP sources without storing message bodies:
-
-- Naver: `각종공문`, `세무사`, and every descendant folder under either root
-- Gmail: `INBOX`, filtered to the configured KaosGDD fax aliases
+Brain polls the Naver `각종공문`, `세무사`, and descendant folders read-only
+without storing message bodies. Fax does not use IMAP: outgoing PDF requests
+arrive directly through the configured Telegram `Fax` topic.
 
 The worker records only UIDVALIDITY, last processed UID, folder display name,
 and aggregate runtime status under `/data/mail`. Existing messages establish the
-first checkpoint and do not notify. New matching messages are published to both
-the iOS and desktop audience topics.
+first checkpoint and do not notify. New matching messages are published to the
+Telegram `Notifications` topic and can be archived to the `Mail` topic.
 
-Each account has an independent enable flag and password. Keep an account
-disabled until its IMAP/app password has been entered in the protected Brain
-environment.
+Keep Naver disabled until its IMAP/app password has been entered in the
+protected Brain environment.
 
 ## Supplies
 
