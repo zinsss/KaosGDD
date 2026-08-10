@@ -10,6 +10,7 @@
 | Files | `https://files.kaosgdd.net` | SFTPGo |
 | Calendar | `https://calendar.kaosgdd.net` | Radicale |
 | PDF | `https://pdf.kaosgdd.net` | Stirling-PDF |
+| HWP/HWPX | `https://kaosgdd.net/rhwp/` | RHWP |
 | Vaultwarden | `https://vault.kaosgdd.net` | Vaultwarden |
 | Supplies | inside `https://kaosgdd.net` | KaosGDD Brain + Radicale |
 
@@ -25,6 +26,7 @@
 | SFTPGo HTTP | `http://100.94.208.16:8081` |
 | SFTPGo SFTP | `100.94.208.16:2022` |
 | Stirling-PDF | `http://100.94.208.16:8082` |
+| RHWP | `http://100.94.208.16:8085/rhwp/` |
 | Vaultwarden | `http://100.94.208.16:8083` |
 | Radicale | `http://100.94.208.16:5232` |
 | KaosSupplies legacy | `http://100.94.208.16:8008` |

@@ -351,6 +351,7 @@ window.KAOS_TRANSLATIONS = {
     "dialog.presetFieldsRequired": "프리셋 이름과 일정 제목을 입력하세요.",
     "dialog.radicaleSaveError": "Radicale에 저장하지 못했습니다: {error}",
     "dialog.radicaleDeleteError": "Radicale에서 삭제하지 못했습니다: {error}",
+    "dialog.connectionLost": "Kaos 연결 또는 로그인 세션이 끊겼습니다. 다시 불러와 로그인할까요? 작성 중인 내용은 유지됩니다.",
     "dialog.caregiverSaveError": "돌봄 설정을 저장하지 못했습니다: {error}",
     "dialog.caregiverDaySaveError": "돌봄 기록을 저장하지 못했습니다: {error}",
     "dialog.ledgerSaveError": "회비 장부를 저장하지 못했습니다: {error}",

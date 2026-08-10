@@ -44,6 +44,13 @@ DELETE /api/calendar/events
 POST /api/calendar/tasks
 PUT /api/calendar/tasks
 DELETE /api/calendar/tasks
+GET /api/documents
+POST /api/documents
+GET /api/documents/{id}/content
+POST /api/documents/{id}/paperless
+DELETE /api/documents/{id}
+POST /api/hwp-handoff/upload
+GET /api/hwp-handoff/{token}/content
 GET /api/caregiver/month
 PUT /api/caregiver/day
 DELETE /api/caregiver/day
@@ -94,7 +101,7 @@ Brain may restart independently from:
 - Paperless
 - Wiki.js
 - KaosSupplies legacy service, while the new supplies path is built
-- HylaFAX transport and the Brain fax workers
+- KaosFaxMail or the legacy fax bridge
 
 Brain must not:
 
@@ -102,6 +109,10 @@ Brain must not:
 - read or modify PACS storage
 - write user Radicale data outside explicit adapter calls
 - write current-location weather history by default
+
+HWP handoffs are temporary browser-opening payloads, not document records. Brain
+accepts only HWP, HWPX, and HML files, limits them to 50 MB, and removes them
+after 30 minutes. They are never submitted to Paperless automatically.
 
 ## Migration Checklist
 

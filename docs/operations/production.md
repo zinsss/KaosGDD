@@ -70,7 +70,8 @@ The current live first Brain slice remains the calendar adapter until the new Br
 - Do not wipe production.
 - Do not move DICOM casually.
 - Do not migrate KaosPACS until last.
-- Do not stop the legacy KaosGDD backend until fax/Pushover is replaced.
+- Keep HylaFAX and Brain independently restartable; neither depends on the
+  retired legacy notification bridge.
 - Keep service data owned by service-specific stacks.
 
 ## Backup

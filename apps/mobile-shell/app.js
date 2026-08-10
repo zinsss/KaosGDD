@@ -5,11 +5,13 @@ const routes = {
   tasks: "Tasks",
   add: "Add",
   supplies: "Supplies",
+  documents: "Document Inbox",
   "add-event": "Add Event",
   "edit-event": "Edit Event",
   "add-task": "Add Task",
   "edit-task": "Edit Task",
   services: "Utils",
+  service: "Service",
   rouny: "Rouny",
   memos: "Memos",
   ledger: "Ledger",
@@ -27,6 +29,7 @@ const familyRoutes = {
   "add-task": uiText("route.addTask", "Add Task"),
   "edit-task": uiText("route.editTask", "Edit Task"),
   services: uiText("route.services", "Utils"),
+  service: uiText("route.services", "Utils"),
   rouny: uiText("route.rouny", "Rouny"),
   memos: uiText("route.memos", "Memos"),
   ledger: uiText("route.ledger", "Ledger"),
@@ -49,6 +52,7 @@ const ROUNY_INCLUDE_SATURDAY_KEY = "kaosgdd.v2.rouny.includeSaturday.v1";
 const ROUNY_SYNC_REVISION_KEY = "kaosgdd.v2.rouny.syncRevision.v1";
 const ROUNY_SYNC_DIRTY_KEY = "kaosgdd.v2.rouny.syncDirty.v1";
 const EVENT_PRESET_STORAGE_KEY = "kaosgdd.v2.eventPresets.v1";
+const COMPOSER_RECOVERY_STORAGE_KEY = "kaosgdd.v2.composerRecovery.v1";
 const FAMILY_FONT_STORAGE_KEY = "kaosgdd.v2.family.font.v1";
 const FAMILY_FONT_OPTIONS = new Set(["nanum", "pretendard", "nixgon", "skybori"]);
 const MAIN_FONT_STORAGE_KEY = "kaosgdd.v2.main.font.v1";
@@ -223,6 +227,20 @@ const state = {
     expanded: false,
     error: "",
   },
+  supplies: {
+    checked: false,
+    loading: false,
+    mode: "active",
+    error: "",
+    items: [],
+    presets: [],
+  },
+  documents: {
+    checked: false,
+    loading: false,
+    error: "",
+    items: [],
+  },
   holidays: {
     checked: false,
     loading: false,
@@ -239,14 +257,6 @@ const state = {
     error: "",
     marketDaysEnabled: true,
     claimDayEnabled: true,
-  },
-  supplies: {
-    checked: false,
-    loading: false,
-    mode: "active",
-    error: "",
-    items: [],
-    presets: [],
   },
   ledger: {
     checked: false,
@@ -485,16 +495,30 @@ const mockAdapter = {
 
   getServices() {
     return [
-      { name: "Paperless", type: "Documents", href: "https://paperless.kaosgdd.net", meta: "Authoritative document archive" },
-      { name: "Wiki.js", type: "Knowledge", href: "https://wiki.kaosgdd.net", meta: "Notes and clinic knowledge" },
-      { name: "SFTPGo", type: "Files", href: "https://files.kaosgdd.net", meta: "Managed file access" },
-      { name: "Radicale", type: "Calendar", href: "https://calendar.kaosgdd.net", meta: "Calendar backend candidate" },
-      { name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault" },
-      { name: "Stirling-PDF", type: "PDF", href: "https://pdf.kaosgdd.net", meta: "PDF workflows" },
-      { name: "Supplies", type: "Brain", href: "#/supplies", meta: "Radicale buy-list" },
+      { id: "documents", name: "Document Inbox", type: "Brain", href: "#/documents", meta: "Temporary PDFs awaiting review", embed: false },
+      { id: "paperless", name: "Paperless", type: "Documents", href: "https://paperless.kaosgdd.net", meta: "Authoritative document archive", embed: true },
+      { id: "wikijs", name: "Wiki.js", type: "Knowledge", href: "https://wiki.kaosgdd.net", meta: "Notes and clinic knowledge", embed: true },
+      { id: "sftpgo", name: "SFTPGo", type: "Files", href: "https://files.kaosgdd.net", meta: "Managed file access", embed: true },
+      { id: "radicale", name: "Radicale", type: "Calendar", href: "https://calendar.kaosgdd.net", meta: "Calendar backend candidate", embed: true },
+      { id: "vaultwarden", name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault", embed: false },
+      { id: "stirling", name: "Stirling-PDF", type: "PDF", href: "https://pdf.kaosgdd.net", meta: "PDF workflows", embed: true },
+      { id: "rhwp", name: "RHWP", type: "HWP", href: "https://kaosgdd.net/rhwp/", meta: "HWP and HWPX editor", embed: true },
+      { id: "supplies", name: "Supplies", type: "Brain", href: "#/supplies", meta: "Radicale buy-list", embed: false },
     ];
   },
 };
+
+function serviceById(id) {
+  return mockAdapter.getServices().find((service) => service.id === id) || null;
+}
+
+function serviceHref(service) {
+  if (!service?.href || service.href.startsWith("#/") || !isDesktopLayout() || portalProfile() !== "main") {
+    return service?.href || "";
+  }
+  if (service.embed === false) return service.href;
+  return `#/service?service=${encodeURIComponent(service.id)}`;
+}
 
 function activeCalendarData() {
   if (state.remoteCalendar.live && state.remoteCalendar.collections.length) {
@@ -842,6 +866,71 @@ function collectAddTaskDraft() {
     dueEnabled: state.taskDueEnabled,
   };
   return state.addTaskDraft;
+}
+
+function persistComposerRecovery(kind, form) {
+  if (kind === "event") collectAddEventDraft();
+  if (kind === "task") collectAddTaskDraft();
+  const snapshot = {
+    savedAt: Date.now(),
+    profile: portalProfile(),
+    hash: window.location.hash,
+    kind,
+    selectedDate: state.selectedDate,
+    currentCollection: state.currentCollection,
+    taskDueEnabled: state.taskDueEnabled,
+    addEventDraft: kind === "event" ? state.addEventDraft : null,
+    addTaskDraft: kind === "task" ? state.addTaskDraft : null,
+  };
+  window.sessionStorage.setItem(COMPOSER_RECOVERY_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function clearComposerRecovery() {
+  window.sessionStorage.removeItem(COMPOSER_RECOVERY_STORAGE_KEY);
+}
+
+function restoreComposerRecovery() {
+  let snapshot;
+  try {
+    snapshot = JSON.parse(window.sessionStorage.getItem(COMPOSER_RECOVERY_STORAGE_KEY) || "null");
+  } catch (_error) {
+    clearComposerRecovery();
+    return;
+  }
+  clearComposerRecovery();
+  if (
+    !snapshot
+    || snapshot.profile !== portalProfile()
+    || Date.now() - Number(snapshot.savedAt || 0) > 60 * 60 * 1000
+  ) return;
+  state.selectedDate = snapshot.selectedDate || state.selectedDate;
+  state.currentCollection = snapshot.currentCollection || state.currentCollection;
+  state.taskDueEnabled = Boolean(snapshot.taskDueEnabled);
+  if (snapshot.kind === "event" && snapshot.addEventDraft) {
+    state.addKind = "event";
+    state.addEventDraft = snapshot.addEventDraft;
+  }
+  if (snapshot.kind === "task" && snapshot.addTaskDraft) {
+    state.addKind = "task";
+    state.addTaskDraft = snapshot.addTaskDraft;
+  }
+  if (snapshot.hash) window.location.hash = snapshot.hash;
+}
+
+function isFetchConnectionError(error) {
+  return error instanceof TypeError && /fetch|network|load/i.test(String(error.message || ""));
+}
+
+function recoverComposerConnection(error, kind, form) {
+  if (!isFetchConnectionError(error)) return false;
+  persistComposerRecovery(kind, form);
+  if (window.confirm(uiText(
+    "dialog.connectionLost",
+    "Connection to Kaos or your sign-in session was lost. Reload and sign in again? Your draft will be kept.",
+  ))) {
+    window.location.reload();
+  }
+  return true;
 }
 
 async function upsertEventPreset(preset) {
@@ -1508,7 +1597,90 @@ async function deleteSupply(id) {
   await loadSupplies({ force: true });
 }
 
-async function saveCaregiverSettings(formData) {
+async function loadDocuments(options = {}) {
+  if (portalProfile() !== "main") return;
+  if (state.documents.loading) return;
+  if (state.documents.checked && !options.force) return;
+  state.documents.loading = true;
+  try {
+    const response = await fetch("/api/documents", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.documents = {
+      checked: true,
+      loading: false,
+      error: "",
+      items: Array.isArray(payload.items) ? payload.items : [],
+    };
+  } catch (error) {
+    state.documents = {
+      checked: true,
+      loading: false,
+      error: error.message || "Document queue unavailable",
+      items: [],
+    };
+  }
+  if (getRoute() === "documents") render();
+}
+
+async function uploadDocument(file, source = "upload") {
+  const params = new URLSearchParams({ filename: file.name || "document.pdf", source });
+  const response = await fetch(`/api/documents?${params.toString()}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/pdf",
+    },
+    body: file,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.documents.checked = false;
+  await loadDocuments({ force: true });
+}
+
+async function submitDocumentToPaperless(id) {
+  const response = await fetch(`/api/documents/${encodeURIComponent(id)}/paperless`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.documents.checked = false;
+  await loadDocuments({ force: true });
+}
+
+async function deleteQueuedDocument(id) {
+  const response = await fetch(`/api/documents/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.documents.checked = false;
+  await loadDocuments({ force: true });
+}
+
+function formatDocumentBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function formatDocumentDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function applyLedgerPayload(payload) {
   state.ledger = {
     ...state.ledger,
@@ -1603,6 +1775,7 @@ function formatLedgerMoney(value) {
   return `${new Intl.NumberFormat("ko-KR").format(Number(value) || 0)}원`;
 }
 
+async function saveCaregiverSettings(formData) {
   const month = state.selectedDate.slice(0, 7);
   const numericValue = (name) => Number(String(formData.get(name) || "").replace(/[^\d]/g, "")) || 0;
   const response = await fetch("/api/caregiver/settings", {
@@ -2244,7 +2417,7 @@ function getRoute() {
   const route = raw.split("?", 1)[0];
   if (!routes[route]) return profileConfig().defaultRoute;
   if (portalProfile() === "family" && route === "services") return profileConfig().defaultRoute;
-  if (portalProfile() === "family" && route === "supplies") return profileConfig().defaultRoute;
+  if (portalProfile() === "family" && (route === "supplies" || route === "documents")) return profileConfig().defaultRoute;
   if (portalProfile() === "main" && (route === "rouny" || route === "caregiver" || route === "ledger")) return profileConfig().defaultRoute;
   return route;
 }
@@ -2349,7 +2522,7 @@ function profileConfig() {
 function activeNavRoute(route) {
   if (route === "add" || route === "add-event" || route === "edit-event" || route === "caregiver") return "calendar";
   if (route === "add-task" || route === "edit-task") return "tasks";
-  if (route === "supplies") return "services";
+  if (route === "supplies" || route === "documents" || route === "service") return "services";
   return route;
 }
 
@@ -2359,7 +2532,6 @@ function renderTopNav(route) {
   const activeRoute = activeNavRoute(route);
   if (isDesktopLayout() && portalProfile() === "main") {
     const utilsActive = activeRoute === "services";
-    const utilsExpanded = state.desktopUtilsExpanded ?? utilsActive;
     nav.innerHTML = profileConfig()
       .nav.map((item) => {
         if (item.route !== "services") {
@@ -2371,23 +2543,22 @@ function renderTopNav(route) {
         }
         return `
           <div class="desktopNavGroup ${utilsActive ? "isActive" : ""}">
-            <button
-              type="button"
-              class="desktopNavToggle ${utilsActive ? "isActive" : ""}"
-              data-toggle-desktop-utils
-              aria-expanded="${utilsExpanded ? "true" : "false"}"
+            <a
+              href="#/services"
+              class="desktopNavToggle desktopNavUtilsHeader ${utilsActive ? "isActive" : ""}"
               aria-controls="desktopUtilsMenu"
             >
               <span>${escapeHtml(item.label)}</span>
-              <span class="desktopNavChevron" aria-hidden="true">›</span>
-            </button>
-            <div class="desktopNavSubmenu ${utilsExpanded ? "" : "isCollapsed"}" id="desktopUtilsMenu">
+            </a>
+            <div class="desktopNavSubmenu" id="desktopUtilsMenu">
               ${mockAdapter
                 .getServices()
                 .map((service) => {
-                  const isCurrent = route === "supplies" && service.href === "#/supplies";
+                  const isCurrent = (route === "supplies" && service.id === "supplies")
+                    || (route === "documents" && service.id === "documents")
+                    || (route === "service" && hashParam("service") === service.id);
                   return service.href
-                    ? `<a href="${escapeHtml(service.href)}" class="${isCurrent ? "isActive" : ""}">${escapeHtml(service.name)}</a>`
+                    ? `<a href="${escapeHtml(serviceHref(service))}" class="${isCurrent ? "isActive" : ""}">${escapeHtml(service.name)}</a>`
                     : `<span class="desktopNavUtility isDisabled" aria-disabled="true">${escapeHtml(service.name)}</span>`;
                 })
                 .join("")}
@@ -2482,7 +2653,8 @@ function addPageCells(monthValue) {
 
 function routeTitle(route) {
   const routeLabels = portalProfile() === "family" ? familyRoutes : routes;
-  const title = route === "add-event" || route === "add-task" ? routeLabels.add : routeLabels[route];
+  const selectedService = route === "service" ? serviceById(hashParam("service")) : null;
+  const title = selectedService?.name || (route === "add-event" || route === "add-task" ? routeLabels.add : routeLabels[route]);
   document.getElementById("routeTitle").textContent = title;
   document.querySelector(".kicker").textContent = profileConfig().label;
   const app = document.querySelector(".app");
@@ -3844,7 +4016,7 @@ function renderServices() {
                     <span class="serviceType">${escapeHtml(service.type)}</span>
                     ${
                       service.href
-                        ? `<a class="openButton" href="${escapeHtml(service.href)}">Open</a>`
+                        ? `<a class="openButton" href="${escapeHtml(serviceHref(service))}">Open</a>`
                         : `<span class="openButton" aria-label="No direct service link">Hold</span>`
                     }
                   </div>
@@ -3854,6 +4026,46 @@ function renderServices() {
             .join("")}
         </div>
       </div>
+    </section>
+  `;
+}
+
+function renderDesktopService() {
+  const service = serviceById(hashParam("service"));
+  if (!service?.href || service.href.startsWith("#/")) return renderServices();
+  const openAction = `<a class="openButton" href="${escapeHtml(service.href)}" target="_blank" rel="noopener">Open</a>`;
+  if (!isDesktopLayout() || portalProfile() !== "main" || service.embed === false) {
+    return `
+      <section class="panel desktopServiceFallback">
+        <div class="panelHeader">
+          <div>
+            <p class="label">${escapeHtml(service.type)}</p>
+            <h2>${escapeHtml(service.name)}</h2>
+          </div>
+          ${openAction}
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="panel desktopServiceWorkspace">
+      <div class="desktopServiceToolbar">
+        <div>
+          <p class="label">${escapeHtml(service.type)}</p>
+          <h2>${escapeHtml(service.name)}</h2>
+        </div>
+        <div class="desktopServiceActions">
+          <button class="openButton" type="button" data-reload-service-frame>Reload</button>
+          ${openAction}
+        </div>
+      </div>
+      <iframe
+        class="desktopServiceFrame"
+        src="${escapeHtml(service.href)}"
+        title="${escapeHtml(service.name)}"
+        allow="clipboard-read; clipboard-write"
+        referrerpolicy="strict-origin-when-cross-origin"
+      ></iframe>
     </section>
   `;
 }
@@ -3903,6 +4115,65 @@ function renderSupplies() {
                   </ul>`
                 : `<div class="emptyState">${emptyText}</div>`
         }
+      </div>
+    </section>
+  `;
+}
+
+function renderDocuments() {
+  const rows = state.documents.items
+    .map((item) => {
+      const submitted = item.status === "submitted";
+      return `
+        <div class="documentQueueRow">
+          <div class="documentQueueMain">
+            <strong>${escapeHtml(item.filename || "document.pdf")}</strong>
+            <div class="documentQueueMeta">
+              <span class="documentSourcePill">${escapeHtml(item.source || "upload")}</span>
+              <span>${escapeHtml(formatDocumentBytes(item.sizeBytes))}</span>
+              <span>${escapeHtml(formatDocumentDate(item.createdAt))}</span>
+              ${submitted ? `<span class="documentSubmittedPill">Sent to Paperless</span>` : ""}
+            </div>
+          </div>
+          <div class="documentQueueActions">
+            <a class="openButton" href="${escapeHtml(item.contentUrl)}" target="_blank" rel="noopener">View</a>
+            ${
+              submitted
+                ? `<span class="openButton isDisabled" aria-disabled="true">Sent</span>`
+                : `<button class="primaryButton" type="button" data-document-paperless="${escapeHtml(item.id)}">Paperless</button>`
+            }
+            <button class="dangerButton" type="button" data-document-delete="${escapeHtml(item.id)}">Delete</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+  return `
+    <section class="panel documentInbox">
+      <div class="panelHeader">
+        <div>
+          <p class="label">Brain</p>
+          <h2>Document Inbox</h2>
+        </div>
+        <button class="openButton" type="button" data-documents-refresh>Refresh</button>
+      </div>
+      <form class="documentUploadForm" data-document-upload>
+        <label>
+          <span>PDF</span>
+          <input name="document" type="file" accept="application/pdf,.pdf" required />
+        </label>
+        <button class="openButton" type="submit">Upload</button>
+      </form>
+      <div class="panelBody">
+        <p class="documentQueueNote">HWP conversions and Stirling results wait here until you view, archive, or delete them. Unsent files expire after 48 hours.</p>
+        ${state.documents.loading && !state.documents.checked ? `<p class="taskMeta">Loading documents...</p>` : ""}
+        ${
+          state.documents.error
+            ? `<div class="documentQueueError"><p>${escapeHtml(state.documents.error)}</p><button class="openButton" type="button" data-documents-refresh>Retry</button></div>`
+            : ""
+        }
+        ${!state.documents.error && state.documents.checked && !rows ? `<p class="taskMeta">No temporary PDFs.</p>` : ""}
+        ${rows ? `<div class="documentQueueList">${rows}</div>` : ""}
       </div>
     </section>
   `;
@@ -5004,7 +5275,6 @@ function updateRounyClassFormValidation(form) {
   return { item, validation };
 }
 
-function renderMemos() {
 function ledgerCategoryOptions(selected) {
   const categories = state.ledger.categories.length
     ? state.ledger.categories
@@ -5240,6 +5510,7 @@ function renderLedger() {
   `;
 }
 
+function renderMemos() {
   return `
     <section class="memosWorkspace">
       <iframe
@@ -5791,7 +6062,9 @@ function render() {
   }
   else if (route === "edit-task") view.innerHTML = renderEditTask();
   else if (route === "services") view.innerHTML = renderServices();
+  else if (route === "service") view.innerHTML = renderDesktopService();
   else if (route === "supplies") view.innerHTML = renderSupplies();
+  else if (route === "documents") view.innerHTML = renderDocuments();
   else if (route === "rouny") view.innerHTML = renderRouny();
   else if (route === "memos") view.innerHTML = renderMemos();
   else if (route === "ledger") view.innerHTML = renderLedger();
@@ -5804,6 +6077,7 @@ function render() {
   }
   if (route === "caregiver" || (route === "calendar" && portalProfile() === "family")) loadCaregiverMonth();
   if (route === "supplies") loadSupplies();
+  if (route === "documents") loadDocuments();
   if (route === "ledger") loadLedger();
   if (route === "settings") {
     loadHolidays();
@@ -5924,10 +6198,37 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const desktopUtilsToggle = event.target.closest("[data-toggle-desktop-utils]");
-  if (desktopUtilsToggle) {
-    state.desktopUtilsExpanded = desktopUtilsToggle.getAttribute("aria-expanded") !== "true";
-    renderTopNav(getRoute());
+  if (event.target.closest("[data-documents-refresh]")) {
+    state.documents.checked = false;
+    await loadDocuments({ force: true });
+    return;
+  }
+
+  const paperlessDocument = event.target.closest("[data-document-paperless]");
+  if (paperlessDocument) {
+    if (!window.confirm("Send this PDF to Paperless?")) return;
+    try {
+      await submitDocumentToPaperless(paperlessDocument.dataset.documentPaperless || "");
+    } catch (error) {
+      window.alert(`Could not send to Paperless: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
+  const deleteDocument = event.target.closest("[data-document-delete]");
+  if (deleteDocument) {
+    if (!window.confirm("Delete this temporary PDF?")) return;
+    try {
+      await deleteQueuedDocument(deleteDocument.dataset.documentDelete || "");
+    } catch (error) {
+      window.alert(`Could not delete PDF: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-reload-service-frame]")) {
+    const frame = document.querySelector(".desktopServiceFrame");
+    if (frame) frame.src = frame.src;
     return;
   }
 
@@ -6591,6 +6892,29 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
+  const documentUploadForm = event.target.closest("[data-document-upload]");
+  if (documentUploadForm) {
+    event.preventDefault();
+    const input = documentUploadForm.querySelector('input[type="file"]');
+    const file = input?.files?.[0];
+    if (!file) return;
+    if (file.type && file.type !== "application/pdf") {
+      window.alert("Select a PDF file.");
+      return;
+    }
+    const button = documentUploadForm.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      await uploadDocument(file);
+      documentUploadForm.reset();
+    } catch (error) {
+      window.alert(`Could not upload PDF: ${error.message || "unknown error"}`);
+    } finally {
+      if (button) button.disabled = false;
+    }
+    return;
+  }
+
   const supplyForm = event.target.closest("[data-create-supply]");
   if (supplyForm) {
     event.preventDefault();
@@ -6698,14 +7022,19 @@ document.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(eventForm);
     if (state.remoteCalendar.live) {
+      persistComposerRecovery("event", eventForm);
       try {
         await createRemoteEvent(formData);
+        clearComposerRecovery();
         state.eventPresetDraft = null;
         state.addEventDraft = null;
       } catch (error) {
-        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
-          error: error.message || uiText("dialog.unknownError", "unknown error"),
-        }));
+        if (!recoverComposerConnection(error, "event", eventForm)) {
+          clearComposerRecovery();
+          window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+            error: error.message || uiText("dialog.unknownError", "unknown error"),
+          }));
+        }
       }
       return;
     }
@@ -6744,13 +7073,18 @@ document.addEventListener("submit", async (event) => {
     const due = taskDueFromForm(formData);
     if (taskDueHasPassed(due) && !window.confirm(uiText("dialog.createPastDue", "This due time has already passed. Create it anyway?"))) return;
     if (state.remoteCalendar.live) {
+      persistComposerRecovery("task", taskForm);
       try {
         await createRemoteTask(formData);
+        clearComposerRecovery();
         state.addTaskDraft = null;
       } catch (error) {
-        window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
-          error: error.message || uiText("dialog.unknownError", "unknown error"),
-        }));
+        if (!recoverComposerConnection(error, "task", taskForm)) {
+          clearComposerRecovery();
+          window.alert(uiText("dialog.radicaleSaveError", "Could not save to Radicale: {error}", {
+            error: error.message || uiText("dialog.unknownError", "unknown error"),
+          }));
+        }
       }
       return;
     }
@@ -7096,6 +7430,8 @@ window.addEventListener("hashchange", () => {
   if (view) view.scrollTop = 0;
   render();
 });
+
+restoreComposerRecovery();
 
 if (!window.location.hash) {
   window.location.hash = `#/${profileConfig().defaultRoute}`;

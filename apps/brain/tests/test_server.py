@@ -42,6 +42,11 @@ class BrainStatusTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "family_profile_required"):
             server.require_family_profile({"Host": "kaosgdd.net"})
 
+    def test_document_api_requires_main_profile(self):
+        server.require_main_profile({"Host": "kaosgdd.net"})
+        with self.assertRaisesRegex(ValueError, "main_profile_required"):
+            server.require_main_profile({"Host": "family.kaosgdd.net"})
+
 
 class HolidayRequestTests(unittest.TestCase):
     @mock.patch.object(server.holiday_service, "list_holidays")
@@ -105,6 +110,94 @@ class CustomEventRequestTests(unittest.TestCase):
         update_settings.assert_called_once_with({"marketDaysEnabled": False, "claimDayEnabled": True})
         sync_generated_calendar.assert_called_once_with()
         handler.send_response.assert_called_once_with(200)
+
+class DocumentRequestTests(unittest.TestCase):
+    @mock.patch.object(server.document_store, "list_documents")
+    def test_list_documents_is_main_only(self, list_documents):
+        list_documents.return_value = {"ok": True, "items": []}
+        handler = mock.Mock()
+        handler.path = "/api/documents"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        list_documents.assert_called_once_with("main")
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.document_store, "store_document")
+    @mock.patch.object(server.document_store, "validate_upload")
+    def test_raw_pdf_upload_preserves_source_and_filename(self, validate_upload, store_document):
+        validate_upload.return_value = 9
+        store_document.return_value = {"id": "document-1", "filename": "result.pdf"}
+        handler = mock.Mock()
+        handler.path = "/api/documents?filename=result.pdf&source=stirling"
+        handler.headers = {
+            "Host": "kaosgdd.net",
+            "Content-Type": "application/pdf",
+            "Content-Length": "9",
+        }
+        handler.rfile = io.BytesIO(b"%PDF-1.7\n")
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        store_document.assert_called_once_with(handler.rfile, 9, "result.pdf", "stirling", "main")
+        handler.send_response.assert_called_once_with(201)
+
+    @mock.patch.object(server.document_store, "submit_to_paperless")
+    def test_paperless_submission_is_explicit(self, submit_to_paperless):
+        submit_to_paperless.return_value = {"id": "document-1", "status": "submitted"}
+        handler = mock.Mock()
+        handler.path = "/api/documents/document-1/paperless"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        submit_to_paperless.assert_called_once_with("document-1", "main")
+        handler.send_response.assert_called_once_with(202)
+
+
+class HwpHandoffRequestTests(unittest.TestCase):
+    @mock.patch.object(server.hwp_handoff_store, "store_handoff")
+    @mock.patch.object(server.hwp_handoff_store, "validate_upload")
+    def test_raw_hwp_upload_returns_open_url(self, validate_upload, store_handoff):
+        validate_upload.return_value = ("report.hwp", 8)
+        store_handoff.return_value = {
+            "filename": "report.hwp",
+            "openUrl": "https://kaosgdd.net/rhwp/?url=handoff",
+        }
+        handler = mock.Mock()
+        handler.path = "/api/hwp-handoff/upload?filename=report.hwp"
+        handler.headers = {
+            "Host": "kaosgdd.net",
+            "Content-Type": "application/x-hwp",
+            "Content-Length": "8",
+        }
+        handler.rfile = io.BytesIO(bytes.fromhex("d0cf11e0a1b11ae1"))
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        store_handoff.assert_called_once_with(
+            handler.rfile, 8, "report.hwp", "application/x-hwp"
+        )
+        handler.send_response.assert_called_once_with(201)
+
+    @mock.patch.object(server, "hwp_handoff_file_response")
+    @mock.patch.object(server.hwp_handoff_store, "get_handoff")
+    def test_handoff_content_is_main_only(self, get_handoff, file_response):
+        get_handoff.return_value = ({"filename": "report.hwp"}, pathlib.Path("/tmp/report.hwp"))
+        handler = mock.Mock()
+        handler.path = "/api/hwp-handoff/0123456789abcdef0123456789abcdef/content"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        get_handoff.assert_called_once_with("0123456789abcdef0123456789abcdef")
+        file_response.assert_called_once()
 
 
 class RequestProxyTests(unittest.TestCase):

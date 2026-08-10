@@ -37,6 +37,13 @@ services:
       HOLIDAY_SYNC_INTERVAL_SECONDS: "86400"
       GENERATED_CALENDAR_SYNC_ENABLED: "true"
       GENERATED_CALENDAR_SYNC_INTERVAL_SECONDS: "86400"
+      MEMOS_INTERNAL_URL: "http://100.94.208.16:5230"
+      DOCUMENT_TEMP_ROOT: "/data/documents/temp"
+      PAPERLESS_CONSUME_ROOT: "/integrations/paperless-consume"
+      DOCUMENT_MAX_UPLOAD_MB: "100"
+      DOCUMENT_RETENTION_HOURS: "48"
+      DOCUMENT_SUBMITTED_RETENTION_HOURS: "24"
+      DOCUMENT_CLEANUP_INTERVAL_SECONDS: "900"
       FAX_NOTIFY_RECVQ: "/integrations/hylafax/recvq"
       FAX_NOTIFY_XFERFAXLOG: "/integrations/hylafax/log/xferfaxlog"
       FAX_NOTIFY_STATE_PATH: "/data/faxmail/notified-recvq.json"
@@ -63,19 +70,25 @@ services:
       MAIL_NOTIFY_POLL_SECONDS: "60"
       MAIL_TELEGRAM_ARCHIVE_STATE_PATH: "/data/mail/telegram-archive.json"
       MAIL_TELEGRAM_ARCHIVE_POLL_SECONDS: "60"
+      HWP_HANDOFF_ROOT: "/data/documents/hwp-handoff"
+      HWP_HANDOFF_MAX_UPLOAD_MB: "50"
+      HWP_HANDOFF_RETENTION_MINUTES: "30"
       LEDGER_BACKUP_ROOT: "/data/ledger/backups"
       LEDGER_BACKUP_HOUR: "3"
       LEDGER_BACKUP_MINUTE: "20"
       LEDGER_DAILY_RETENTION_DAYS: "90"
+      KAOS_PUBLIC_ORIGIN: "https://kaosgdd.net"
     group_add:
       - "10"
       - "1000"
     volumes:
+      - /srv/kaos/data/kaosgdd/brain/documents:/data/documents
       - /srv/kaos/data/kaosgdd/brain/faxmail:/data/faxmail
       - /srv/kaos/data/kaosgdd/brain/fax-outgoing:/data/fax-outgoing
       - /srv/kaos/data/kaosgdd/brain/mail:/data/mail
       - /srv/kaos/backups/kaosgdd/ledger:/data/ledger/backups
       - /var/spool/hylafax:/integrations/hylafax:ro
+      - /srv/kaos/data/paperless/consume:/integrations/paperless-consume
     ports:
       - "100.94.208.16:8092:8092/tcp"
     healthcheck:

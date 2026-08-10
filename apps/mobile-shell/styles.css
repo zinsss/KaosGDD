@@ -2434,6 +2434,132 @@ h3 {
   gap: 8px;
 }
 
+.documentUploadForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.documentUploadForm label {
+  min-width: 0;
+}
+
+.documentUploadForm input[type="file"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.documentQueueNote {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.documentQueueList {
+  display: grid;
+}
+
+.documentQueueRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.documentQueueRow:last-child {
+  border-bottom: 0;
+}
+
+.documentQueueMain,
+.documentQueueMain strong {
+  min-width: 0;
+}
+
+.documentQueueMain strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documentQueueMeta,
+.documentQueueActions,
+.documentQueueError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.documentQueueMeta {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.documentSourcePill,
+.documentSubmittedPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid rgba(136, 192, 208, 0.34);
+  border-radius: 999px;
+  color: var(--nord8);
+  text-transform: capitalize;
+}
+
+.documentSubmittedPill {
+  border-color: rgba(163, 190, 140, 0.42);
+  color: var(--nord14);
+  text-transform: none;
+}
+
+.documentQueueActions .openButton,
+.documentQueueActions .primaryButton,
+.documentQueueActions .dangerButton {
+  min-width: 62px;
+}
+
+.openButton.isDisabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.documentQueueError {
+  justify-content: space-between;
+  color: var(--nord11);
+}
+
+.documentQueueError p {
+  margin: 0;
+}
+
+@media (max-width: 620px) {
+  .documentUploadForm,
+  .documentQueueRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .documentUploadForm .openButton {
+    width: 100%;
+  }
+
+  .documentQueueActions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .settingsList {
   display: grid;
   gap: 10px;
@@ -4111,11 +4237,12 @@ h3 {
     gap: 3px;
     border: 1px solid transparent;
     border-radius: 7px;
+    padding-bottom: 5px;
   }
 
   .desktopNavGroup.isActive {
-    border-color: var(--line);
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border-color: rgba(235, 203, 139, 0.32);
+    background: rgba(235, 203, 139, 0.07);
   }
 
   .desktopNavToggle {
@@ -4135,20 +4262,15 @@ h3 {
     text-align: left;
   }
 
+  .desktopNavUtilsHeader {
+    border-left-color: rgba(235, 203, 139, 0.56);
+    color: var(--nord13);
+  }
+
   .desktopNavToggle.isActive {
-    color: var(--nord8);
-  }
-
-  .desktopNavChevron {
-    margin-left: auto;
-    font-size: 1.25rem;
-    line-height: 1;
-    transform: rotate(0);
-    transition: transform 120ms ease;
-  }
-
-  .desktopNavToggle[aria-expanded="true"] .desktopNavChevron {
-    transform: rotate(90deg);
+    border-left-color: var(--nord13);
+    background: rgba(235, 203, 139, 0.12);
+    color: var(--nord13);
   }
 
   .desktopNavSubmenu {
@@ -4156,11 +4278,7 @@ h3 {
     gap: 2px;
     margin: 1px 6px 6px 18px;
     padding-left: 10px;
-    border-left: 1px solid var(--line);
-  }
-
-  .desktopNavSubmenu.isCollapsed {
-    display: none;
+    border-left: 1px solid rgba(235, 203, 139, 0.28);
   }
 
   .desktopNavSubmenu a,
@@ -4181,8 +4299,8 @@ h3 {
 
   .desktopNavSubmenu a:hover,
   .desktopNavSubmenu a.isActive {
-    background: rgba(136, 192, 208, 0.1);
-    color: var(--nord8);
+    background: rgba(235, 203, 139, 0.11);
+    color: var(--nord13);
   }
 
   .desktopNavUtility.isDisabled {
@@ -4344,6 +4462,51 @@ h3 {
 
   .ledgerDeleteButton {
     color: #bf616a;
+  }
+
+  .app[data-route="service"] .view {
+    display: block;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  .desktopServiceWorkspace {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .desktopServiceToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 64px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .desktopServiceActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .desktopServiceFrame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: var(--surface);
+  }
+
+  .desktopServiceFallback {
+    width: min(100%, 760px);
   }
 
   .collectionRail {

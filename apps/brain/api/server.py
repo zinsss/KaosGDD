@@ -18,11 +18,13 @@ from services.caregiver.upstream import (
     put_caregiver_settings,
 )
 from services.calendar.upstream import adapter_status, portal_host, request_upstream, route_allowed
+from services.documents import store as document_store
 from services.event_presets import service as event_preset_service
 from services.faxmail import notifier as faxmail_notifier
 from services.faxmail import outgoing as outgoing_fax
 from services.faxmail import telegram_archive as fax_telegram_archive
 from services.faxmail import telegram_intake as telegram_fax_intake
+from services.hwp_handoff import store as hwp_handoff_store
 from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
 from services.mail import telegram_archive as mail_telegram_archive
@@ -75,10 +77,12 @@ def brain_status(headers):
         "database": database,
         "upstreams": {
             "calendarAdapter": calendar_adapter,
+            "documents": document_store.storage_status(),
             "faxmailNotifications": faxmail_notifier.status(),
             "faxTelegramArchive": fax_telegram_archive.status(),
             "telegramFaxIntake": telegram_fax_intake.status(),
             "outgoingFax": outgoing_fax.status(),
+            "hwpHandoff": hwp_handoff_store.storage_status(),
             "mailNotifications": mail_notifier.status(),
             "mailTelegramArchive": mail_telegram_archive.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
@@ -143,9 +147,108 @@ def ledger_status_for_error(exc):
     return 400
 
 
+def document_status_for_error(exc):
+    message = str(exc)
+    if message in {"document_not_found", "document_file_missing"}:
+        return 404
+    if message in {"paperless_consume_unavailable", "paperless_handoff_failed"}:
+        return 503
+    if message == "document_too_large":
+        return 413
+    if message == "document_already_submitted":
+        return 409
+    return 400
+
+
+def re_match_document(path):
+    match = re.fullmatch(r"/api/documents/([^/]+)(?:/(content|paperless))?", path)
+    if not match:
+        return None
+    return urllib.parse.unquote(match.group(1)), match.group(2) or ""
+
+
+def re_match_hwp_handoff(path):
+    match = re.fullmatch(r"/api/hwp-handoff/([0-9a-f]{32})/content", path)
+    return match.group(1) if match else ""
+
+
 def re_match_holiday(path):
     match = re.fullmatch(r"/api/holidays/(KAOS-HOLIDAY-[A-Fa-f0-9]{24})", path)
     return match.group(1).upper() if match else ""
+
+
+def hwp_handoff_status_for_error(exc):
+    message = str(exc)
+    if message in {"handoff_not_found", "handoff_expired"}:
+        return 404
+    if message == "handoff_too_large":
+        return 413
+    return 400
+
+
+def document_file_response(handler, item, path, include_body=True):
+    size = path.stat().st_size
+    start = 0
+    end = size - 1
+    status = 200
+    raw_range = handler.headers.get("Range", "")
+    if raw_range:
+        match = re.fullmatch(r"bytes=(\d*)-(\d*)", raw_range.strip())
+        if not match:
+            handler.send_error(416)
+            return
+        first, last = match.groups()
+        if first:
+            start = int(first)
+            end = int(last) if last else end
+        elif last:
+            suffix = int(last)
+            start = max(0, size - suffix)
+        if start < 0 or end < start or start >= size:
+            handler.send_error(416)
+            return
+        end = min(end, size - 1)
+        status = 206
+    length = end - start + 1
+    encoded_name = urllib.parse.quote(item["original_filename"], safe="")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/pdf")
+    handler.send_header("Content-Disposition", f"inline; filename*=UTF-8''{encoded_name}")
+    handler.send_header("Accept-Ranges", "bytes")
+    handler.send_header("Cache-Control", "private, no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("Content-Length", str(length))
+    if status == 206:
+        handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+    handler.end_headers()
+    if not include_body:
+        return
+    remaining = length
+    with path.open("rb") as source:
+        source.seek(start)
+        while remaining:
+            chunk = source.read(min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            handler.wfile.write(chunk)
+            remaining -= len(chunk)
+
+
+def hwp_handoff_file_response(handler, item, path, include_body=True):
+    size = path.stat().st_size
+    encoded_name = urllib.parse.quote(item["filename"], safe="")
+    handler.send_response(200)
+    handler.send_header("Content-Type", item["contentType"])
+    handler.send_header("Content-Disposition", f"inline; filename*=UTF-8''{encoded_name}")
+    handler.send_header("Cache-Control", "private, no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("Content-Length", str(size))
+    handler.end_headers()
+    if not include_body:
+        return
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            handler.wfile.write(chunk)
 
 
 def caregiver_month_payload(month):
@@ -242,6 +345,28 @@ def proxy_memos(handler, method):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        path = urllib.parse.urlsplit(self.path).path
+        handoff_token = re_match_hwp_handoff(path)
+        if handoff_token:
+            try:
+                require_main_profile(self.headers)
+                item, handoff_path = hwp_handoff_store.get_handoff(handoff_token)
+                hwp_handoff_file_response(self, item, handoff_path, include_body=False)
+            except ValueError as exc:
+                json_response(self, hwp_handoff_status_for_error(exc), {"ok": False, "error": str(exc)})
+            return
+        document_match = re_match_document(path)
+        if document_match and document_match[1] == "content":
+            try:
+                require_main_profile(self.headers)
+                item, document_path = document_store.get_document(document_match[0], "main")
+                document_file_response(self, item, document_path, include_body=False)
+            except ValueError as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
+            return
+        self.send_error(404)
+
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
         if parsed.path == "/api/custom-events":
@@ -290,6 +415,37 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 print(f"Ledger export failed: {type(exc).__name__}", flush=True)
                 json_response(self, 503, {"ok": False, "error": "ledger_export_unavailable"})
+            return
+
+        handoff_token = re_match_hwp_handoff(parsed.path)
+        if handoff_token:
+            try:
+                require_main_profile(self.headers)
+                item, handoff_path = hwp_handoff_store.get_handoff(handoff_token)
+                hwp_handoff_file_response(self, item, handoff_path)
+            except ValueError as exc:
+                json_response(self, hwp_handoff_status_for_error(exc), {"ok": False, "error": str(exc)})
+            return
+
+        if parsed.path == "/api/documents":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, document_store.list_documents("main"))
+            except ValueError as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Document queue read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "document_storage_unavailable"})
+            return
+
+        document_match = re_match_document(parsed.path)
+        if document_match and document_match[1] == "content":
+            try:
+                require_main_profile(self.headers)
+                item, path = document_store.get_document(document_match[0], "main")
+                document_file_response(self, item, path)
+            except ValueError as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
             return
 
         if parsed.path == "/api/event-presets":
@@ -382,7 +538,8 @@ class Handler(BaseHTTPRequestHandler):
         json_response(self, 404, {"error": "not_found"})
 
     def do_POST(self):
-        path = urllib.parse.urlsplit(self.path).path
+        parsed = urllib.parse.urlsplit(self.path)
+        path = parsed.path
         if path == "/api/custom-events/sync":
             try:
                 require_main_profile(self.headers)
@@ -422,7 +579,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ledger/entries":
             try:
                 require_family_profile(self.headers)
-                json_response(self, 201, ledger_service.create_entry(json_request(self), request_actor(self.headers)))
+                json_response(
+                    self,
+                    201,
+                    ledger_service.create_entry(json_request(self), request_actor(self.headers)),
+                )
             except (ValueError, ledger_service.LedgerConflict) as exc:
                 json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
             except Exception as exc:
@@ -439,6 +600,62 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 print(f"Ledger backup failed: {type(exc).__name__}", flush=True)
                 json_response(self, 503, {"ok": False, "error": "ledger_backup_unavailable"})
+            return
+
+        if path == "/api/hwp-handoff/upload":
+            try:
+                require_main_profile(self.headers)
+                query = urllib.parse.parse_qs(parsed.query)
+                filename = (query.get("filename") or [self.headers.get("X-Kaos-Filename", "document.hwp")])[0]
+                clean_name, length = hwp_handoff_store.validate_upload(
+                    self.headers.get("Content-Type"),
+                    self.headers.get("Content-Length"),
+                    filename,
+                )
+                item = hwp_handoff_store.store_handoff(
+                    self.rfile,
+                    length,
+                    clean_name,
+                    self.headers.get("Content-Type"),
+                )
+                json_response(self, 201, {"ok": True, "item": item, "openUrl": item["openUrl"]})
+            except ValueError as exc:
+                json_response(self, hwp_handoff_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"HWP handoff upload failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "hwp_handoff_storage_unavailable"})
+            return
+
+        if path == "/api/documents":
+            try:
+                require_main_profile(self.headers)
+                query = urllib.parse.parse_qs(parsed.query)
+                filename = (query.get("filename") or [self.headers.get("X-Kaos-Filename", "document.pdf")])[0]
+                source = (query.get("source") or [self.headers.get("X-Kaos-Source", "upload")])[0]
+                length = document_store.validate_upload(
+                    self.headers.get("Content-Type"),
+                    self.headers.get("Content-Length"),
+                )
+                item = document_store.store_document(self.rfile, length, filename, source, "main")
+                json_response(self, 201, {"ok": True, "item": item})
+            except ValueError as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Document upload failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "document_storage_unavailable"})
+            return
+
+        document_match = re_match_document(path)
+        if document_match and document_match[1] == "paperless":
+            try:
+                require_main_profile(self.headers)
+                item = document_store.submit_to_paperless(document_match[0], "main")
+                json_response(self, 202, {"ok": True, "item": item})
+            except (ValueError, RuntimeError) as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Paperless handoff failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "paperless_handoff_failed"})
             return
 
         if path == "/api/event-presets":
@@ -538,7 +755,7 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(
                     self,
                     200,
-                    holiday_service.set_public_holiday(holiday_uid, payload["publicHoliday"]),
+                    holiday_service.set_public_holiday(holiday_uid, bool(payload.get("publicHoliday"))),
                 )
             except ValueError as exc:
                 json_response(self, 404 if str(exc) == "holiday_not_found" else 400, {"ok": False, "error": str(exc)})
@@ -553,7 +770,11 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(
                     self,
                     200,
-                    ledger_service.update_entry(ledger_entry_id, json_request(self), request_actor(self.headers)),
+                    ledger_service.update_entry(
+                        ledger_entry_id,
+                        json_request(self),
+                        request_actor(self.headers),
+                    ),
                 )
             except (ValueError, ledger_service.LedgerConflict) as exc:
                 json_response(self, ledger_status_for_error(exc), {"ok": False, "error": str(exc)})
@@ -696,6 +917,18 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 503, {"ok": False, "error": "ledger_storage_unavailable"})
             return
 
+        document_match = re_match_document(path)
+        if document_match and document_match[1] == "":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, document_store.delete_document(document_match[0], "main"))
+            except ValueError as exc:
+                json_response(self, document_status_for_error(exc), {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Document delete failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "document_storage_unavailable"})
+            return
+
         event_preset_id = re_match_event_preset(path)
         if event_preset_id:
             try:
@@ -781,6 +1014,7 @@ def main():
     holiday_service.set_after_change_callback(generated_calendar_service.sync_generated_calendar)
     ledger_service.start_backup_scheduler()
     recurring_task_service.start_scheduler()
+    document_store.start_cleanup_scheduler()
     faxmail_notifier.start_scheduler()
     outgoing_fax.start_scheduler()
     fax_telegram_archive.start_scheduler()

@@ -17,6 +17,12 @@ Radicale can own user calendar and task data, but it does not provide every Kaos
 
 Brain owns those joins and calculations. It should not become a generic application platform.
 
+Brain publishes application notifications, logs, fax/mail archives, and
+personal Memos archives. Local production service health and restart controls
+belong to `KaosTelegram` on `kaos`. Machine reachability, the System Status
+dashboard, and Wake-on-LAN belong to `KaosController` on the Control Center.
+See [Control Center Monitoring Plan](control-center-monitoring.md).
+
 ## Ownership Rules
 
 | Data | Owner |
@@ -29,12 +35,13 @@ Brain owns those joins and calculations. It should not become a generic applicat
 | Korean holidays and observances | Existing Family Radicale calendar, synchronized by Brain |
 | generated market/claim overlays | Brain-calculated, optionally written to Kaos-owned calendar collection |
 | documents | Paperless |
+| temporary converted/processed PDFs | Brain queue until expiry or explicit Paperless handoff |
 | notes/knowledge | Wiki.js |
 | files | SFTPGo |
 | passwords | Vaultwarden |
 | supplies buy-list VTODOs | Radicale |
 | supplies presets/recent history | Brain PostgreSQL |
-| fax | HylaFAX transport with Brain Telegram intake, notification, and archive |
+| fax | KaosFaxMail or legacy bridge until replaced |
 | PACS | KaosPACS |
 
 ## Radicale Collections
@@ -182,3 +189,23 @@ proxies its calendar bootstrap, weather month, and event/task write routes.
 Caddy continues to route calendar and weather browser traffic to the adapter.
 Only `family.kaosgdd.net/api/caregiver/*` is routed to Brain; the main profile
 has no caregiver route.
+
+## Document Workflow Boundary
+
+RHWP and Stirling-PDF may return their PDF result to Brain. Brain keeps the
+result in a temporary queue so KaosGDD can preview, download, delete, or submit
+it to Paperless. The browser or Shortcut chooses the final action; conversion
+does not imply archival.
+
+```text
+RHWP / Stirling / Shortcut
+        -> Brain temporary PDF queue
+        -> preview or download
+        -> explicit Paperless handoff
+        -> timed cleanup
+```
+
+Temporary files are stored under `/srv/kaos/data/kaosgdd/brain/documents` and
+identified by UUID rather than their supplied filename. PostgreSQL stores queue
+metadata, checksums, status, and expiry. Brain never reads or writes the
+Paperless database.

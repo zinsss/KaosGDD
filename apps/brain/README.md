@@ -18,7 +18,9 @@ Brain owns:
 - supplies buy-list compatibility behavior over a Radicale task collection
 - repeating-task definitions and one-at-a-time VTODO generation
 - cross-device event preset storage with personal and Family scopes
+- temporary PDF intake, preview, expiry, and explicit Paperless handoff
 - incoming fax notification polling over the HylaFAX receive queue
+- idempotent Telegram archival of confirmed incoming and outgoing fax documents
 - audited Family medical association ledger storage and XLSX recovery backups
 - service health/status aggregation
 
@@ -26,7 +28,7 @@ Brain does not own:
 
 - normal user calendar events
 - normal user tasks
-- document storage
+- authoritative document storage
 - notes or knowledge storage
 - passwords
 - PACS data
@@ -50,7 +52,7 @@ The migration should keep production stable:
 4. switch the portal proxy only after endpoint parity is verified
 5. remove the old adapter stack only after the Brain route is stable
 
-Brain `0.5.1` is the side-by-side runtime:
+Brain `0.7.0` is the side-by-side runtime:
 
 - private PostgreSQL database with migration tracking
 - `GET /health`
@@ -71,6 +73,7 @@ Brain `0.5.1` is the side-by-side runtime:
 - repeating-task CRUD and scheduler APIs backed by standard Radicale VTODOs
 - event preset CRUD shared by the main and Family portal UIs
 - Google Korea calendar sync into the existing Family CalDAV collection, with manual public-holiday classification
+- main-profile temporary PDF queue and explicit Paperless consume-folder handoff
 - Caddy routes for `/api/caregiver/*` and `/api/rouny/*` on `family.kaosgdd.net`
 - Caddy route for `/api/supplies*` on `kaosgdd.net`
 
@@ -94,8 +97,30 @@ can distinguish red public holidays from dim informational observances. Manual
 classification survives later source syncs, and generated entries are read-only
 through normal event editing routes.
 
+## Temporary Documents
 
-## Fax Notifications And Archive
+Brain accepts PDF output from RHWP, Stirling-PDF, iOS Shortcuts, and the portal.
+These files are temporary workflow artifacts, not a second document archive.
+
+```text
+POST   /api/documents?filename=result.pdf&source=hwp
+GET    /api/documents
+GET    /api/documents/{id}/content
+POST   /api/documents/{id}/paperless
+DELETE /api/documents/{id}
+```
+
+Uploads use a raw `application/pdf` request body. Brain validates the PDF
+signature, stores it under a random name, records its size and SHA-256 digest,
+and exposes byte-range preview for Safari and other PDF viewers. A document is
+copied atomically into Paperless's consume directory only after the explicit
+Paperless action. Sending it does not delete the temporary preview immediately.
+
+Available files expire after 48 hours by default. Submitted files expire after
+24 hours. The cleanup worker also removes abandoned partial uploads. Paperless
+remains the authoritative long-term document owner.
+
+## Fax Notifications
 
 Incoming fax remains owned by HylaFAX. Brain watches the HylaFAX receive queue,
 sends a pushed Telegram message, and archives the converted PDF to Telegram.
@@ -115,8 +140,9 @@ FAX_NOTIFY_MARK_EXISTING_ON_FIRST_RUN=true
 ```
 
 The first run marks existing receive-queue files as already seen by default, so
-deploying the worker does not spam notifications for old faxes. Receipt notices
-go to `Notifications`; transmission failures go to `System Alerts`.
+deploying the worker does not spam notifications for old faxes. Successful fax
+receipt notices go to `Notifications`; transmission failures go to
+`System Alerts`.
 
 Telegram uses one private supergroup and explicit numeric topic IDs:
 
@@ -131,6 +157,11 @@ Inbound bot actions are group-only. Brain accepts an update only when both the
 numeric chat ID matches `TELEGRAM_SUPERGROUP_CHAT_ID` and Telegram reports the
 chat type as `supergroup`; private chats and all other groups are ignored.
 
+Telegram topic notification settings control device delivery. Brain sends
+normal and former device-specific channels to `Notifications`, and the
+`system` channel to `System Alerts`. Brain does not maintain per-device
+notification credentials.
+
 ## Mail Notifications
 
 Brain polls the Naver `각종공문`, `세무사`, and descendant folders read-only
@@ -139,8 +170,8 @@ arrive directly through the configured Telegram `Fax` topic.
 
 The worker records only UIDVALIDITY, last processed UID, folder display name,
 and aggregate runtime status under `/data/mail`. Existing messages establish the
-first checkpoint and do not notify. New matching messages are published to the
-Telegram `Notifications` topic and can be archived to the `Mail` topic.
+first checkpoint and do not notify. New matching messages are published to both
+the iOS and desktop audience topics.
 
 Keep Naver disabled until its IMAP/app password has been entered in the
 protected Brain environment.

@@ -25,8 +25,9 @@ Build the first KaosGDD v2 surface as a service cockpit:
 | Documents | Link first, adapter/search later | Paperless-ngx |
 | Files | Link first, adapter later | SFTPGo |
 | PDF | Link first, workflow adapter later | Stirling-PDF |
+| HWP/HWPX | Browser editor; PDF handoff through Document Inbox | RHWP + KaosGDD Brain |
 | Supplies | Buy-list UI with recent presets | KaosGDD Brain + Radicale |
-| Fax | Legacy bridge for now | KaosGDD legacy, KaosFaxMail later |
+| Fax | Telegram workflow, no KaosGDD page | Brain + HylaFAX |
 | PACS | API links only | KaosPACS |
 
 ## Not In First Pass
