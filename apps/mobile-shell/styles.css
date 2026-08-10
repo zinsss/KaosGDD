@@ -231,15 +231,15 @@ svg {
 
 .appTop.hasScrolled {
   box-shadow:
-    0 3px 7px rgba(9, 12, 18, 0.5),
-    0 10px 22px rgba(9, 12, 18, 0.64);
+    0 2px 5px rgba(9, 12, 18, 0.22),
+    0 8px 16px rgba(9, 12, 18, 0.3);
 }
 
 @media (max-width: 1179px) {
   .app[data-profile="main"] .appTop {
     box-shadow:
-      0 3px 7px rgba(9, 12, 18, 0.5),
-      0 10px 22px rgba(9, 12, 18, 0.64);
+      0 2px 5px rgba(9, 12, 18, 0.22),
+      0 8px 16px rgba(9, 12, 18, 0.3);
   }
 
   .app[data-profile="main"] .view {
