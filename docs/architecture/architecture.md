@@ -13,6 +13,26 @@ It should compose independent services through adapters, not absorb their storag
 - Keep KaosGDD UI unaware of backend implementation details.
 - Do not talk directly to service databases.
 
+## Host Roles
+
+`kaos` is both the development host and the permanent production Docker host.
+The responsibilities are colocated, but their files remain separated:
+
+```text
+/srv/projects/KaosGDD   source checkout and development work
+/srv/kaos/stacks        production Compose definitions
+/srv/kaos/data          production persistent data
+/srv/kaos/config        production configuration
+/srv/kaos/secrets       production secrets
+```
+
+Production Docker images are built locally on `kaos` during controlled
+maintenance windows and referenced from production Compose by immutable tag.
+Development commands must not bind production ports or mount production data.
+
+The Control Center has no development, build, deployment, monitoring, or data
+role. It only sends confirmed, allowlisted Wake-on-LAN packets.
+
 ## Runtime Boundary
 
 KaosGDD may call:

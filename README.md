@@ -22,6 +22,11 @@ KaosGDD v2 does not own generic service data when a dedicated system is authorit
 
 The production server is the ODROID host under `/srv/kaos`.
 
+Development also runs on `kaos`. Keep source checkouts under `/srv/projects`
+and production stacks, configuration, and persistent data under `/srv/kaos`.
+Production Docker images are built locally on `kaos` and deployed by immutable
+tag. The Control Center is reserved for Wake-on-LAN transmission.
+
 Public HTTPS is routed through Cloudflare Tunnel and Caddy:
 
 ```text

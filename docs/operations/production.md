@@ -2,11 +2,21 @@
 
 ## Current Production Host
 
-Permanent production host:
+The permanent production host and development host are the same `kaos` ODROID.
+Keep their filesystem responsibilities separate:
 
 ```text
-/srv/kaos
+/srv/projects/KaosGDD   source checkout and development work
+/srv/kaos               production stacks, data, config, secrets, and operations
 ```
+
+Build production Docker images locally on `kaos` during a quiet maintenance
+window. Tag images immutably and make production Compose reference that tag;
+do not run production from a mutable development container. A build must be
+stopped if it affects PACS or another live service.
+
+The Control Center only sends allowlisted Wake-on-LAN packets. It does not
+develop, build, deploy, monitor, or store Kaos services.
 
 Important stack groups:
 
