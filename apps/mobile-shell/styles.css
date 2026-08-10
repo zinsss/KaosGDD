@@ -241,14 +241,6 @@ svg {
       0 2px 5px rgba(9, 12, 18, 0.22),
       0 8px 16px rgba(9, 12, 18, 0.3);
   }
-
-  .app[data-profile="main"] .view {
-    padding-top: 20px;
-  }
-
-  .app[data-profile="main"][data-route="memos"] .view {
-    padding-top: 14px;
-  }
 }
 
 .appIdentity {
