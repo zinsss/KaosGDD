@@ -22,6 +22,7 @@ Brain owns:
 - incoming fax notification polling over the HylaFAX receive queue
 - idempotent Telegram archival of confirmed incoming and outgoing fax documents
 - personal Memos archival to Telegram with in-place edit tracking and deletion preservation
+- PDF intake from the Telegram Documents topic into the expiring document queue
 - audited Family medical association ledger storage and XLSX recovery backups
 - service health/status aggregation
 
@@ -180,6 +181,10 @@ contract is verified against the live Memos API.
 The existing Telegram update consumer also enforces the Memos topic as
 read-only by deleting non-bot messages. Do not start a second `getUpdates`
 worker for the same bot token because Telegram update offsets are shared.
+
+The same consumer dispatches Documents-topic uploads and callback actions. See
+[`docs/architecture/telegram-first-workflows.md`](../../docs/architecture/telegram-first-workflows.md)
+for the authority and retention boundaries.
 
 ```env
 MEMOS_TELEGRAM_ARCHIVE_ENABLED=true

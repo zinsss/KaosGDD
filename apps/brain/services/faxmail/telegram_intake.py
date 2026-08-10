@@ -7,6 +7,7 @@ import threading
 import time
 from pathlib import Path
 
+from services.documents import telegram_intake as document_intake
 from services.faxmail import outgoing
 from services.telegram import access
 from services.telegram import client as telegram
@@ -34,7 +35,11 @@ def env_bool(name, default=False):
 
 
 def enabled():
-    return env_bool("TELEGRAM_FAX_INTAKE_ENABLED") or memos_topic_read_only()
+    return (
+        env_bool("TELEGRAM_FAX_INTAKE_ENABLED")
+        or memos_topic_read_only()
+        or document_intake.enabled()
+    )
 
 
 def fax_intake_enabled():
@@ -61,7 +66,7 @@ def configured():
     base = bool(bot_token() and access.configured_supergroup_id())
     fax_ready = (not fax_intake_enabled()) or bool(topic_id() and outgoing.configured())
     memos_ready = (not memos_topic_read_only()) or bool(memos_topic_id())
-    return base and fax_ready and memos_ready
+    return base and fax_ready and memos_ready and document_intake.configured()
 
 
 def state_path():
@@ -300,12 +305,20 @@ def get_updates(state, *, api_call=None):
             "offset": state["updateOffset"],
             "limit": 100,
             "timeout": poll_seconds(),
-            "allowed_updates": json.dumps(["message", "edited_message"]),
+            "allowed_updates": json.dumps(["message", "edited_message", "callback_query"]),
         },
     )
 
 
-def scan_once(*, api_call=None, file_downloader=None, api_sender=None, message_deleter=None):
+def scan_once(
+    *,
+    api_call=None,
+    file_downloader=None,
+    api_sender=None,
+    message_deleter=None,
+    callback_answerer=None,
+    markup_editor=None,
+):
     state = load_state()
     updates = get_updates(state, api_call=api_call)
     if not isinstance(updates, list):
@@ -318,19 +331,56 @@ def scan_once(*, api_call=None, file_downloader=None, api_sender=None, message_d
         if update_id < state["updateOffset"]:
             continue
         message = update.get("message") or update.get("edited_message") or {}
+        callback = update.get("callback_query") or {}
         try:
             protected = protect_memos_topic(message, message_deleter=message_deleter)
-            if not baseline and protected != "protected" and fax_intake_enabled():
-                result = process_message(
+            if not baseline and protected != "protected":
+                document_result = document_intake.process_message(
                     message,
                     file_downloader=file_downloader,
                     api_sender=api_sender,
-                    intake_state=state,
                 )
-                accepted += int(result == "accepted")
-        except (outgoing.OutgoingFaxError, telegram.TelegramError) as exc:
-            if message_in_fax_topic(message):
+                accepted += int(document_result == "accepted")
+                if document_result == "ignored" and fax_intake_enabled():
+                    result = process_message(
+                        message,
+                        file_downloader=file_downloader,
+                        api_sender=api_sender,
+                        intake_state=state,
+                    )
+                    accepted += int(result == "accepted")
+                if callback:
+                    document_intake.process_callback(
+                        callback,
+                        callback_answerer=callback_answerer,
+                        markup_editor=markup_editor,
+                    )
+        except (outgoing.OutgoingFaxError, document_intake.DocumentTelegramError, telegram.TelegramError) as exc:
+            if document_intake.callback_in_topic(callback):
+                answerer = callback_answerer or telegram.answer_callback_query
+                try:
+                    answerer(bot_token(), str(callback.get("id") or ""), "Document action failed")
+                except telegram.TelegramError:
+                    pass
+                rejected += 1
+            elif message_in_fax_topic(message):
                 reply(rejection_message(exc), api_sender=api_sender)
+                rejected += 1
+            elif document_intake.message_in_topic(message):
+                sender = api_sender or telegram.send_message
+                sender(
+                    bot_token(),
+                    access.configured_supergroup_id(),
+                    document_intake.rejection_message(exc),
+                    thread_id=document_intake.topic_id(),
+                    silent=True,
+                    reply_to_message_id=int(message.get("message_id") or 0),
+                )
+                rejected += 1
+        except (ValueError, RuntimeError) as exc:
+            if document_intake.callback_in_topic(callback):
+                answerer = callback_answerer or telegram.answer_callback_query
+                answerer(bot_token(), str(callback.get("id") or ""), f"Action failed: {exc}")
                 rejected += 1
         state["updateOffset"] = update_id + 1
         save_state(state)
@@ -377,6 +427,7 @@ def status():
         "topics": {
             "faxIntake": fax_intake_enabled(),
             "memosReadOnly": memos_topic_read_only(),
+            "documentIntake": document_intake.enabled(),
         },
         "statePath": str(state_path()),
         "pollSeconds": poll_seconds(),

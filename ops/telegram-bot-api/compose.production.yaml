@@ -1,0 +1,18 @@
+name: kaos-telegram-bot-api
+
+services:
+  telegram-bot-api:
+    image: kaos-telegram-bot-api:adfd7f6
+    container_name: kaos-telegram-bot-api
+    restart: unless-stopped
+    env_file:
+      - path: /srv/kaos/secrets/telegram-bot-api.env
+        format: raw
+    volumes:
+      - /srv/kaos/data/telegram-bot-api:/var/lib/telegram-bot-api
+    ports:
+      - "100.94.208.16:8081:8081/tcp"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

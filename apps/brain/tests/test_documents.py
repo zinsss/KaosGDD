@@ -27,5 +27,6 @@ class DocumentValidationTests(unittest.TestCase):
 
     def test_source_is_allowlisted(self):
         self.assertEqual(store.validate_source("stirling"), "stirling")
+        self.assertEqual(store.validate_source("telegram"), "telegram")
         with self.assertRaisesRegex(ValueError, "invalid_document_source"):
             store.validate_source("unknown")

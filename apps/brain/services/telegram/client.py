@@ -8,6 +8,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from pathlib import Path
 
 
 class TelegramError(RuntimeError):
@@ -63,7 +64,22 @@ def download_file(token, file_id, *, max_bytes, opener=None):
         declared_size = 0
     if declared_size > max_bytes:
         raise TelegramError("telegram_document_too_large")
-    safe_path = urllib.parse.quote(str(metadata["file_path"]).lstrip("/"), safe="/")
+    local_root = os.environ.get("TELEGRAM_LOCAL_FILE_ROOT", "").strip()
+    file_path = str(metadata["file_path"])
+    if local_root and Path(file_path).is_absolute():
+        root = Path(local_root).resolve()
+        path = Path(file_path).resolve()
+        if path != root and root not in path.parents:
+            raise TelegramError("telegram_local_file_outside_root")
+        try:
+            with path.open("rb") as source:
+                content = source.read(max_bytes + 1)
+        except OSError as exc:
+            raise TelegramError("telegram_file_download_failed") from exc
+        if not content or len(content) > max_bytes:
+            raise TelegramError("telegram_document_size_invalid")
+        return content
+    safe_path = urllib.parse.quote(file_path.lstrip("/"), safe="/")
     request = urllib.request.Request(
         f"{api_base_url()}/file/bot{token}/{safe_path}",
         headers={"User-Agent": "KaosGDD-Brain-Telegram/1.0"},
@@ -87,6 +103,8 @@ def send_message(
     thread_id="",
     silent=True,
     protect_content=False,
+    reply_markup=None,
+    reply_to_message_id=None,
     opener=None,
 ):
     fields = {
@@ -97,6 +115,13 @@ def send_message(
     }
     if thread_id:
         fields["message_thread_id"] = thread_id
+    if reply_markup:
+        fields["reply_markup"] = json.dumps(reply_markup, ensure_ascii=True)
+    if reply_to_message_id:
+        fields["reply_parameters"] = json.dumps(
+            {"message_id": int(reply_to_message_id)},
+            ensure_ascii=True,
+        )
     result = call(token, "sendMessage", fields, opener=opener)
     return result if isinstance(result, dict) else {}
 
@@ -113,6 +138,27 @@ def edit_message_text(token, chat_id, message_id, text, *, opener=None):
         opener=opener,
     )
     return result if isinstance(result, dict) else {}
+
+
+def edit_message_reply_markup(token, chat_id, message_id, reply_markup=None, *, opener=None):
+    result = call(
+        token,
+        "editMessageReplyMarkup",
+        {
+            "chat_id": chat_id,
+            "message_id": int(message_id),
+            "reply_markup": json.dumps(reply_markup or {"inline_keyboard": []}),
+        },
+        opener=opener,
+    )
+    return result if isinstance(result, dict) else {}
+
+
+def answer_callback_query(token, callback_query_id, text="", *, opener=None):
+    fields = {"callback_query_id": callback_query_id}
+    if text:
+        fields["text"] = str(text)[:200]
+    return bool(call(token, "answerCallbackQuery", fields, opener=opener))
 
 
 def delete_message(token, chat_id, message_id, *, opener=None):

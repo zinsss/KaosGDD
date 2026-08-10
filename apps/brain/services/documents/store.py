@@ -12,10 +12,10 @@ from pathlib import Path
 from models.database import connect
 
 
-ALLOWED_SOURCES = {"hwp", "stirling", "shortcut", "upload"}
+ALLOWED_SOURCES = {"hwp", "stirling", "shortcut", "telegram", "upload"}
 PDF_CONTENT_TYPES = {"application/pdf", "application/octet-stream"}
 SELECT_COLUMNS = """
-    id, profile, source, original_filename, stored_filename, content_type,
+    id, profile, source, source_key, original_filename, stored_filename, content_type,
     size_bytes, sha256, status, paperless_filename, created_at, updated_at,
     expires_at, submitted_at
 """
@@ -91,17 +91,18 @@ def _row_to_item(row):
         "id": values[0],
         "profile": values[1],
         "source": values[2],
-        "original_filename": values[3],
-        "stored_filename": values[4],
-        "content_type": values[5],
-        "size_bytes": values[6],
-        "sha256": values[7],
-        "status": values[8],
-        "paperless_filename": values[9],
-        "created_at": values[10],
-        "updated_at": values[11],
-        "expires_at": values[12],
-        "submitted_at": values[13],
+        "source_key": values[3] or "",
+        "original_filename": values[4],
+        "stored_filename": values[5],
+        "content_type": values[6],
+        "size_bytes": values[7],
+        "sha256": values[8],
+        "status": values[9],
+        "paperless_filename": values[10],
+        "created_at": values[11],
+        "updated_at": values[12],
+        "expires_at": values[13],
+        "submitted_at": values[14],
     }
 
 
@@ -156,10 +157,29 @@ def get_document(document_id, profile="main"):
     return item, path
 
 
-def store_document(stream, content_length, filename, source="upload", profile="main"):
+def store_document(
+    stream,
+    content_length,
+    filename,
+    source="upload",
+    profile="main",
+    source_key=None,
+):
     expected = validate_upload("application/pdf", content_length)
     original_filename = clean_filename(filename)
     source = validate_source(source)
+    source_key = str(source_key or "").strip() or None
+    if source_key:
+        with connect() as connection:
+            existing = connection.execute(
+                f"SELECT {SELECT_COLUMNS} FROM document_queue WHERE source_key = %s",
+                (source_key,),
+            ).fetchone()
+        if existing:
+            item = _row_to_item(existing)
+            if item["profile"] != profile:
+                raise ValueError("document_source_conflict")
+            return public_item(item)
     document_id = str(uuid.uuid4())
     stored_filename = f"{document_id}.pdf"
     root = temp_root()
@@ -189,19 +209,21 @@ def store_document(stream, content_length, filename, source="upload", profile="m
             row = connection.execute(
                 """
                 INSERT INTO document_queue (
-                    id, profile, source, original_filename, stored_filename,
+                    id, profile, source, source_key, original_filename, stored_filename,
                     content_type, size_bytes, sha256, expires_at
                 )
                 VALUES (
-                    %s, %s, %s, %s, %s, 'application/pdf', %s, %s,
+                    %s, %s, %s, %s, %s, %s, 'application/pdf', %s, %s,
                     now() + (%s * interval '1 hour')
                 )
+                ON CONFLICT (source_key) DO NOTHING
                 RETURNING id
                 """,
                 (
                     document_id,
                     profile,
                     source,
+                    source_key,
                     original_filename,
                     stored_filename,
                     written,
@@ -210,7 +232,18 @@ def store_document(stream, content_length, filename, source="upload", profile="m
                 ),
             ).fetchone()
         if not row:
-            raise RuntimeError("document_create_failed")
+            final.unlink(missing_ok=True)
+            with connect() as connection:
+                existing = connection.execute(
+                    f"SELECT {SELECT_COLUMNS} FROM document_queue WHERE source_key = %s",
+                    (source_key,),
+                ).fetchone()
+            if not existing:
+                raise RuntimeError("document_create_failed")
+            item = _row_to_item(existing)
+            if item["profile"] != profile:
+                raise ValueError("document_source_conflict")
+            return public_item(item)
     except Exception:
         partial.unlink(missing_ok=True)
         final.unlink(missing_ok=True)

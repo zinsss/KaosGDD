@@ -135,6 +135,27 @@ remain empty. The Telegram bot must be an administrator with permission to
 delete messages so Brain can keep the `Memos` topic read-only. Fax intake and
 Memos-topic protection deliberately share one Telegram `getUpdates` consumer.
 
+## Telegram Documents Intake
+
+Create a private supergroup topic named `Documents`, record its numeric topic
+ID, and configure:
+
+```env
+TELEGRAM_TOPIC_DOCUMENTS_ID=...
+TELEGRAM_DOCUMENT_INTAKE_ENABLED=true
+TELEGRAM_DOCUMENT_MAX_MB=20
+TELEGRAM_DOCUMENT_PUBLIC_ORIGIN=https://kaosgdd.net
+```
+
+Brain accepts PDFs from that topic, stores an expiring temporary copy, and
+replies with `Open`, `Paperless`, and `Delete` actions. Telegram message identity
+is stored as an idempotency key, so retries do not create another queue record.
+The original topic upload is retained. Paperless becomes authoritative only
+after the explicit action.
+
+The hosted Bot API limits this intake to 20 MB. Follow
+[Private Telegram Bot API](telegram-bot-api.md) before raising the limit.
+
 HWP handoffs are temporary browser-opening payloads, not document records. Brain
 accepts only HWP, HWPX, and HML files, limits them to 50 MB, and removes them
 after 30 minutes. They are never submitted to Paperless automatically.

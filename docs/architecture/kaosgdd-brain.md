@@ -36,14 +36,20 @@ See [Control Center Monitoring Plan](control-center-monitoring.md).
 | generated market/claim overlays | Brain-calculated, optionally written to Kaos-owned calendar collection |
 | documents | Paperless |
 | temporary converted/processed PDFs | Brain queue until expiry or explicit Paperless handoff |
+| Telegram document intake | Brain temporary queue; Paperless after explicit handoff |
 | notes/knowledge | Wiki.js |
 | files | SFTPGo |
 | passwords | Vaultwarden |
 | personal memo content | Memos; Telegram is a read-only secondary archive |
 | supplies buy-list VTODOs | Radicale |
 | supplies presets/recent history | Brain PostgreSQL |
-| fax | KaosFaxMail or legacy bridge until replaced |
+| fax | HylaFAX; Telegram is the human archive and command surface |
 | PACS | KaosPACS |
+
+Custom human-facing workflows follow the ownership rules in
+[Telegram-First Kaos Workflows](telegram-first-workflows.md). Ready-made
+services remain authoritative; Brain provides adapters, temporary processing,
+and idempotent Telegram actions.
 
 ## Radicale Collections
 

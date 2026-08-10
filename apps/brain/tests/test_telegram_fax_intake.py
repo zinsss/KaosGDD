@@ -23,6 +23,7 @@ class TelegramFaxIntakeTests(unittest.TestCase):
             "TELEGRAM_TOPIC_FAX_ID": "77",
             "TELEGRAM_TOPIC_MEMOS_ID": "88",
             "TELEGRAM_MEMOS_TOPIC_READ_ONLY": "true",
+            "TELEGRAM_DOCUMENT_INTAKE_ENABLED": "false",
             "TELEGRAM_FAX_INTAKE_STATE_PATH": str(root / "telegram-intake.json"),
             "TELEGRAM_FAX_INTAKE_MARK_EXISTING_ON_FIRST_RUN": "true",
             "FAX_OUTGOING_ENABLED": "true",
@@ -266,6 +267,36 @@ class TelegramFaxIntakeTests(unittest.TestCase):
         content = telegram.download_file("token", "file-id", max_bytes=100, opener=opener)
 
         self.assertEqual(content, b"%PDF-1.4\n%%EOF")
+
+    def test_local_bot_api_file_download_reads_shared_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            document = root / "documents" / "fax.pdf"
+            document.parent.mkdir()
+            document.write_bytes(b"%PDF-1.4\n%%EOF")
+
+            def api_call(_token, method, _fields, *, opener=None):
+                self.assertEqual(method, "getFile")
+                return {"file_path": str(document), "file_size": document.stat().st_size}
+
+            with mock.patch.dict(os.environ, {"TELEGRAM_LOCAL_FILE_ROOT": str(root)}), mock.patch.object(
+                telegram, "call", side_effect=api_call
+            ):
+                content = telegram.download_file("token", "file-id", max_bytes=100)
+
+        self.assertEqual(content, b"%PDF-1.4\n%%EOF")
+
+    def test_local_bot_api_file_path_cannot_escape_mount(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            outside = root.parent / "outside.pdf"
+            with mock.patch.dict(os.environ, {"TELEGRAM_LOCAL_FILE_ROOT": str(root)}), mock.patch.object(
+                telegram,
+                "call",
+                return_value={"file_path": str(outside), "file_size": 10},
+            ):
+                with self.assertRaisesRegex(telegram.TelegramError, "outside_root"):
+                    telegram.download_file("token", "file-id", max_bytes=100)
 
 
 if __name__ == "__main__":
