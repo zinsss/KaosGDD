@@ -12,64 +12,66 @@ SPEC.loader.exec_module(cleanup)
 
 
 class FaxRetentionTests(unittest.TestCase):
-    def setup_case(self, root, *, sent_at, failed=False, source=None):
-        state = root / "state"
-        sent = state / "sent"
-        failures = state / "failed"
+    def setup_case(self, root, *, archived_at, status="uploaded"):
         recvq = root / "recvq"
-        backup = root / "backup"
-        sent.mkdir(parents=True)
-        failures.mkdir()
+        backup = root / "backup" / "recvq"
         recvq.mkdir()
-        backup.mkdir()
-        source = source or recvq / "fax000000001.tif"
-        source.parent.mkdir(parents=True, exist_ok=True)
+        backup.mkdir(parents=True)
+        source = recvq / "fax000000001.tif"
         source.write_bytes(b"fax")
         (backup / source.name).write_bytes(b"fax-backup")
-        marker = sent / "000000001.json"
-        marker.write_text(
-            json.dumps({"deliveryKey": "000000001", "source": str(source), "sentAt": sent_at}),
+        state = root / "telegram-archive.json"
+        state.write_text(
+            json.dumps(
+                {
+                    "archived": {
+                        "received:000000001": {
+                            "at": archived_at,
+                            "status": status,
+                            "messageId": 42,
+                        }
+                    }
+                }
+            ),
             encoding="utf-8",
         )
-        if failed:
-            (failures / marker.name).write_text("{}", encoding="utf-8")
-        return state, recvq, backup, source, marker
+        return state, recvq, backup, source
 
-    def test_old_successful_fax_and_backup_are_purged(self):
+    def test_old_telegram_archived_fax_and_backup_are_purged(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            state, recvq, backup, source, marker = self.setup_case(root, sent_at=100)
+            state, recvq, backup, source = self.setup_case(
+                root,
+                archived_at="2026-01-01T00:00:00Z",
+            )
 
             result = cleanup.cleanup_received_faxes(
                 retention_days=30,
-                now=100 + 31 * 86400,
-                state_root=state,
+                now=cleanup.timestamp("2026-02-01T00:00:01Z"),
+                telegram_state_path=state,
                 recvq_root=recvq,
                 backup_recvq_root=backup,
             )
-            payload = json.loads(marker.read_text(encoding="utf-8"))
             manifest = (backup.parent / "recvq-sha256.txt").read_text(encoding="utf-8")
 
             self.assertFalse(source.exists())
             self.assertFalse((backup / source.name).exists())
 
         self.assertEqual(result["purged"], 1)
-        self.assertTrue(payload["sourcePurged"])
-        self.assertEqual(payload["retentionDays"], 30)
         self.assertNotIn("fax000000001.tif", manifest)
 
-    def test_recent_fax_is_preserved(self):
+    def test_recent_telegram_archive_is_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            now = 40 * 86400
-            state, recvq, backup, source, _marker = self.setup_case(
-                root, sent_at=now - 29 * 86400
+            state, recvq, backup, source = self.setup_case(
+                root,
+                archived_at="2026-01-03T00:00:00Z",
             )
 
             result = cleanup.cleanup_received_faxes(
                 retention_days=30,
-                now=now,
-                state_root=state,
+                now=cleanup.timestamp("2026-02-01T00:00:00Z"),
+                telegram_state_path=state,
                 recvq_root=recvq,
                 backup_recvq_root=backup,
             )
@@ -79,37 +81,19 @@ class FaxRetentionTests(unittest.TestCase):
 
         self.assertEqual(result["purged"], 0)
 
-    def test_failed_delivery_is_never_purged(self):
+    def test_baselined_fax_is_never_purged(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            state, recvq, backup, source, _marker = self.setup_case(
-                root, sent_at=100, failed=True
+            state, recvq, backup, source = self.setup_case(
+                root,
+                archived_at="2026-01-01T00:00:00Z",
+                status="baselined",
             )
 
             result = cleanup.cleanup_received_faxes(
                 retention_days=30,
-                now=100 + 31 * 86400,
-                state_root=state,
-                recvq_root=recvq,
-                backup_recvq_root=backup,
-            )
-
-            self.assertTrue(source.exists())
-
-        self.assertEqual(result["purged"], 0)
-
-    def test_source_outside_recvq_is_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            outside = root / "outside" / "fax000000001.tif"
-            state, recvq, backup, source, _marker = self.setup_case(
-                root, sent_at=100, source=outside
-            )
-
-            result = cleanup.cleanup_received_faxes(
-                retention_days=30,
-                now=100 + 31 * 86400,
-                state_root=state,
+                now=cleanup.timestamp("2026-02-01T00:00:01Z"),
+                telegram_state_path=state,
                 recvq_root=recvq,
                 backup_recvq_root=backup,
             )
@@ -118,6 +102,28 @@ class FaxRetentionTests(unittest.TestCase):
 
         self.assertEqual(result["purged"], 0)
         self.assertEqual(result["skipped"], 1)
+
+    def test_missing_telegram_state_preserves_fax(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            recvq = root / "recvq"
+            backup = root / "backup" / "recvq"
+            recvq.mkdir()
+            backup.mkdir(parents=True)
+            source = recvq / "fax000000001.tif"
+            source.write_bytes(b"fax")
+
+            result = cleanup.cleanup_received_faxes(
+                retention_days=30,
+                now=100 + 31 * 86400,
+                telegram_state_path=root / "missing.json",
+                recvq_root=recvq,
+                backup_recvq_root=backup,
+            )
+
+            self.assertTrue(source.exists())
+
+        self.assertEqual(result["purged"], 0)
 
 
 if __name__ == "__main__":

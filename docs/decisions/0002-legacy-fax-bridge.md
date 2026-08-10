@@ -2,23 +2,25 @@
 
 ## Status
 
-Accepted.
+Superseded.
 
 ## Context
 
-HylaFAX currently runs on the legacy `kaos` host. Incoming fax handling calls the legacy KaosGDD backend, which records fax state and sends Pushover notifications.
+HylaFAX originally depended on the legacy KaosGDD backend for fax visibility
+and notifications.
 
 The legacy KaosGDD frontend can be stopped, but fax visibility must remain alive.
 
 ## Decision
 
-Keep the legacy KaosGDD backend running as the fax bridge until KaosFaxMail or another dedicated fax service replaces it.
+The temporary bridge was retained until HylaFAX transport and Brain Telegram
+notification/archive workers replaced it.
 
 ## Consequences
 
-- KaosGDD v2 does not need to solve fax immediately.
-- The old backend remains a dependency for fax/Pushover.
-- The old frontend can stay stopped while v2 work proceeds.
+- HylaFAX owns transport.
+- Brain owns Telegram notifications, the human fax archive, and fax automation.
+- The old backend is no longer a notification dependency.
 
 ## Exit Criteria
 

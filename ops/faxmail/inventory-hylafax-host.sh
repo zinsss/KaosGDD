@@ -56,13 +56,12 @@ run_capture hylafax_bin_listing sh -c 'ls -lah /var/spool/hylafax/bin 2>/dev/nul
 run_capture hylafax_queue_listing sh -c 'for d in recvq doneq sendq docq info etc; do echo "== $d =="; ls -lah "/var/spool/hylafax/$d" 2>/dev/null || true; done'
 run_capture command_versions sh -c 'for c in faxstat sendfax faxq hfaxd faxgetty gs tiff2pdf; do printf "%s: " "$c"; command -v "$c" || true; done'
 run_capture kaos_fax_files sh -c 'find /srv/kaos /srv/projects -maxdepth 6 \( -iname "*fax*" -o -iname "*hyla*" -o -iname "compose.y*ml" -o -iname "*.service" -o -iname "*.timer" \) 2>/dev/null | sort'
-run_capture secret_file_metadata sh -c 'for path in /etc/kaosgdd/faxmail.env /srv/kaos/secrets/kaosgdd-brain.env; do if [ -e "$path" ]; then stat -c "%A %U:%G %s %n" "$path"; sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1=REDACTED/p" "$path"; fi; done'
+run_capture secret_file_metadata sh -c 'for path in /srv/kaos/secrets/kaosgdd-brain.env; do if [ -e "$path" ]; then stat -c "%A %U:%G %s %n" "$path"; sed -n "s/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1=REDACTED/p" "$path"; fi; done'
 
 for p in \
   /var/spool/hylafax/etc/config \
   /var/spool/hylafax/etc/config.ttyACM0 \
   /var/spool/hylafax/bin/faxrcvd \
-  /srv/projects/KaosGDD/ops/faxmail/send-incoming-fax-email.py \
   /etc/hylafax/hfaxd.systemd.conf
 do
   copy_if_exists "$p"
@@ -73,8 +72,6 @@ for unit in \
   faxq.service \
   hfaxd.service \
   faxgetty@ttyACM0.service \
-  kaos-faxmail-retry.service \
-  kaos-faxmail-retry.timer \
   kaos-hylafax-backup.service \
   kaos-hylafax-backup.timer
 do

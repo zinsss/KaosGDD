@@ -13,8 +13,8 @@ InternationalPrefix:    001
 DialStringRules:        etc/dialrules
 ServerTracing:          1
 SessionTracing:         11
-RecvFileMode:           0600
-LogFileMode:            0600
+RecvFileMode:           0640
+LogFileMode:            0640
 DeviceMode:             0600
 RingsBeforeAnswer:      1
 SpeakerVolume:          off

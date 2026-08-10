@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove successfully emailed incoming fax TIFFs after the retention window."""
+"""Remove incoming fax TIFFs after confirmed Telegram archival and retention."""
 
 from __future__ import annotations
 
@@ -9,10 +9,11 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
-FAX_FILENAME = re.compile(r"fax[0-9]+\.tif")
+FAX_FILENAME = re.compile(r"fax([0-9]+)\.tif", re.IGNORECASE)
 
 
 def main() -> int:
@@ -42,17 +43,17 @@ def cleanup_received_faxes(
     retention_days: int,
     dry_run: bool = False,
     now: int | None = None,
-    state_root: Path | None = None,
+    telegram_state_path: Path | None = None,
     recvq_root: Path | None = None,
     backup_recvq_root: Path | None = None,
 ) -> dict[str, int]:
     now = int(time.time()) if now is None else int(now)
     cutoff = now - retention_days * 86400
-    state_root = Path(
-        state_root
+    telegram_state_path = Path(
+        telegram_state_path
         or os.environ.get(
-            "FAXMAIL_STATE_DIR",
-            "/var/spool/hylafax/status/kaosgdd-faxmail",
+            "FAX_TELEGRAM_ARCHIVE_STATE_PATH",
+            "/srv/kaos/data/kaosgdd/brain/faxmail/telegram-archive.json",
         )
     )
     recvq_root = Path(
@@ -65,24 +66,25 @@ def cleanup_received_faxes(
     ).resolve()
 
     result = {"checked": 0, "eligible": 0, "purged": 0, "skipped": 0}
-    sent_root = state_root / "sent"
-    failed_root = state_root / "failed"
-    if not sent_root.is_dir():
+    archive_state = read_json(telegram_state_path)
+    archived = archive_state.get("archived")
+    if not isinstance(archived, dict) or not recvq_root.is_dir():
         return result
 
-    for marker in sorted(sent_root.glob("*.json")):
+    for source in sorted(recvq_root.glob("fax*.tif")):
+        match = FAX_FILENAME.fullmatch(source.name)
+        if not match:
+            continue
         result["checked"] += 1
-        payload = read_marker(marker)
-        sent_at = integer(payload.get("sentAt"))
-        if not sent_at or sent_at > cutoff or payload.get("purgedAt"):
+        archive = received_archive_record(archived, source, match.group(1))
+        archived_at = timestamp(archive.get("at")) if archive else 0
+        if not archive or archive.get("status") != "uploaded" or not archived_at:
             result["skipped"] += 1
             continue
-        if (failed_root / marker.name).is_file():
+        if archived_at > cutoff:
             result["skipped"] += 1
             continue
-
-        source = Path(str(payload.get("source") or ""))
-        if not valid_recvq_source(source, recvq_root):
+        if source.resolve().parent != recvq_root:
             result["skipped"] += 1
             continue
 
@@ -94,15 +96,6 @@ def cleanup_received_faxes(
 
         source.unlink(missing_ok=True)
         backup.unlink(missing_ok=True)
-        payload.update(
-            {
-                "purgedAt": now,
-                "retentionDays": retention_days,
-                "sourcePurged": True,
-                "backupPurged": True,
-            }
-        )
-        write_marker(marker, payload)
         result["purged"] += 1
 
     if result["purged"]:
@@ -110,40 +103,33 @@ def cleanup_received_faxes(
     return result
 
 
-def integer(value) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
+def received_archive_record(archived: dict, source: Path, sequence: str) -> dict:
+    for key in (f"received:{sequence}", f"received:{source.stem}"):
+        value = archived.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def timestamp(value) -> int:
+    raw = str(value or "").strip()
+    if not raw:
         return 0
-
-
-def valid_recvq_source(source: Path, recvq_root: Path) -> bool:
-    if not FAX_FILENAME.fullmatch(source.name):
-        return False
     try:
-        return source.resolve().parent == recvq_root
-    except OSError:
-        return False
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return 0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp())
 
 
-def read_marker(path: Path) -> dict:
+def read_json(path: Path) -> dict:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def write_marker(path: Path, payload: dict) -> None:
-    stat = path.stat()
-    tmp = path.with_suffix(f"{path.suffix}.tmp")
-    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    os.chmod(tmp, 0o640)
-    try:
-        os.chown(tmp, stat.st_uid, stat.st_gid)
-    except PermissionError:
-        pass
-    os.replace(tmp, path)
 
 
 def write_backup_manifest(backup_recvq_root: Path) -> None:

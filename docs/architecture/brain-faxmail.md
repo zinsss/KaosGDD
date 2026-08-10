@@ -7,10 +7,12 @@ long-term product boundary.
 Target shape:
 
 ```text
-Roundcube / hosted mailbox = fax UI
+Telegram Fax topic         = outgoing fax request interface
 Brain faxmail worker       = policy and automation
 HylaFAX                    = modem authority
-Pushover                   = alerts
+Telegram Notifications    = normal fax alerts
+Telegram System Alerts    = fax failures
+Telegram Fax              = sent/received fax document archive
 KaosGDD UI                 = not in the fax path
 ```
 
@@ -19,67 +21,55 @@ KaosGDD UI                 = not in the fax path
 - Do not build a second fax inbox in KaosGDD.
 - Do not keep a separate Postgres-backed KaosFaxMail app.
 - Do not self-host a full mail server just for fax.
-- Use a hosted mailbox for the human workflow.
-- Use Roundcube as the fax tray.
+- Use Telegram for the human outgoing workflow; do not poll IMAP for fax jobs.
 - Use Brain as the invisible worker.
 - Preserve the current custom HylaFAX host behavior.
-
-## Mailboxes
-
-Minimum:
-
-```text
-fax@kaosgdd.net       = human mailbox opened in Roundcube
-fax-send@kaosgdd.net  = outgoing request address or alias
-```
-
-Optional aliases:
-
-```text
-fax-in@kaosgdd.net      -> fax@kaosgdd.net
-fax-failed@kaosgdd.net  -> fax@kaosgdd.net
-```
-
-Brain distinguishes messages by recipient headers, folders, subject, and
-validation rules. It must not trust only the visible `From:` header.
+- Upload only confirmed sent and received fax documents to the private
+  Telegram Fax topic; HylaFAX remains transport authority.
 
 ## Incoming Fax
 
 ```text
 HylaFAX receives TIFF
-  -> bin/faxrcvd resolves TIFF path
-  -> incoming-mail script converts TIFF to PDF
-  -> SMTP submission sends PDF to fax@kaosgdd.net
-  -> Roundcube shows it
-  -> Brain sends Pushover notification
+  -> Brain polls stable files in HylaFAX recvq directly
+  -> Brain reads caller/time metadata from xferfaxlog
+  -> Brain converts TIFF to a temporary PDF
+  -> Brain uploads only the renamed PDF to Telegram Fax
+  -> Brain sends pushed Telegram notification
 ```
 
-Incoming fax does not need a KaosGDD database row. The mailbox is the operational
-paper trail, and HylaFAX `recvq` remains the modem-side source artifact.
+Incoming fax does not need a KaosGDD database row. HylaFAX `recvq` is the
+modem-side source artifact and Telegram is the human archive. Incoming archive
+delivery does not poll IMAP. Telegram names
+the document `YYYY-MM-DD-HH:MM_FROM_fax-number.pdf` using KST, and receives no
+caption alongside it. The source TIFF remains subject to the 30-day retention
+policy. The retention worker deletes a TIFF and its local backup only after the
+Telegram archive state confirms upload and the 30-day window has elapsed.
 
 ## Outgoing Fax
 
-Accepted outgoing request:
+Accepted outgoing request in the private Telegram `Fax` topic:
 
 ```text
-To: fax-send@kaosgdd.net
-Subject: fax:0548209762
-Attachment: exactly one PDF
+Document: exactly one PDF
+Desktop: caption the PDF with fax:0548209762
+Mobile: upload the PDF, then reply directly to it with fax:0548209762
 ```
 
 Brain worker flow:
 
 ```text
-poll mailbox/folder
-  -> validate authorized sender
+poll Telegram Bot API directly
+  -> require configured supergroup and Fax topic
   -> parse fax number
   -> require exactly one valid PDF
-  -> extract PDF to worker temp storage
+  -> download and validate the PDF with a strict size limit
   -> convert PDF to fax-ready TIFF
   -> call sendfax
   -> reconcile HylaFAX doneq
-  -> move mail to Processed / Rejected / Failed
-  -> send notification or reply
+  -> send lifecycle notification
+  -> archive the confirmed sent PDF to Telegram
+  -> remove the user's upload, command, and bot instruction messages
 ```
 
 The transport boundary is a separate unprivileged `fax-bridge` container.
@@ -105,8 +95,24 @@ queued -> sending (HylaFAX job assigned) -> sent (doneq confirms success)
                                       `-> failed (terminal error)
 ```
 
-Queued, sending, and sent use the normal desktop/iOS notification audiences.
-Failed transmission uses urgent priority on both device topics.
+Queued, sending, and sent use the Telegram Notifications topic. Failed
+transmission uses the Telegram System Alerts topic.
+
+After `doneq` confirms success, the Telegram archive worker uploads the original
+outgoing PDF. Queued, sending, and failed jobs never upload a document. Archive
+state stores only Telegram message metadata and idempotency keys, not another
+copy of the fax.
+
+## Telegram Boundary
+
+Brain long-polls Telegram directly; there is no public webhook. It accepts a
+PDF only from the configured supergroup and numeric Fax topic ID. Desktop can
+use a caption matching `fax:<number>`; mobile can reply directly to an
+uncaptioned PDF with the same text. An uncaptioned PDF and a standalone fax
+number are inert independently. Private chats, other groups, other topics,
+malformed numbers, non-PDF data, oversized files, and duplicate Telegram
+message/file identities cannot create a second fax job. The bot token stays in
+the production Brain secret env file.
 
 Important: Brain should submit TIFF to HylaFAX, not raw PDF. The current modem
 host has historical failed jobs with `Error: /undefinedfilename`, which points
@@ -182,10 +188,11 @@ apps/brain/services/faxmail/
 
 Expected components:
 
-- IMAP poller
-- message/folder classifier
+- Telegram topic intake
+- HylaFAX recvq scanner
+- xferfaxlog metadata parser
 - outbound validator
-- PDF attachment extractor
+- incoming TIFF-to-PDF converter
 - PDF-to-TIFF converter
 - HylaFAX client
 - doneq reconciler

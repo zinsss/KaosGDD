@@ -492,7 +492,6 @@ const mockAdapter = {
       { name: "Vaultwarden", type: "Passwords", href: "https://vault.kaosgdd.net", meta: "Credential vault" },
       { name: "Stirling-PDF", type: "PDF", href: "https://pdf.kaosgdd.net", meta: "PDF workflows" },
       { name: "Supplies", type: "Brain", href: "#/supplies", meta: "Radicale buy-list" },
-      { name: "Fax", type: "Legacy", href: "", meta: "Legacy backend stays alive for now" },
     ];
   },
 };

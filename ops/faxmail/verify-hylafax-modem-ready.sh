@@ -31,7 +31,6 @@ for unit in hylafax.service faxq.service hfaxd.service "faxgetty@$DEVICE.service
 done
 check "hylafax.service enabled at boot" systemctl is-enabled --quiet hylafax.service
 check "faxgetty@$DEVICE.service enabled at boot" systemctl is-enabled --quiet "faxgetty@$DEVICE.service"
-check "mail retry timer enabled" systemctl is-enabled --quiet kaos-faxmail-retry.timer
 check "recvq backup timer enabled" systemctl is-enabled --quiet kaos-hylafax-backup.timer
 check "fax retention timer enabled" systemctl is-enabled --quiet kaos-faxmail-retention.timer
 echo
@@ -61,23 +60,11 @@ else
 fi
 echo
 
-echo "== Mailbox hook =="
+echo "== Telegram-only receive hook =="
 check "faxrcvd matches maintained template" cmp -s \
-  /var/spool/hylafax/bin/faxrcvd "$ROOT/ops/faxmail/templates/faxrcvd.mailbox"
-check "installed sender matches maintained source" cmp -s \
-  /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py \
-  "$ROOT/ops/faxmail/send-incoming-fax-email.py"
+  /var/spool/hylafax/bin/faxrcvd "$ROOT/ops/faxmail/templates/faxrcvd.telegram"
 check "faxrcvd package diversion installed" sh -c \
   "dpkg-divert --list /var/spool/hylafax/bin/faxrcvd | grep -q /var/spool/hylafax/bin/faxrcvd"
-
-FAILURE_ROOT=/var/spool/hylafax/status/kaosgdd-faxmail/failed
-FAILURE_COUNT=$(find "$FAILURE_ROOT" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l)
-if [ "$FAILURE_COUNT" -eq 0 ]; then
-  echo "ok   no pending mailbox delivery failures"
-else
-  echo "FAIL pending mailbox delivery failures: $FAILURE_COUNT"
-  FAILED=1
-fi
 echo
 
 echo "== HylaFAX status =="

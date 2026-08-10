@@ -55,15 +55,13 @@ KaosPACS keeps host `:80`.
 
 The old KaosGDD frontend is allowed to stay stopped.
 
-The old KaosGDD backend currently remains online only as the HylaFAX receive and Pushover bridge:
+The old KaosGDD fax bridge has been replaced by HylaFAX and Brain:
 
 ```text
-HylaFAX
--> legacy KaosGDD backend
--> Pushover
+HylaFAX -> Brain -> Telegram
 ```
 
-Do not remove that bridge until fax receive/send visibility is owned elsewhere.
+Fax receive/send visibility is now owned by the maintained Brain workers.
 
 ## Brain
 

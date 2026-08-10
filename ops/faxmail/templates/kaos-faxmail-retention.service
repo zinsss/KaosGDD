@@ -1,5 +1,5 @@
 [Unit]
-Description=Delete successfully emailed incoming fax TIFFs after retention
+Description=Delete Telegram-archived incoming fax TIFFs after retention
 After=kaos-hylafax-backup.service
 
 [Service]
@@ -9,5 +9,5 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/var/spool/hylafax/recvq
-ReadWritePaths=/var/spool/hylafax/status/kaosgdd-faxmail
 ReadWritePaths=/srv/kaos/backups/faxmail
+ReadOnlyPaths=/srv/kaos/data/kaosgdd/brain/faxmail/telegram-archive.json

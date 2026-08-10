@@ -94,7 +94,7 @@ Brain may restart independently from:
 - Paperless
 - Wiki.js
 - KaosSupplies legacy service, while the new supplies path is built
-- KaosFaxMail or the legacy fax bridge
+- HylaFAX transport and the Brain fax workers
 
 Brain must not:
 

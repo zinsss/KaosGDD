@@ -19,23 +19,17 @@ if [ ! -d "$SPOOL_ROOT/recvq" ]; then
 fi
 
 install -d -o root -g root -m 0700 \
-  "$BACKUP_ROOT" "$BACKUP_ROOT/recvq" "$CURRENT" "$CURRENT/delivery-state"
+  "$BACKUP_ROOT" "$BACKUP_ROOT/recvq" "$CURRENT"
 
 rsync -a --ignore-existing --chmod=D700,F600 \
   "$SPOOL_ROOT/recvq/" "$BACKUP_ROOT/recvq/"
-
-if [ -d "$SPOOL_ROOT/status/kaosgdd-faxmail" ]; then
-  rsync -a --delete --chmod=D700,F600 \
-    "$SPOOL_ROOT/status/kaosgdd-faxmail/" "$CURRENT/delivery-state/"
-fi
 
 for source in \
   /etc/hylafax/config \
   /etc/hylafax/config.ttyACM0 \
   /etc/hylafax/hfaxd.systemd.conf \
   "$SPOOL_ROOT/log/xferfaxlog" \
-  "$SPOOL_ROOT/bin/faxrcvd" \
-  /usr/local/lib/kaosgdd/faxmail/send-incoming-fax-email.py
+  "$SPOOL_ROOT/bin/faxrcvd"
 do
   if [ -f "$source" ]; then
     name=$(printf '%s' "$source" | sed 's#^/##; s#/#__#g')

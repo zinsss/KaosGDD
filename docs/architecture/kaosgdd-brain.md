@@ -34,7 +34,7 @@ Brain owns those joins and calculations. It should not become a generic applicat
 | passwords | Vaultwarden |
 | supplies buy-list VTODOs | Radicale |
 | supplies presets/recent history | Brain PostgreSQL |
-| fax | KaosFaxMail or legacy bridge until replaced |
+| fax | HylaFAX transport with Brain Telegram intake, notification, and archive |
 | PACS | KaosPACS |
 
 ## Radicale Collections

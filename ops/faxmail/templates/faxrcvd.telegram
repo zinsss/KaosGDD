@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# HylaFAX has already stored the received TIFF in recvq. KaosGDD Brain polls
+# recvq and xferfaxlog for Telegram notification and archival, so this hook
+# deliberately performs no mailbox delivery.
+exit 0

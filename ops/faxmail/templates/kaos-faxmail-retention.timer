@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily retention cleanup for successfully emailed incoming faxes
+Description=Daily retention cleanup for Telegram-archived incoming faxes
 
 [Timer]
 OnCalendar=*-*-* 04:00:00
