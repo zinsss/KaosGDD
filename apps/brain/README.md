@@ -209,7 +209,7 @@ Keep Naver disabled until its IMAP/app password has been entered in the
 protected Brain environment.
 
 The main portal also exposes a scheduled Naver organizer under Settings. It
-lists unread INBOX messages as Telegram buttons and supports detail preview,
+lists unread messages from all incoming and user-created Naver folders as Telegram buttons and supports detail preview,
 mark read, archive import, and confirmed move-to-Trash. Naver remains
 authoritative. Organizer state contains only expiring UID references and
 schedule/action metadata. Telegram actions require both the private group/topic

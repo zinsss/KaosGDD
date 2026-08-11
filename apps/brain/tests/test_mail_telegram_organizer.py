@@ -16,13 +16,27 @@ from services.mail import telegram_organizer
 
 class FakeInboxServer:
     def __init__(self):
-        self.uidvalidity = "42"
-        self.messages = {
-            7: self.message("Newest unread", "new@example.test", "First line\nSecond line"),
-            3: self.message("Older unread", "old@example.test", "Older body"),
+        self.mailboxes = {
+            "INBOX": {
+                "display_name": "INBOX",
+                "uidvalidity": "42",
+                "messages": {
+                    7: self.message("Newest unread", "new@example.test", "First line\nSecond line"),
+                    3: self.message("Older unread", "old@example.test", "Older body"),
+                },
+                "seen": set(),
+            }
         }
-        self.seen = set()
         self.moved = []
+        self.moves_by_mailbox = []
+
+    @property
+    def messages(self):
+        return self.mailboxes["INBOX"]["messages"]
+
+    @property
+    def seen(self):
+        return self.mailboxes["INBOX"]["seen"]
 
     @staticmethod
     def message(subject, sender, body):
@@ -42,34 +56,47 @@ class FakeInboxServer:
 class FakeIMAP:
     def __init__(self, server):
         self.server = server
+        self.mailbox = "INBOX"
 
     def login(self, _username, _password):
         return "OK", [b"logged in"]
 
+    def list(self):
+        rows = []
+        for raw_name in self.server.mailboxes:
+            flag = r"\Inbox" if raw_name == "INBOX" else r"\HasNoChildren"
+            rows.append(f'({flag}) "/" "{raw_name}"'.encode("ascii"))
+        return "OK", rows
+
     def select(self, mailbox, readonly=False):
-        self.mailbox = mailbox
+        self.mailbox = str(mailbox).strip('"')
         self.readonly = readonly
-        return "OK", [str(len(self.server.messages)).encode()]
+        selected = self.server.mailboxes.get(self.mailbox)
+        if not selected:
+            return "NO", [b"missing"]
+        return "OK", [str(len(selected["messages"])).encode()]
 
     def response(self, code):
-        return code, [self.server.uidvalidity.encode()]
+        return code, [self.server.mailboxes[self.mailbox]["uidvalidity"].encode()]
 
     def uid(self, command, *args):
         command = command.lower()
+        selected = self.server.mailboxes[self.mailbox]
         if command == "search":
-            values = [uid for uid in self.server.messages if uid not in self.server.seen]
+            values = [uid for uid in selected["messages"] if uid not in selected["seen"]]
             return "OK", [" ".join(str(uid) for uid in sorted(values)).encode()]
         if command == "fetch":
             uid = int(args[0])
-            return "OK", [(b"message", self.server.messages[uid])]
+            return "OK", [(b"message", selected["messages"][uid])]
         sequence = [int(value) for value in str(args[0]).split(",") if value]
         if command == "store":
-            self.server.seen.update(sequence)
+            selected["seen"].update(sequence)
             return "OK", [b"stored"]
         if command == "move":
             self.server.moved.append((sequence, args[1]))
+            self.server.moves_by_mailbox.append((self.mailbox, sequence, args[1]))
             for uid in sequence:
-                self.server.messages.pop(uid, None)
+                selected["messages"].pop(uid, None)
             return "OK", [b"moved"]
         raise AssertionError((command, args))
 
@@ -133,6 +160,60 @@ class MailTelegramOrganizerTests(unittest.TestCase):
         self.assertEqual([row[0]["text"] for row in rows], ["Newest unread", "Older unread", "Menu"])
         self.assertEqual(result["unreadCount"], 2)
         self.assertNotIn("preview", next(iter(digest["items"].values())))
+
+    def test_digest_discovers_unread_mail_in_custom_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            server = FakeInboxServer()
+            raw_name = telegram_organizer.notifier.encode_modified_utf7("청구·결제")
+            server.mailboxes[raw_name] = {
+                "display_name": "청구·결제",
+                "uidvalidity": "84",
+                "messages": {
+                    1: server.message(
+                        "Specific folder unread",
+                        "billing@example.test",
+                        "Folder body",
+                    )
+                },
+                "seen": set(),
+            }
+            result, state, sent = self.send_digest(root, server)
+
+        digest = state["digests"][result["digestId"]]
+        selected = next(item for item in digest["items"].values() if item["uidValidity"] == "84")
+        self.assertEqual(result["unreadCount"], 3)
+        self.assertEqual(selected["mailboxRaw"], raw_name)
+        self.assertEqual(selected["mailboxName"], "청구·결제")
+        self.assertIn("Specific folder unread", [row[0]["text"] for row in sent[0][1]["reply_markup"]["inline_keyboard"]])
+
+    def test_mark_read_targets_the_items_source_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            server = FakeInboxServer()
+            raw_name = telegram_organizer.notifier.encode_modified_utf7("각종학회")
+            server.mailboxes[raw_name] = {
+                "display_name": "각종학회",
+                "uidvalidity": "91",
+                "messages": {7: server.message("Conference mail", "conf@example.test", "Body")},
+                "seen": set(),
+            }
+            result, state, _sent = self.send_digest(root, server)
+            item_id = next(
+                key
+                for key, item in state["digests"][result["digestId"]]["items"].items()
+                if item["mailboxName"] == "각종학회"
+            )
+            with self.environment(root):
+                telegram_organizer.process_callback(
+                    self.callback(f"mail:r:{result['digestId']}:{item_id}"),
+                    imap_factory=server.factory,
+                    callback_answerer=lambda *_args: None,
+                    markup_editor=lambda *_args: None,
+                )
+
+        self.assertEqual(server.mailboxes[raw_name]["seen"], {7})
+        self.assertEqual(server.seen, set())
 
     def test_open_sends_detail_with_actions_and_does_not_mark_read(self):
         with tempfile.TemporaryDirectory() as tmp:

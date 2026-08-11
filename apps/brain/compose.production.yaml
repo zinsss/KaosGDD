@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.12.0-mail-organizer2
+    image: kaosgdd-brain:0.12.0-mail-organizer3
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -29,7 +29,7 @@ services:
         format: raw
     environment:
       BRAIN_PORT: "8092"
-      BRAIN_VERSION: "0.12.0-mail-organizer2"
+      BRAIN_VERSION: "0.12.0-mail-organizer3"
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"

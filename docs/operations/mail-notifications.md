@@ -83,7 +83,9 @@ messages and attachments in `Mail` are silent; the short message in
 
 ## Daily Naver Organizer
 
-The main KaosGDD Settings page controls a separate unread-INBOX organizer. It
+The main KaosGDD Settings page controls a separate unread-mail organizer. It
+checks all selectable incoming and user-created Naver folders, excluding Sent,
+Drafts, Trash, and Junk system folders. It
 runs once or twice per day at configured KST times and posts one compact
 message to the Telegram `Mail` topic:
 

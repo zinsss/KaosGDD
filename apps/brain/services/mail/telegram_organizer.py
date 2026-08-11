@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email import policy
 from email.parser import BytesParser
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from models.database import connect
@@ -44,6 +45,10 @@ class UnreadMail:
     uid: int
     sender: str
     subject: str
+    mailbox_raw: str
+    mailbox_name: str
+    uidvalidity: str
+    received_epoch: float
 
 
 def env_bool(name, default=False):
@@ -202,36 +207,58 @@ def settings_payload():
 
 
 @contextmanager
-def naver_inbox(*, readonly, imap_factory=None):
+def naver_client(*, imap_factory=None):
     config = telegram_archive.naver_config()
     if not config or not config.configured:
         raise MailOrganizerError("naver_not_configured")
     factory = imap_factory or imaplib.IMAP4_SSL
     timeout = float(os.environ.get("MAIL_NOTIFY_IMAP_TIMEOUT_SECONDS", "20"))
     client = factory(config.host, config.port, timeout=timeout)
-    selected = False
     try:
         status, _data = client.login(config.username, config.password)
         if status != "OK":
             raise MailOrganizerError("imap_login_failed")
-        status, _data = client.select("INBOX", readonly=readonly)
-        if status != "OK":
-            raise MailOrganizerError("imap_select_failed")
-        selected = True
-        yield client, notifier.selected_uidvalidity(client)
+        yield client
     finally:
-        if selected:
-            try:
-                if hasattr(client, "unselect"):
-                    client.unselect()
-                else:
-                    client.close()
-            except (imaplib.IMAP4.error, OSError):
-                pass
+        try:
+            if hasattr(client, "unselect"):
+                client.unselect()
+        except (imaplib.IMAP4.error, OSError):
+            pass
         try:
             client.logout()
         except (imaplib.IMAP4.error, OSError):
             pass
+
+
+def select_mailbox(client, mailbox, *, readonly):
+    status, _data = client.select(notifier.quoted_mailbox(mailbox.raw_name), readonly=readonly)
+    if status != "OK":
+        raise MailOrganizerError("imap_select_failed")
+    return notifier.selected_uidvalidity(client)
+
+
+def organizer_mailboxes(client):
+    status, rows = client.list()
+    if status != "OK":
+        raise MailOrganizerError("imap_list_failed")
+    excluded_flags = {rb"\bsent\b", rb"\bdrafts\b", rb"\btrash\b", rb"\bjunk\b"}
+    excluded_names = {trash_folder().casefold()}
+    mailboxes = []
+    for row in rows or []:
+        parsed = notifier.parse_list_line(row)
+        if not parsed:
+            continue
+        _delimiter, mailbox = parsed
+        flags = row.split(b")", 1)[0].lower()
+        if b"\\noselect" in flags or any(re.search(pattern, flags) for pattern in excluded_flags):
+            continue
+        if mailbox.display_name.casefold() in excluded_names:
+            continue
+        mailboxes.append(mailbox)
+    if not any(mailbox.raw_name.upper() == "INBOX" for mailbox in mailboxes):
+        mailboxes.insert(0, INBOX)
+    return mailboxes
 
 
 def unread_uids(client):
@@ -242,7 +269,7 @@ def unread_uids(client):
     return sorted((int(value) for value in raw.split() if value.isdigit()), reverse=True)
 
 
-def fetch_unread_header(client, uid):
+def fetch_unread_header(client, mailbox, uid, uidvalidity):
     status, rows = client.uid(
         "fetch",
         str(uid),
@@ -258,18 +285,38 @@ def fetch_unread_header(client, uid):
     if not raw:
         raise MailOrganizerError("imap_message_missing")
     message = BytesParser(policy=policy.default).parsebytes(raw)
+    try:
+        received_at = parsedate_to_datetime(str(message.get("date", "")))
+        if received_at.tzinfo is None:
+            received_at = received_at.replace(tzinfo=timezone.utc)
+        received_epoch = received_at.timestamp()
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        received_epoch = 0.0
     return UnreadMail(
         uid=uid,
         sender=str(message.get("from", "")).strip() or "Unknown sender",
         subject=" ".join(str(message.get("subject", "")).split()) or "(No subject)",
+        mailbox_raw=mailbox.raw_name,
+        mailbox_name=mailbox.display_name,
+        uidvalidity=str(uidvalidity or ""),
+        received_epoch=received_epoch,
     )
 
 
 def list_unread(*, imap_factory=None):
-    with naver_inbox(readonly=True, imap_factory=imap_factory) as (client, uidvalidity):
-        uids = unread_uids(client)
-        entries = [fetch_unread_header(client, uid) for uid in uids[: max_items()]]
-    return uidvalidity, entries, len(uids)
+    entries = []
+    total = 0
+    with naver_client(imap_factory=imap_factory) as client:
+        for mailbox in organizer_mailboxes(client):
+            uidvalidity = select_mailbox(client, mailbox, readonly=True)
+            uids = unread_uids(client)
+            total += len(uids)
+            entries.extend(
+                fetch_unread_header(client, mailbox, uid, uidvalidity)
+                for uid in uids[: max_items()]
+            )
+    entries.sort(key=lambda entry: (entry.received_epoch, entry.uid), reverse=True)
+    return entries[: max_items()], total
 
 
 def _button_text(subject):
@@ -336,7 +383,7 @@ def send_digest(*, imap_factory=None, sender=None, now=None):
     if not configured():
         raise MailOrganizerError("mail_organizer_not_configured")
     now = now or datetime.now(KST)
-    uidvalidity, entries, total = list_unread(imap_factory=imap_factory)
+    entries, total = list_unread(imap_factory=imap_factory)
     digest_id = secrets.token_hex(4)
     items = {}
     order = []
@@ -347,13 +394,15 @@ def send_digest(*, imap_factory=None, sender=None, now=None):
             "uid": entry.uid,
             "subject": entry.subject,
             "sender": entry.sender,
+            "mailboxRaw": entry.mailbox_raw,
+            "mailboxName": entry.mailbox_name,
+            "uidValidity": entry.uidvalidity,
             "imported": False,
             "archiveProgress": {},
         }
     digest = {
         "createdAt": now.astimezone(KST).isoformat(timespec="seconds"),
         "createdEpoch": now.timestamp(),
-        "uidValidity": uidvalidity,
         "totalUnread": total,
         "items": items,
         "order": order,
@@ -415,28 +464,49 @@ def _digest_and_item(state, digest_id, item_id=""):
     return digest, item
 
 
+def _item_mailbox(digest, item):
+    return notifier.Mailbox(
+        raw_name=str(item.get("mailboxRaw") or INBOX.raw_name),
+        display_name=str(item.get("mailboxName") or INBOX.display_name),
+    )
+
+
+def _item_uidvalidity(digest, item):
+    return str(item.get("uidValidity") or digest.get("uidValidity") or "")
+
+
 def _fetch_live_mail(digest, item, *, imap_factory=None):
-    with naver_inbox(readonly=True, imap_factory=imap_factory) as (client, uidvalidity):
-        if uidvalidity != str(digest.get("uidValidity") or ""):
+    mailbox = _item_mailbox(digest, item)
+    with naver_client(imap_factory=imap_factory) as client:
+        uidvalidity = select_mailbox(client, mailbox, readonly=True)
+        if uidvalidity != _item_uidvalidity(digest, item):
             raise MailOrganizerError("mailbox_generation_changed")
-        return telegram_archive.fetch_message(client, INBOX, int(item["uid"]))
+        return telegram_archive.fetch_message(client, mailbox, int(item["uid"]))
 
 
-def _mutate(digest, uids, operation, *, imap_factory=None):
-    if not uids:
+def _mutate(digest, items, operation, *, imap_factory=None):
+    if not items:
         return
-    sequence = ",".join(str(int(uid)) for uid in uids)
-    with naver_inbox(readonly=False, imap_factory=imap_factory) as (client, uidvalidity):
-        if uidvalidity != str(digest.get("uidValidity") or ""):
-            raise MailOrganizerError("mailbox_generation_changed")
-        if operation == "read":
-            status, _data = client.uid("store", sequence, "+FLAGS.SILENT", "(\\Seen)")
-        elif operation == "delete":
-            status, _data = client.uid("MOVE", sequence, notifier.quoted_mailbox(trash_folder()))
-        else:
-            raise MailOrganizerError("mail_action_invalid")
-        if status != "OK":
-            raise MailOrganizerError(f"imap_{operation}_failed")
+    grouped = {}
+    for item in items:
+        mailbox = _item_mailbox(digest, item)
+        key = (mailbox.raw_name, mailbox.display_name, _item_uidvalidity(digest, item))
+        grouped.setdefault(key, []).append(int(item["uid"]))
+    with naver_client(imap_factory=imap_factory) as client:
+        for (raw_name, display_name, expected_uidvalidity), uids in grouped.items():
+            mailbox = notifier.Mailbox(raw_name=raw_name, display_name=display_name)
+            uidvalidity = select_mailbox(client, mailbox, readonly=False)
+            if uidvalidity != expected_uidvalidity:
+                raise MailOrganizerError("mailbox_generation_changed")
+            sequence = ",".join(str(uid) for uid in uids)
+            if operation == "read":
+                status, _data = client.uid("store", sequence, "+FLAGS.SILENT", "(\\Seen)")
+            elif operation == "delete":
+                status, _data = client.uid("MOVE", sequence, notifier.quoted_mailbox(trash_folder()))
+            else:
+                raise MailOrganizerError("mail_action_invalid")
+            if status != "OK":
+                raise MailOrganizerError(f"imap_{operation}_failed")
 
 
 def _edit_digest(digest_id, digest, *, markup_editor=None):
@@ -460,7 +530,7 @@ def _detail_text(mail):
             for index, item in enumerate(mail.attachments, start=1)
         )
     preview = "\n".join((mail.preview or "").splitlines()[:15]).strip() or "(No preview text)"
-    return f"Naver Mail\nFrom: {mail.sender}\n\n{mail.subject}{attachments}\n\n{preview}"[:4096]
+    return f"Naver Mail >> {mail.mailbox}\nFrom: {mail.sender}\n\n{mail.subject}{attachments}\n\n{preview}"[:4096]
 
 
 def _confirmation_fresh(message):
@@ -556,12 +626,12 @@ def process_callback(
         items = digest.get("items", {})
         if action in {"r", "cd"}:
             operation = "read" if action == "r" else "delete"
-            _mutate(digest, [item["uid"]], operation, imap_factory=imap_factory)
+            _mutate(digest, [item], operation, imap_factory=imap_factory)
             items.pop(item_id, None)
             digest["order"] = [key for key in digest.get("order", []) if key != item_id]
         elif action in {"ra", "cda"}:
             operation = "read" if action == "ra" else "delete"
-            _mutate(digest, [entry["uid"] for entry in items.values()], operation, imap_factory=imap_factory)
+            _mutate(digest, list(items.values()), operation, imap_factory=imap_factory)
             items.clear()
             digest["order"] = []
         save_state(state)
