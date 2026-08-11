@@ -159,7 +159,19 @@ class MailTelegramOrganizerTests(unittest.TestCase):
         self.assertEqual(sent[0][0].splitlines()[0], "Naver Mail")
         self.assertEqual([row[0]["text"] for row in rows], ["Newest unread", "Older unread", "Menu"])
         self.assertEqual(result["unreadCount"], 2)
+        self.assertTrue(result["sent"])
         self.assertNotIn("preview", next(iter(digest["items"].values())))
+
+    def test_empty_digest_does_not_send_telegram_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            server = FakeInboxServer()
+            server.messages.clear()
+            result, state, sent = self.send_digest(root, server)
+
+        self.assertEqual(result, {"ok": True, "sent": False, "unreadCount": 0, "shownCount": 0})
+        self.assertEqual(sent, [])
+        self.assertEqual(state["digests"], {})
 
     def test_digest_discovers_unread_mail_in_custom_folders(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -210,6 +222,7 @@ class MailTelegramOrganizerTests(unittest.TestCase):
                     imap_factory=server.factory,
                     callback_answerer=lambda *_args: None,
                     markup_editor=lambda *_args: None,
+                    message_deleter=lambda *_args: None,
                 )
 
         self.assertEqual(server.mailboxes[raw_name]["seen"], {7})
@@ -252,19 +265,22 @@ class MailTelegramOrganizerTests(unittest.TestCase):
             digest = state["digests"][result["digestId"]]
             item_id, item = next(iter(digest["items"].items()))
             edits = []
+            deleted = []
             with self.environment(root):
                 action = telegram_organizer.process_callback(
                     self.callback(f"mail:r:{result['digestId']}:{item_id}"),
                     imap_factory=server.factory,
                     callback_answerer=lambda *_args: None,
                     markup_editor=lambda *args: edits.append(args),
+                    message_deleter=lambda *args: deleted.append(args),
                 )
                 saved = telegram_organizer.load_state()
 
         self.assertEqual(action, "read")
         self.assertEqual(server.seen, {item["uid"]})
         self.assertNotIn(item_id, saved["digests"][result["digestId"]]["items"])
-        self.assertEqual(len(edits), 2)
+        self.assertEqual(len(edits), 1)
+        self.assertEqual(deleted[0][2], 20)
 
     def test_delete_requires_fresh_confirmation_and_moves_to_naver_trash(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -279,6 +295,7 @@ class MailTelegramOrganizerTests(unittest.TestCase):
                     self.callback(f"mail:d:{result['digestId']}:{item_id}"),
                     sender=lambda _token, _chat, text, **kwargs: confirmations.append((text, kwargs)) or {"message_id": 50},
                     callback_answerer=lambda *_args: None,
+                    message_deleter=lambda *args: deleted_messages.append(args),
                 )
                 second = telegram_organizer.process_callback(
                     self.callback(f"mail:cd:{result['digestId']}:{item_id}", message_id=50),
@@ -291,7 +308,7 @@ class MailTelegramOrganizerTests(unittest.TestCase):
         self.assertEqual(first, "confirmation")
         self.assertEqual(second, "delete")
         self.assertEqual(server.moved[0][1], '"Deleted Messages"')
-        self.assertTrue(deleted_messages)
+        self.assertEqual([args[2] for args in deleted_messages], [20, 50])
 
     def test_delete_all_uses_only_the_digest_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -318,6 +335,7 @@ class MailTelegramOrganizerTests(unittest.TestCase):
             result, state, _sent = self.send_digest(root, server)
             item_id, selected = next(iter(state["digests"][result["digestId"]]["items"].items()))
             archived = []
+            deleted = []
             with self.environment(root), mock.patch.object(
                 telegram_organizer.telegram_archive,
                 "archive_mail",
@@ -328,11 +346,51 @@ class MailTelegramOrganizerTests(unittest.TestCase):
                     imap_factory=server.factory,
                     callback_answerer=lambda *_args: None,
                     markup_editor=lambda *_args: None,
+                    message_deleter=lambda *args: deleted.append(args),
                 )
+                saved = telegram_organizer.load_state()
 
         self.assertEqual(action, "imported")
         self.assertEqual(archived, [selected["subject"]])
         self.assertEqual(server.seen, set())
+        self.assertNotIn(item_id, saved["digests"][result["digestId"]]["items"])
+        self.assertEqual(deleted[0][2], 20)
+
+    def test_menu_close_deletes_the_digest_and_menu_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            server = FakeInboxServer()
+            result, _state, _sent = self.send_digest(root, server)
+            deleted = []
+            with self.environment(root):
+                action = telegram_organizer.process_callback(
+                    self.callback(f"mail:cl:{result['digestId']}", message_id=50),
+                    callback_answerer=lambda *_args: None,
+                    message_deleter=lambda *args: deleted.append(args),
+                )
+                saved = telegram_organizer.load_state()
+
+        self.assertEqual(action, "closed")
+        self.assertEqual([args[2] for args in deleted], [21, 50])
+        self.assertEqual(saved["digests"][result["digestId"]]["messageId"], 0)
+
+    def test_last_handled_item_closes_digest_and_detail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            server = FakeInboxServer()
+            server.messages.pop(3)
+            result, state, _sent = self.send_digest(root, server)
+            item_id = next(iter(state["digests"][result["digestId"]]["items"]))
+            deleted = []
+            with self.environment(root):
+                telegram_organizer.process_callback(
+                    self.callback(f"mail:r:{result['digestId']}:{item_id}"),
+                    imap_factory=server.factory,
+                    callback_answerer=lambda *_args: None,
+                    message_deleter=lambda *args: deleted.append(args),
+                )
+
+        self.assertEqual([args[2] for args in deleted], [21, 20])
 
     def test_scheduler_sends_latest_due_slot_once(self):
         with tempfile.TemporaryDirectory() as tmp:

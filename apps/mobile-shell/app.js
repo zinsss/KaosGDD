@@ -1287,7 +1287,9 @@ async function sendMailOrganizerNow() {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
-    window.alert(`Naver Mail organizer sent (${Number(payload.unreadCount || 0)} unread).`);
+    window.alert(payload.sent === false
+      ? "No unread Naver mail. Nothing was sent."
+      : `Naver Mail organizer sent (${Number(payload.unreadCount || 0)} unread).`);
   } finally {
     state.mailOrganizer.sending = false;
     if (getRoute() === "settings") render();

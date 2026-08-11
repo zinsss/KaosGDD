@@ -346,10 +346,13 @@ def detail_keyboard(digest_id, item_id, *, imported=False):
 
 def menu_keyboard(digest_id):
     return {
-        "inline_keyboard": [[
-            {"text": "Mark Read All", "callback_data": f"mail:ra:{digest_id}"},
-            {"text": "Delete All", "callback_data": f"mail:da:{digest_id}"},
-        ]]
+        "inline_keyboard": [
+            [
+                {"text": "Mark Read All", "callback_data": f"mail:ra:{digest_id}"},
+                {"text": "Delete All", "callback_data": f"mail:da:{digest_id}"},
+            ],
+            [{"text": "Close", "callback_data": f"mail:cl:{digest_id}"}],
+        ]
     }
 
 
@@ -384,6 +387,8 @@ def send_digest(*, imap_factory=None, sender=None, now=None):
         raise MailOrganizerError("mail_organizer_not_configured")
     now = now or datetime.now(KST)
     entries, total = list_unread(imap_factory=imap_factory)
+    if not entries:
+        return {"ok": True, "sent": False, "unreadCount": 0, "shownCount": 0}
     digest_id = secrets.token_hex(4)
     items = {}
     order = []
@@ -408,9 +413,7 @@ def send_digest(*, imap_factory=None, sender=None, now=None):
         "order": order,
     }
     text = f"Naver Mail\nUpdated: {_timestamp(now)}"
-    if not entries:
-        text += "\n\nNo unread mail"
-    elif total > len(entries):
+    if total > len(entries):
         text += f"\n\nShowing {len(entries)} of {total} unread messages"
     result = _send(text, digest_keyboard(digest_id, digest), sender=sender)
     digest["messageId"] = int((result or {}).get("message_id") or 0)
@@ -421,7 +424,13 @@ def send_digest(*, imap_factory=None, sender=None, now=None):
         save_state(state)
         WORKER_STATE["lastDigestAt"] = now.astimezone(KST).isoformat(timespec="seconds")
         WORKER_STATE["digestCount"] += 1
-    return {"ok": True, "digestId": digest_id, "unreadCount": total, "shownCount": len(entries)}
+    return {
+        "ok": True,
+        "sent": True,
+        "digestId": digest_id,
+        "unreadCount": total,
+        "shownCount": len(entries),
+    }
 
 
 def callback_in_topic(callback):
@@ -447,7 +456,7 @@ def _parse_callback(data):
     if len(parts) not in {3, 4} or parts[0] != CALLBACK_PREFIX:
         raise MailOrganizerError("mail_action_invalid")
     action = parts[1]
-    if action not in {"o", "r", "i", "d", "m", "ra", "da", "cd", "cda", "x"}:
+    if action not in {"o", "r", "i", "d", "m", "ra", "da", "cd", "cda", "cl", "x"}:
         raise MailOrganizerError("mail_action_invalid")
     return action, parts[2], parts[3] if len(parts) == 4 else ""
 
@@ -522,6 +531,24 @@ def _edit_digest(digest_id, digest, *, markup_editor=None):
     )
 
 
+def _delete_telegram_message(message_id, *, message_deleter=None):
+    message_id = int(message_id or 0)
+    if message_id <= 0:
+        return
+    (message_deleter or telegram.delete_message)(
+        bot_token(), access.configured_supergroup_id(), message_id
+    )
+
+
+def _refresh_or_close_digest(digest_id, digest, *, markup_editor=None, message_deleter=None):
+    if digest.get("items"):
+        _edit_digest(digest_id, digest, markup_editor=markup_editor)
+        return False
+    _delete_telegram_message(digest.get("messageId"), message_deleter=message_deleter)
+    digest["messageId"] = 0
+    return True
+
+
 def _detail_text(mail):
     attachments = ""
     if mail.attachments:
@@ -580,6 +607,15 @@ def process_callback(
             )
             answerer(bot_token(), callback_id)
             return "menu"
+        if action == "cl":
+            digest_message_id = int(digest.get("messageId") or 0)
+            _delete_telegram_message(digest_message_id, message_deleter=message_deleter)
+            digest["messageId"] = 0
+            save_state(state)
+            if int(message.get("message_id") or 0) != digest_message_id:
+                _delete_telegram_message(message.get("message_id"), message_deleter=message_deleter)
+            answerer(bot_token(), callback_id, "Closed")
+            return "closed"
         if action in {"d", "da"}:
             data = f"mail:cd:{digest_id}:{item_id}" if action == "d" else f"mail:cda:{digest_id}"
             label = "Delete this mail?" if action == "d" else "Delete all mail in this digest?"
@@ -592,6 +628,7 @@ def process_callback(
                 reply_to_message_id=int(message.get("message_id") or 0),
                 sender=sender,
             )
+            _delete_telegram_message(message.get("message_id"), message_deleter=message_deleter)
             answerer(bot_token(), callback_id)
             return "confirmation"
         if action == "x":
@@ -614,13 +651,17 @@ def process_callback(
             progress = item.setdefault("archiveProgress", {})
             telegram_archive.archive_mail(mail, progress, persist=lambda: save_state(state))
             item["imported"] = True
+            digest.get("items", {}).pop(item_id, None)
+            digest["order"] = [key for key in digest.get("order", []) if key != item_id]
             save_state(state)
-            (markup_editor or telegram.edit_message_reply_markup)(
-                bot_token(),
-                access.configured_supergroup_id(),
-                int(message.get("message_id") or 0),
-                detail_keyboard(digest_id, item_id, imported=True),
+            _refresh_or_close_digest(
+                digest_id,
+                digest,
+                markup_editor=markup_editor,
+                message_deleter=message_deleter,
             )
+            save_state(state)
+            _delete_telegram_message(message.get("message_id"), message_deleter=message_deleter)
             answerer(bot_token(), callback_id, "Imported")
             return "imported"
         items = digest.get("items", {})
@@ -635,15 +676,14 @@ def process_callback(
             items.clear()
             digest["order"] = []
         save_state(state)
-        _edit_digest(digest_id, digest, markup_editor=markup_editor)
-        if action in {"cd", "cda"}:
-            (message_deleter or telegram.delete_message)(
-                bot_token(), access.configured_supergroup_id(), int(message.get("message_id") or 0)
-            )
-        else:
-            (markup_editor or telegram.edit_message_reply_markup)(
-                bot_token(), access.configured_supergroup_id(), int(message.get("message_id") or 0), {"inline_keyboard": []}
-            )
+        _refresh_or_close_digest(
+            digest_id,
+            digest,
+            markup_editor=markup_editor,
+            message_deleter=message_deleter,
+        )
+        save_state(state)
+        _delete_telegram_message(message.get("message_id"), message_deleter=message_deleter)
         answerer(bot_token(), callback_id, "Done")
         return operation
 

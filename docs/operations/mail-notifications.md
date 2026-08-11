@@ -103,13 +103,19 @@ these actions:
 
 - `Mark Read`: adds the standard IMAP `\\Seen` flag.
 - `Import`: copies the message summary and allowed attachments into the
-  Telegram Mail archive without marking the source mail read.
+  Telegram Mail archive without marking the source mail read, then removes the
+  item from that organizer digest.
 - `Delete`: asks for confirmation, then uses IMAP `MOVE` to Naver's
   `Deleted Messages` Trash mailbox.
 
-`Menu` offers `Mark Read All` and confirmed `Delete All`. Bulk actions operate
+`Menu` offers `Mark Read All`, confirmed `Delete All`, and `Close`. Close
+removes the Telegram digest without changing Naver. Bulk actions operate
 only on the UID snapshot represented by that digest. Mail arriving after the
 digest was created is not included. Delete never uses a broad `EXPUNGE`.
+
+No Telegram message is sent when there is no unread mail. Detail messages are
+removed after Mark Read, Import, or confirmed Delete. The digest is removed
+after a bulk action or when its last remaining item is handled.
 
 Naver remains the source of truth. Organizer state stores only UIDVALIDITY,
 short-lived UID references, subjects/senders needed for button labels,

@@ -210,7 +210,8 @@ protected Brain environment.
 
 The main portal also exposes a scheduled Naver organizer under Settings. It
 lists unread messages from all incoming and user-created Naver folders as Telegram buttons and supports detail preview,
-mark read, archive import, and confirmed move-to-Trash. Naver remains
+mark read, archive import, confirmed move-to-Trash, and automatic Telegram
+message cleanup. Empty scans do not post a digest. Naver remains
 authoritative. Organizer state contains only expiring UID references and
 schedule/action metadata. Telegram actions require both the private group/topic
 boundary and an explicit numeric user allowlist.
