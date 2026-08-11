@@ -83,6 +83,31 @@ class TelegramFaxIntakeTests(unittest.TestCase):
         self.assertEqual((accepted, rejected), (0, 0))
         self.assertEqual(state, {"updateOffset": 100, "initialized": False})
 
+    @mock.patch.object(telegram_intake.mail_organizer, "process_callback")
+    @mock.patch.object(telegram_intake.document_intake, "process_callback", return_value="ignored")
+    def test_mail_callbacks_share_the_single_update_consumer(self, document_callback, mail_callback):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            update = {
+                "update_id": 14,
+                "callback_query": {
+                    "id": "mail-callback",
+                    "data": "mail:m:digest1",
+                    "from": {"id": 777},
+                    "message": {
+                        "message_id": 90,
+                        "message_thread_id": 99,
+                        "chat": {"id": -100123, "type": "supergroup"},
+                    },
+                },
+            }
+            with self.env(root):
+                telegram_intake.save_state({"updateOffset": 0, "initialized": True})
+                telegram_intake.scan_once(api_call=lambda *_args: [update])
+
+        document_callback.assert_called_once()
+        mail_callback.assert_called_once()
+
     def test_valid_group_topic_pdf_is_queued_once(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

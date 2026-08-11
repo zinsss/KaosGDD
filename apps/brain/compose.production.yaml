@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
   brain:
-    image: kaosgdd-brain:0.11.10-telegram-documents1
+    image: kaosgdd-brain:0.12.0-mail-organizer2
     container_name: kaosgdd-brain
     restart: unless-stopped
     depends_on:
@@ -29,7 +29,7 @@ services:
         format: raw
     environment:
       BRAIN_PORT: "8092"
-      BRAIN_VERSION: "0.11.10-telegram-documents1"
+      BRAIN_VERSION: "0.12.0-mail-organizer2"
       BRAIN_DB_HOST: "database"
       BRAIN_DB_PORT: "5432"
       CALENDAR_ADAPTER_INTERNAL_URL: "http://100.94.208.16:8091"
@@ -74,6 +74,11 @@ services:
       MAIL_NOTIFY_POLL_SECONDS: "60"
       MAIL_TELEGRAM_ARCHIVE_STATE_PATH: "/data/mail/telegram-archive.json"
       MAIL_TELEGRAM_ARCHIVE_POLL_SECONDS: "60"
+      MAIL_ORGANIZER_ENABLED: "true"
+      MAIL_ORGANIZER_STATE_PATH: "/data/mail/telegram-organizer.json"
+      MAIL_ORGANIZER_MAX_ITEMS: "30"
+      MAIL_ORGANIZER_SCHEDULER_POLL_SECONDS: "60"
+      MAIL_ORGANIZER_TRASH_FOLDER: "Deleted Messages"
       MEMOS_TELEGRAM_ARCHIVE_ENABLED: "true"
       MEMOS_TELEGRAM_ARCHIVE_STATE_PATH: "/data/memos/telegram-archive.json"
       MEMOS_TELEGRAM_ARCHIVE_POLL_SECONDS: "60"

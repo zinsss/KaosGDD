@@ -258,6 +258,21 @@ const state = {
     marketDaysEnabled: true,
     claimDayEnabled: true,
   },
+  mailOrganizer: {
+    checked: false,
+    loading: false,
+    saving: false,
+    sending: false,
+    expanded: false,
+    enabled: false,
+    configured: false,
+    error: "",
+    settings: {
+      runsPerDay: 1,
+      firstTime: "09:00",
+      secondTime: "17:00",
+    },
+  },
   ledger: {
     checked: false,
     loading: false,
@@ -1194,6 +1209,87 @@ async function saveCustomEvents(changes) {
     await loadRemoteCalendar();
   } finally {
     state.customEvents.saving = false;
+    if (getRoute() === "settings") render();
+  }
+}
+
+async function loadMailOrganizerSettings({ force = false } = {}) {
+  if (portalProfile() !== "main" || state.mailOrganizer.loading) return;
+  if (state.mailOrganizer.checked && !force) return;
+  state.mailOrganizer.loading = true;
+  try {
+    const response = await fetch("/api/mail-organizer/settings", { headers: { Accept: "application/json" } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.mailOrganizer = {
+      ...state.mailOrganizer,
+      checked: true,
+      loading: false,
+      enabled: Boolean(payload.enabled),
+      configured: Boolean(payload.configured),
+      error: "",
+      settings: {
+        runsPerDay: Number(payload.settings?.runsPerDay) === 2 ? 2 : 1,
+        firstTime: String(payload.settings?.firstTime || "09:00"),
+        secondTime: String(payload.settings?.secondTime || "17:00"),
+      },
+    };
+  } catch (error) {
+    state.mailOrganizer = {
+      ...state.mailOrganizer,
+      checked: true,
+      loading: false,
+      error: error.message || "Mail organizer unavailable",
+    };
+  }
+  if (getRoute() === "settings") render();
+}
+
+async function saveMailOrganizerSettings(form) {
+  if (state.mailOrganizer.saving) return;
+  const formData = new FormData(form);
+  state.mailOrganizer.saving = true;
+  if (getRoute() === "settings") render();
+  try {
+    const response = await fetch("/api/mail-organizer/settings", {
+      method: "PUT",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        runsPerDay: Number(formData.get("runsPerDay")),
+        firstTime: String(formData.get("firstTime") || ""),
+        secondTime: String(formData.get("secondTime") || "17:00"),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    state.mailOrganizer.settings = {
+      runsPerDay: Number(payload.settings?.runsPerDay) === 2 ? 2 : 1,
+      firstTime: String(payload.settings?.firstTime || "09:00"),
+      secondTime: String(payload.settings?.secondTime || "17:00"),
+    };
+    state.mailOrganizer.enabled = Boolean(payload.enabled);
+    state.mailOrganizer.configured = Boolean(payload.configured);
+    state.mailOrganizer.error = "";
+  } finally {
+    state.mailOrganizer.saving = false;
+    if (getRoute() === "settings") render();
+  }
+}
+
+async function sendMailOrganizerNow() {
+  if (state.mailOrganizer.sending) return;
+  state.mailOrganizer.sending = true;
+  if (getRoute() === "settings") render();
+  try {
+    const response = await fetch("/api/mail-organizer/run", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    window.alert(`Naver Mail organizer sent (${Number(payload.unreadCount || 0)} unread).`);
+  } finally {
+    state.mailOrganizer.sending = false;
     if (getRoute() === "settings") render();
   }
 }
@@ -5604,11 +5700,56 @@ function renderSettings() {
           }
         </dl>
         ${renderHolidaySettings()}
+        ${portalProfile() === "main" ? renderMailOrganizerSettings() : ""}
         ${portalProfile() === "main" ? renderCustomEventSettings() : ""}
         ${renderEventPresetSettings()}
         ${renderRecurringTaskSettings()}
       </div>
     </section>
+  `;
+}
+
+function renderMailOrganizerSettings() {
+  const organizer = state.mailOrganizer;
+  const settings = organizer.settings;
+  const summary = Number(settings.runsPerDay) === 2
+    ? `Twice daily · ${settings.firstTime} / ${settings.secondTime}`
+    : `Once daily · ${settings.firstTime}`;
+  const body = organizer.loading && !organizer.checked
+    ? `<p class="taskMeta">Loading mail organizer...</p>`
+    : organizer.error
+      ? `<div class="caregiverError"><span>${escapeHtml(organizer.error)}</span><button class="openButton" type="button" data-mail-organizer-retry>Retry</button></div>`
+      : `
+        <form class="mailOrganizerForm" data-mail-organizer-form>
+          <label>
+            <span>Frequency</span>
+            <select name="runsPerDay">
+              <option value="1" ${Number(settings.runsPerDay) === 1 ? "selected" : ""}>Once daily</option>
+              <option value="2" ${Number(settings.runsPerDay) === 2 ? "selected" : ""}>Twice daily</option>
+            </select>
+          </label>
+          <label>
+            <span>First digest</span>
+            <input type="time" name="firstTime" step="300" value="${escapeHtml(settings.firstTime)}" required />
+          </label>
+          <label class="${Number(settings.runsPerDay) === 2 ? "" : "isDisabled"}">
+            <span>Second digest</span>
+            <input type="time" name="secondTime" step="300" value="${escapeHtml(settings.secondTime)}" ${Number(settings.runsPerDay) === 2 ? "required" : "disabled"} />
+          </label>
+          <p class="formNote">Unread Naver INBOX mail only. Actions are limited to the configured Telegram user.</p>
+          <div class="mailOrganizerActions">
+            <button class="openButton" type="button" data-mail-organizer-send ${organizer.sending || !organizer.enabled || !organizer.configured ? "disabled" : ""}>${organizer.sending ? "Sending..." : "Send now"}</button>
+            <button class="primaryButton" type="submit" ${organizer.saving ? "disabled" : ""}>${organizer.saving ? "Saving..." : "Save"}</button>
+          </div>
+        </form>
+      `;
+  return `
+    <details class="settingsDisclosure" data-mail-organizer ${organizer.expanded ? "open" : ""}>
+      <summary>
+        <span><strong>Naver Mail Organizer</strong><small>${escapeHtml(summary)}</small></span>
+      </summary>
+      <div class="settingsDisclosureBody">${body}</div>
+    </details>
   `;
 }
 
@@ -6082,6 +6223,7 @@ function render() {
   if (route === "settings") {
     loadHolidays();
     loadCustomEvents();
+    loadMailOrganizerSettings();
     loadRecurringTasks();
   }
   document.querySelector(".ledgerDetailsScroller")?.addEventListener("scroll", updateTopBarShadow, { passive: true });
@@ -6459,6 +6601,22 @@ document.addEventListener("click", async (event) => {
     state.customEvents.checked = false;
     state.customEvents.error = "";
     loadCustomEvents({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-mail-organizer-retry]")) {
+    state.mailOrganizer.checked = false;
+    state.mailOrganizer.error = "";
+    loadMailOrganizerSettings({ force: true });
+    return;
+  }
+
+  if (event.target.closest("[data-mail-organizer-send]")) {
+    try {
+      await sendMailOrganizerNow();
+    } catch (error) {
+      window.alert(`Could not send mail organizer: ${error.message || "unknown error"}`);
+    }
     return;
   }
 
@@ -6879,6 +7037,17 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("submit", async (event) => {
+  const mailOrganizerForm = event.target.closest("[data-mail-organizer-form]");
+  if (mailOrganizerForm) {
+    event.preventDefault();
+    try {
+      await saveMailOrganizerSettings(mailOrganizerForm);
+    } catch (error) {
+      window.alert(`Could not update mail organizer: ${error.message || "unknown error"}`);
+    }
+    return;
+  }
+
   const ledgerEditor = event.target.closest("[data-ledger-editor]");
   if (ledgerEditor) {
     event.preventDefault();
@@ -7240,6 +7409,7 @@ document.addEventListener(
     if (disclosure.matches("[data-recurring-tasks]")) state.recurringTasks.expanded = disclosure.open;
     if (disclosure.matches("[data-holidays]")) state.holidays.expanded = disclosure.open;
     if (disclosure.matches("[data-custom-events]")) state.customEvents.expanded = disclosure.open;
+    if (disclosure.matches("[data-mail-organizer]")) state.mailOrganizer.expanded = disclosure.open;
   },
   true,
 );
@@ -7268,6 +7438,16 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  const organizerFrequency = event.target.closest('[data-mail-organizer-form] [name="runsPerDay"]');
+  if (organizerFrequency) {
+    const form = organizerFrequency.closest("[data-mail-organizer-form]");
+    state.mailOrganizer.settings.firstTime = form?.querySelector('[name="firstTime"]')?.value || state.mailOrganizer.settings.firstTime;
+    state.mailOrganizer.settings.secondTime = form?.querySelector('[name="secondTime"]')?.value || state.mailOrganizer.settings.secondTime;
+    state.mailOrganizer.settings.runsPerDay = Number(organizerFrequency.value) === 2 ? 2 : 1;
+    render();
+    return;
+  }
+
   const customEventToggle = event.target.closest("[data-custom-event-setting]");
   if (customEventToggle) {
     const key = customEventToggle.dataset.customEventSetting || "";

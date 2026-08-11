@@ -111,6 +111,62 @@ class CustomEventRequestTests(unittest.TestCase):
         sync_generated_calendar.assert_called_once_with()
         handler.send_response.assert_called_once_with(200)
 
+
+class MailOrganizerRequestTests(unittest.TestCase):
+    @mock.patch.object(server.mail_telegram_organizer, "settings_payload")
+    def test_settings_are_main_only(self, settings_payload):
+        settings_payload.return_value = {"ok": True, "settings": {"runsPerDay": 1}}
+        handler = mock.Mock()
+        handler.path = "/api/mail-organizer/settings"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_GET(handler)
+
+        settings_payload.assert_called_once_with()
+        handler.send_response.assert_called_once_with(200)
+
+        denied = mock.Mock()
+        denied.path = "/api/mail-organizer/settings"
+        denied.headers = {"Host": "family.kaosgdd.net"}
+        denied.wfile = io.BytesIO()
+        server.Handler.do_GET(denied)
+        denied.send_response.assert_called_once_with(404)
+
+    @mock.patch.object(server.mail_telegram_organizer, "configured", return_value=True)
+    @mock.patch.object(server.mail_telegram_organizer, "enabled", return_value=True)
+    @mock.patch.object(server.mail_telegram_organizer, "update_settings")
+    def test_update_saves_schedule(self, update_settings, _enabled, _configured):
+        update_settings.return_value = {
+            "runsPerDay": 2,
+            "firstTime": "09:00",
+            "secondTime": "17:00",
+        }
+        body = json.dumps({"runsPerDay": 2, "firstTime": "09:00", "secondTime": "17:00"}).encode()
+        handler = mock.Mock()
+        handler.path = "/api/mail-organizer/settings"
+        handler.headers = {"Host": "kaosgdd.net", "Content-Length": str(len(body))}
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_PUT(handler)
+
+        update_settings.assert_called_once_with({"runsPerDay": 2, "firstTime": "09:00", "secondTime": "17:00"})
+        handler.send_response.assert_called_once_with(200)
+
+    @mock.patch.object(server.mail_telegram_organizer, "send_now")
+    def test_send_now_is_main_only(self, send_now):
+        send_now.return_value = {"ok": True, "unreadCount": 3, "shownCount": 3}
+        handler = mock.Mock()
+        handler.path = "/api/mail-organizer/run"
+        handler.headers = {"Host": "kaosgdd.net"}
+        handler.wfile = io.BytesIO()
+
+        server.Handler.do_POST(handler)
+
+        send_now.assert_called_once_with()
+        handler.send_response.assert_called_once_with(200)
+
 class DocumentRequestTests(unittest.TestCase):
     @mock.patch.object(server.document_store, "list_documents")
     def test_list_documents_is_main_only(self, list_documents):

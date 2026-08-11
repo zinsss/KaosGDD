@@ -81,6 +81,70 @@ The Telegram worker appears separately as `mailTelegramArchive`. Archive
 messages and attachments in `Mail` are silent; the short message in
 `Notifications` is the single pushed alert.
 
+## Daily Naver Organizer
+
+The main KaosGDD Settings page controls a separate unread-INBOX organizer. It
+runs once or twice per day at configured KST times and posts one compact
+message to the Telegram `Mail` topic:
+
+```text
+Naver Mail
+Updated: 2026-08-11 09:00 KST
+[Unread subject]
+[Unread subject]
+[Menu]
+```
+
+Each unread message is one inline-button row. Selecting it opens a new detail
+message with the sender, subject, first 15 body lines, attachment names, and
+these actions:
+
+- `Mark Read`: adds the standard IMAP `\\Seen` flag.
+- `Import`: copies the message summary and allowed attachments into the
+  Telegram Mail archive without marking the source mail read.
+- `Delete`: asks for confirmation, then uses IMAP `MOVE` to Naver's
+  `Deleted Messages` Trash mailbox.
+
+`Menu` offers `Mark Read All` and confirmed `Delete All`. Bulk actions operate
+only on the UID snapshot represented by that digest. Mail arriving after the
+digest was created is not included. Delete never uses a broad `EXPUNGE`.
+
+Naver remains the source of truth. Organizer state stores only UIDVALIDITY,
+short-lived UID references, subjects/senders needed for button labels,
+Telegram message IDs, import progress, and schedule checkpoints. Digest state
+expires after 14 days; bodies and attachment bytes are not stored there.
+
+Only numeric Telegram user IDs listed in
+`MAIL_ORGANIZER_ALLOWED_USER_IDS` may use organizer actions, even inside the
+configured private supergroup and Mail topic. Configure the allowlist in the
+root-only secret file:
+
+```text
+MAIL_ORGANIZER_ALLOWED_USER_IDS=123456789
+```
+
+Non-secret runtime settings are:
+
+```text
+MAIL_ORGANIZER_ENABLED=true
+MAIL_ORGANIZER_STATE_PATH=/data/mail/telegram-organizer.json
+MAIL_ORGANIZER_MAX_ITEMS=30
+MAIL_ORGANIZER_SCHEDULER_POLL_SECONDS=60
+MAIL_ORGANIZER_TRASH_FOLDER=Deleted Messages
+```
+
+The settings API is main-profile only:
+
+```text
+GET  /api/mail-organizer/settings
+PUT  /api/mail-organizer/settings
+POST /api/mail-organizer/run
+```
+
+The manual run endpoint sends a digest immediately and advances any elapsed
+schedule slots for that day, preventing a duplicate scheduled digest shortly
+afterward.
+
 ## Production Storage
 
 ```text

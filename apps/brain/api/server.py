@@ -28,6 +28,7 @@ from services.hwp_handoff import store as hwp_handoff_store
 from services.ledger import service as ledger_service
 from services.mail import notifier as mail_notifier
 from services.mail import telegram_archive as mail_telegram_archive
+from services.mail import telegram_organizer as mail_telegram_organizer
 from services.memos import relay as memos_relay
 from services.memos import telegram_archive as memos_telegram_archive
 from services.rouny.store import RounyConflict, get_rouny_document, put_rouny_document
@@ -86,6 +87,7 @@ def brain_status(headers):
             "hwpHandoff": hwp_handoff_store.storage_status(),
             "mailNotifications": mail_notifier.status(),
             "mailTelegramArchive": mail_telegram_archive.status(),
+            "mailTelegramOrganizer": mail_telegram_organizer.status(),
             "familyLedgerBackups": ledger_service.backup_status(),
             "memosRelay": memos_relay.status(),
             "memosTelegramArchive": memos_telegram_archive.status(),
@@ -371,6 +373,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path == "/api/mail-organizer/settings":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, mail_telegram_organizer.settings_payload())
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Mail organizer settings read failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "mail_organizer_settings_unavailable"})
+            return
+
         if parsed.path == "/api/custom-events":
             try:
                 require_main_profile(self.headers)
@@ -542,6 +555,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path
+        if path == "/api/mail-organizer/run":
+            try:
+                require_main_profile(self.headers)
+                json_response(self, 200, mail_telegram_organizer.send_now())
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except mail_telegram_organizer.MailOrganizerError as exc:
+                json_response(self, 503, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Mail organizer run failed: {type(exc).__name__}", flush=True)
+                json_response(self, 502, {"ok": False, "error": "mail_organizer_run_failed"})
+            return
+
         if path == "/api/custom-events/sync":
             try:
                 require_main_profile(self.headers)
@@ -733,6 +759,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/mail-organizer/settings":
+            try:
+                require_main_profile(self.headers)
+                settings = mail_telegram_organizer.update_settings(json_request(self))
+                json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "enabled": mail_telegram_organizer.enabled(),
+                        "configured": mail_telegram_organizer.configured(),
+                        "settings": settings,
+                    },
+                )
+            except ValueError as exc:
+                json_response(self, 404 if str(exc) == "main_profile_required" else 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                print(f"Mail organizer settings update failed: {type(exc).__name__}", flush=True)
+                json_response(self, 503, {"ok": False, "error": "mail_organizer_settings_unavailable"})
+            return
+
         if path == "/api/custom-events":
             try:
                 require_main_profile(self.headers)
@@ -1023,6 +1070,7 @@ def main():
     telegram_fax_intake.start_scheduler()
     mail_notifier.start_scheduler()
     mail_telegram_archive.start_scheduler()
+    mail_telegram_organizer.start_scheduler()
     memos_telegram_archive.start_scheduler()
     holiday_service.start_scheduler()
     generated_calendar_service.start_scheduler()

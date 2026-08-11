@@ -23,6 +23,7 @@ Brain owns:
 - idempotent Telegram archival of confirmed incoming and outgoing fax documents
 - personal Memos archival to Telegram with in-place edit tracking and deletion preservation
 - PDF intake from the Telegram Documents topic into the expiring document queue
+- once/twice-daily Naver unread-mail organizer with Telegram inline actions
 - audited Family medical association ledger storage and XLSX recovery backups
 - service health/status aggregation
 
@@ -206,6 +207,20 @@ the iOS and desktop audience topics.
 
 Keep Naver disabled until its IMAP/app password has been entered in the
 protected Brain environment.
+
+The main portal also exposes a scheduled Naver organizer under Settings. It
+lists unread INBOX messages as Telegram buttons and supports detail preview,
+mark read, archive import, and confirmed move-to-Trash. Naver remains
+authoritative. Organizer state contains only expiring UID references and
+schedule/action metadata. Telegram actions require both the private group/topic
+boundary and an explicit numeric user allowlist.
+
+```env
+MAIL_ORGANIZER_ENABLED=true
+MAIL_ORGANIZER_ALLOWED_USER_IDS=123456789
+MAIL_ORGANIZER_STATE_PATH=/data/mail/telegram-organizer.json
+MAIL_ORGANIZER_TRASH_FOLDER=Deleted Messages
+```
 
 ## Supplies
 

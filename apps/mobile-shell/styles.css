@@ -2680,6 +2680,52 @@ h3 {
   padding-top: 8px;
 }
 
+.mailOrganizerForm {
+  display: grid;
+  gap: 10px;
+}
+
+.mailOrganizerForm > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 48%);
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.mailOrganizerForm > label > span {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.mailOrganizerForm select,
+.mailOrganizerForm input {
+  width: 100%;
+  min-height: 42px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+}
+
+.mailOrganizerForm .isDisabled {
+  opacity: 0.5;
+}
+
+.mailOrganizerForm .formNote {
+  margin: 0;
+}
+
+.mailOrganizerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .holidaySettingsIntro {
   display: flex;
   align-items: center;

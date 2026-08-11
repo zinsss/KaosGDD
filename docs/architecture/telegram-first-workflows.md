@@ -33,7 +33,7 @@ configuration and are never inferred from topic names.
 - `System Logs`: quiet operational history.
 - `Notifications`: general user notifications.
 - `Fax`: received and sent fax archive plus outgoing fax input.
-- `Mail`: selected mailbox archive.
+- `Mail`: selected mailbox archive plus the scheduled Naver unread organizer.
 - `Memos`: read-only personal Memos archive.
 - `Documents`: temporary document intake and routing.
 
@@ -70,11 +70,17 @@ expiry, and duplicate protection have been exercised in production.
 ## Bot API Ownership
 
 Brain uses one `getUpdates` consumer for the KaosGDD bot token. Fax intake,
-Memos-topic protection, Documents intake, and future callbacks must be
+Memos-topic protection, Documents intake, Naver organizer actions, and future callbacks must be
 dispatched through that consumer because Telegram update offsets are shared.
 
 The bot is restricted to one configured private supergroup and explicit topic
 IDs. User actions outside those boundaries are ignored.
+
+Mailbox mutation adds a second boundary: Naver organizer callbacks also require
+the Telegram sender's numeric ID to be in an explicit allowlist. The organizer
+stores expiring IMAP UID references rather than mail bodies. Read and delete
+actions are performed against Naver, and `Delete All` is scoped to the digest
+snapshot rather than the live mailbox.
 
 The official self-hosted Telegram Bot API may run on `kaos` to support files
 above the hosted Bot API download limit. It is infrastructure, not another bot.

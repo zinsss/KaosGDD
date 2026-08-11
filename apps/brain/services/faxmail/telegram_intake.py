@@ -9,6 +9,7 @@ from pathlib import Path
 
 from services.documents import telegram_intake as document_intake
 from services.faxmail import outgoing
+from services.mail import telegram_organizer as mail_organizer
 from services.telegram import access
 from services.telegram import client as telegram
 
@@ -39,6 +40,7 @@ def enabled():
         env_bool("TELEGRAM_FAX_INTAKE_ENABLED")
         or memos_topic_read_only()
         or document_intake.enabled()
+        or mail_organizer.enabled()
     )
 
 
@@ -66,7 +68,13 @@ def configured():
     base = bool(bot_token() and access.configured_supergroup_id())
     fax_ready = (not fax_intake_enabled()) or bool(topic_id() and outgoing.configured())
     memos_ready = (not memos_topic_read_only()) or bool(memos_topic_id())
-    return base and fax_ready and memos_ready and document_intake.configured()
+    return (
+        base
+        and fax_ready
+        and memos_ready
+        and document_intake.configured()
+        and mail_organizer.configured()
+    )
 
 
 def state_path():
@@ -350,16 +358,35 @@ def scan_once(
                     )
                     accepted += int(result == "accepted")
                 if callback:
-                    document_intake.process_callback(
+                    callback_result = document_intake.process_callback(
                         callback,
                         callback_answerer=callback_answerer,
                         markup_editor=markup_editor,
                     )
-        except (outgoing.OutgoingFaxError, document_intake.DocumentTelegramError, telegram.TelegramError) as exc:
+                    if callback_result == "ignored":
+                        mail_organizer.process_callback(
+                            callback,
+                            callback_answerer=callback_answerer,
+                            markup_editor=markup_editor,
+                            message_deleter=message_deleter,
+                        )
+        except (
+            outgoing.OutgoingFaxError,
+            document_intake.DocumentTelegramError,
+            mail_organizer.MailOrganizerError,
+            telegram.TelegramError,
+        ) as exc:
             if document_intake.callback_in_topic(callback):
                 answerer = callback_answerer or telegram.answer_callback_query
                 try:
                     answerer(bot_token(), str(callback.get("id") or ""), "Document action failed")
+                except telegram.TelegramError:
+                    pass
+                rejected += 1
+            elif mail_organizer.callback_in_topic(callback):
+                answerer = callback_answerer or telegram.answer_callback_query
+                try:
+                    answerer(bot_token(), str(callback.get("id") or ""), "Mail action failed")
                 except telegram.TelegramError:
                     pass
                 rejected += 1
@@ -381,6 +408,10 @@ def scan_once(
             if document_intake.callback_in_topic(callback):
                 answerer = callback_answerer or telegram.answer_callback_query
                 answerer(bot_token(), str(callback.get("id") or ""), f"Action failed: {exc}")
+                rejected += 1
+            elif mail_organizer.callback_in_topic(callback):
+                answerer = callback_answerer or telegram.answer_callback_query
+                answerer(bot_token(), str(callback.get("id") or ""), "Mail action failed")
                 rejected += 1
         state["updateOffset"] = update_id + 1
         save_state(state)
@@ -428,6 +459,7 @@ def status():
             "faxIntake": fax_intake_enabled(),
             "memosReadOnly": memos_topic_read_only(),
             "documentIntake": document_intake.enabled(),
+            "mailOrganizer": mail_organizer.enabled(),
         },
         "statePath": str(state_path()),
         "pollSeconds": poll_seconds(),
